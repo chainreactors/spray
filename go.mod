@@ -1,4 +1,4 @@
-module spray
+module github.com/chainreactors/spray
 
 go 1.17
 

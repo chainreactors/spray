@@ -3,10 +3,10 @@ package internal
 import (
 	"fmt"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/spray/pkg"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"spray/pkg"
 	"strings"
 	"sync"
 )

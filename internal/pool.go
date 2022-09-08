@@ -3,9 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/panjf2000/ants/v2"
 	"net/http"
-	"spray/pkg"
 	"sync"
 )
 
