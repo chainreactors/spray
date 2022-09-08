@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/chainreactors/logs"
-	"spray/internal"
+	"github.com/chainreactors/spray/internal"
 )
 
 func main() {

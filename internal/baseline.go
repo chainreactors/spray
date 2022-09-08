@@ -6,10 +6,10 @@ import (
 	gogoutil "github.com/chainreactors/gogo/v2/pkg"
 	"github.com/chainreactors/gogo/v2/pkg/dsl"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/spray/pkg"
 	"io"
 	"net/http"
 	"net/url"
-	"spray/pkg"
 	"strings"
 )
 
