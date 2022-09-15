@@ -13,15 +13,21 @@ const (
 	CustomSpray
 )
 
+var ModMap = map[string]SprayMod{
+	"path": PathSpray,
+	"host": HostSpray,
+}
+
 type Config struct {
-	BaseURL  string
-	Wordlist []string
-	Thread   int
-	Timeout  int
-	BaseReq  *http.Request
-	Method   string
-	Mod      SprayMod
-	Headers  http.Header
+	BaseURL      string
+	Wordlist     []string
+	Thread       int
+	Timeout      int
+	BaseReq      *http.Request
+	Method       string
+	Mod          SprayMod
+	Headers      http.Header
+	DeadlineTime int
 }
 
 func (c *Config) Init() (err error) {

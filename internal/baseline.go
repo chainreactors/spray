@@ -3,7 +3,6 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	gogoutil "github.com/chainreactors/gogo/v2/pkg"
 	"github.com/chainreactors/gogo/v2/pkg/dsl"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
@@ -63,6 +62,7 @@ func NewBaseline(u *url.URL, resp *http.Response) *baseline {
 	// todo extract
 
 	// todo 指纹识别
+	bl.Frameworks = pkg.FingerDetect(bl.Body)
 	return bl
 }
 
@@ -84,20 +84,20 @@ func NewInvalidBaseline(u *url.URL, resp *http.Response) *baseline {
 }
 
 type baseline struct {
-	Url          *url.URL            `json:"-"`
-	UrlString    string              `json:"url_string"`
-	Body         []byte              `json:"-"`
-	BodyLength   int64               `json:"body_length"`
-	Header       string              `json:"-"`
-	HeaderLength int                 `json:"header_length"`
-	RedirectURL  string              `json:"redirect_url"`
-	Status       int                 `json:"status"`
-	Md5          string              `json:"md5"`
-	Mmh3         string              `json:"mmh3"`
-	Simhash      string              `json:"simhash"`
-	IsDynamicUrl bool                `json:"is_dynamic_url"` // 判断是否存在动态的url
-	Spended      int                 `json:"spended"`        // 耗时, 毫秒
-	Frameworks   gogoutil.Frameworks `json:"frameworks"`
+	Url          *url.URL       `json:"-"`
+	UrlString    string         `json:"url_string"`
+	Body         []byte         `json:"-"`
+	BodyLength   int64          `json:"body_length"`
+	Header       string         `json:"-"`
+	HeaderLength int            `json:"header_length"`
+	RedirectURL  string         `json:"redirect_url"`
+	Status       int            `json:"status"`
+	Md5          string         `json:"md5"`
+	Mmh3         string         `json:"mmh3"`
+	Simhash      string         `json:"simhash"`
+	IsDynamicUrl bool           `json:"is_dynamic_url"` // 判断是否存在动态的url
+	Spended      int            `json:"spended"`        // 耗时, 毫秒
+	Frameworks   pkg.Frameworks `json:"frameworks"`
 
 	Err     error `json:"-"`
 	IsValid bool  `json:"-"`

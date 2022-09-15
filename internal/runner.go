@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
@@ -15,21 +16,21 @@ var BlackStatus = []int{404, 410}
 var FuzzyStatus = []int{403, 500, 501, 503}
 
 type Runner struct {
-	URL        string
-	URLFile    string
+	URL        string `short:"u" long:"url"`
+	URLFile    string `short:"l" long:"list"`
 	URLList    []string
-	WordFile   string
+	WordFile   string `short:"w" long:"work"`
 	Wordlist   []string
-	Headers    http.Header
-	OutputFile string
-	Offset     int
-	Limit      int
-	Threads    int
-	PoolSize   int
+	Headers    http.Header `long:"header"`
+	OutputFile string      `short:"f"`
+	Offset     int         `long:"offset"`
+	Limit      int         `long:"limit"`
+	Threads    int         `short:"t" long:"thread" default:"20"`
+	PoolSize   int         `short:"p" long:"pool"`
 	Pools      map[string]*Pool
-	Deadline   int // todo 总的超时时间,适配云函数的deadline
-	Debug      bool
-	Mod        string
+	Deadline   int    `long:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Debug      bool   `long:"debug"`
+	Mod        string `short:"m" long:"mod" default:"path"`
 	OutputCh   chan *baseline
 }
 
@@ -104,6 +105,7 @@ func (r *Runner) Prepare() error {
 
 func (r *Runner) Run() {
 	// todo pool 结束与并发控制
+	ctx := context.Background()
 	var wg sync.WaitGroup
 	for _, u := range r.URLList {
 		wg.Add(1)
@@ -115,8 +117,9 @@ func (r *Runner) Run() {
 				Thread:   r.Threads,
 				Timeout:  2,
 				Headers:  r.Headers,
+				Mod:      pkg.ModMap[r.Mod],
 			}
-			pool, err := NewPool(config, r.OutputCh)
+			pool, err := NewPool(ctx, config, r.OutputCh)
 			if err != nil {
 				logs.Log.Error(err.Error())
 				return
@@ -129,7 +132,7 @@ func (r *Runner) Run() {
 			}
 			r.Pools[u] = pool
 			// todo pool 总超时时间
-			pool.Run()
+			pool.Run(ctx)
 			wg.Done()
 		}()
 	}
