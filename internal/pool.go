@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"net/http"
 	"sync"
+	"time"
 )
 
 var (
@@ -15,18 +17,19 @@ var (
 	CheckWaf        func(*http.Response) bool
 )
 
-func NewPool(config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
-	var ctx context.Context
+func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
 	err := config.Init()
 	if err != nil {
 		return nil, fmt.Errorf("pool init failed, %w", err)
 	}
 
-	//ctx, cancel := context.WithCancel(nil)
+	poolctx, cancel := context.WithCancel(ctx)
+
 	pool := &Pool{
 		Config: config,
 		//ctx:      ctx,
 		client: pkg.NewClient(config.Thread, 2),
+		worder: words.NewWorder(config.Wordlist),
 		//baseReq:  req,
 		outputCh: outputCh,
 		wg:       &sync.WaitGroup{},
@@ -47,15 +50,17 @@ func NewPool(config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
 		var bl *baseline
 		unit := i.(*Unit)
 		req := pool.genReq(unit.path)
-		resp, err := pool.client.Do(ctx, req)
+		resp, err := pool.client.Do(poolctx, req)
 		if err != nil {
 			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
 			pool.errorCount++
 			bl = &baseline{Err: err}
 		} else {
-			if pool.PreCompare(resp) {
+			if err = pool.PreCompare(resp); err == nil {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URL, resp)
+			} else if err == ErrWaf {
+				cancel()
 			} else {
 				bl = NewInvalidBaseline(req.URL, resp)
 			}
@@ -91,7 +96,8 @@ type Pool struct {
 	errorCount int
 	genReq     func(string) *http.Request
 	//wordlist     []string
-	wg *sync.WaitGroup
+	worder *words.Worder
+	wg     *sync.WaitGroup
 }
 
 func (p *Pool) Add(u *Unit) error {
@@ -136,28 +142,41 @@ func (p *Pool) Init() error {
 	return nil
 }
 
-func (p *Pool) Run() {
-	for _, u := range p.Wordlist {
-		p.totalCount++
-		_ = p.Add(newUnit(u, WordSource))
+func (p *Pool) Run(ctx context.Context) {
+
+Loop:
+	for {
+		select {
+		case u, ok := <-p.worder.C:
+			if !ok {
+				break Loop
+			}
+			p.totalCount++
+			_ = p.Add(newUnit(u, WordSource))
+		case <-time.NewTimer(time.Duration(p.DeadlineTime)).C:
+			break Loop
+		case <-ctx.Done():
+			break Loop
+		}
 	}
+
 	p.wg.Wait()
 }
 
-func (p *Pool) PreCompare(resp *http.Response) bool {
+func (p *Pool) PreCompare(resp *http.Response) error {
 	if !CheckStatusCode(resp.StatusCode) {
-		return false
+		return ErrBadStatus
 	}
 
 	if CheckRedirect != nil && !CheckRedirect(resp) {
-		return false
+		return ErrRedirect
 	}
 
 	if CheckWaf != nil && !CheckWaf(resp) {
-		return false
+		return ErrWaf
 	}
 
-	return true
+	return nil
 }
 
 func (p *Pool) RunWithWord(words []string) {
