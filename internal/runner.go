@@ -13,7 +13,7 @@ import (
 )
 
 var BlackStatus = []int{404, 410}
-var FuzzyStatus = []int{403, 500, 501, 503}
+var FuzzyStatus = []int{403, 500, 501, 502, 503}
 
 type Runner struct {
 	URL        string `short:"u" long:"url"`
