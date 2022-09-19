@@ -3,7 +3,6 @@ package pkg
 import (
 	"context"
 	"crypto/tls"
-	"net"
 	"net/http"
 	"time"
 )
@@ -16,15 +15,8 @@ func NewClient(thread int, timeout int) *Client {
 			Renegotiation:      tls.RenegotiateOnceAsClient,
 			InsecureSkipVerify: true,
 		},
-		DialContext: (&net.Dialer{
-			//Timeout:   time.Duration(delay) * time.Second,
-			//KeepAlive: time.Duration(delay) * time.Second,
-			//DualStack: true,
-		}).DialContext,
-		MaxIdleConnsPerHost: thread,
-		MaxIdleConns:        thread,
-		IdleConnTimeout:     time.Duration(timeout) * time.Second,
-		DisableKeepAlives:   false,
+		MaxConnsPerHost: thread,
+		IdleConnTimeout: time.Duration(timeout) * time.Second,
 	}
 
 	c := &Client{

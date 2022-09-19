@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/gosuri/uiprogress"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -28,16 +29,21 @@ type Runner struct {
 	Threads    int         `short:"t" long:"thread" default:"20"`
 	PoolSize   int         `short:"p" long:"pool"`
 	Pools      map[string]*Pool
-	Deadline   int    `long:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Deadline   int    `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
 	Debug      bool   `long:"debug"`
 	Mod        string `short:"m" long:"mod" default:"path"`
 	OutputCh   chan *baseline
+	Progress   *uiprogress.Progress
 }
 
 func (r *Runner) Prepare() error {
+	r.Progress = uiprogress.New()
+	r.Progress.Start()
+
 	if r.Debug {
 		logs.Log.Level = logs.Debug
 	}
+
 	var file *os.File
 	var err error
 	urlfrom := r.URLFile
@@ -112,19 +118,20 @@ func (r *Runner) Run() {
 		u := u
 		go func() {
 			config := &pkg.Config{
-				BaseURL:  u,
-				Wordlist: r.Wordlist,
-				Thread:   r.Threads,
-				Timeout:  2,
-				Headers:  r.Headers,
-				Mod:      pkg.ModMap[r.Mod],
+				BaseURL:      u,
+				Wordlist:     r.Wordlist,
+				Thread:       r.Threads,
+				Timeout:      2,
+				Headers:      r.Headers,
+				Mod:          pkg.ModMap[r.Mod],
+				DeadlineTime: r.Deadline,
 			}
 			pool, err := NewPool(ctx, config, r.OutputCh)
 			if err != nil {
 				logs.Log.Error(err.Error())
 				return
 			}
-
+			pool.bar = pkg.NewBar(u, len(r.Wordlist), r.Progress)
 			err = pool.Init()
 			if err != nil {
 				logs.Log.Error(err.Error())
