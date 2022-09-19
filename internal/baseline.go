@@ -3,8 +3,8 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/chainreactors/gogo/v2/pkg/dsl"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg"
 	"io"
 	"net/http"
@@ -50,8 +50,8 @@ func NewBaseline(u *url.URL, resp *http.Response) *baseline {
 	}
 
 	if len(bl.Body) > 0 {
-		bl.Md5 = dsl.Md5Hash(bl.Body)
-		bl.Mmh3 = dsl.Mmh3Hash32(bl.Body)
+		bl.Md5 = parsers.Md5Hash(bl.Body)
+		bl.Mmh3 = parsers.Mmh3Hash32(bl.Body)
 		bl.Simhash = pkg.Simhash(bl.Body)
 		if strings.Contains(string(bl.Body), bl.UrlString[1:]) {
 			bl.IsDynamicUrl = true
@@ -60,9 +60,9 @@ func NewBaseline(u *url.URL, resp *http.Response) *baseline {
 	}
 
 	// todo extract
-
+	bl.Extracteds = pkg.Extractors.Extract(bl.Response)
 	// todo 指纹识别
-	bl.Frameworks = pkg.FingerDetect(bl.Body)
+	bl.Frameworks = pkg.FingerDetect(bl.Response)
 	return bl
 }
 
@@ -89,6 +89,7 @@ type baseline struct {
 	Body         []byte         `json:"-"`
 	BodyLength   int64          `json:"body_length"`
 	Header       string         `json:"-"`
+	Response     string         `json:"-"`
 	HeaderLength int            `json:"header_length"`
 	RedirectURL  string         `json:"redirect_url"`
 	Status       int            `json:"status"`
@@ -98,9 +99,9 @@ type baseline struct {
 	IsDynamicUrl bool           `json:"is_dynamic_url"` // 判断是否存在动态的url
 	Spended      int            `json:"spended"`        // 耗时, 毫秒
 	Frameworks   pkg.Frameworks `json:"frameworks"`
-
-	Err     error `json:"-"`
-	IsValid bool  `json:"-"`
+	Extracteds   pkg.Extracteds `json:"extracts"`
+	Err          error          `json:"-"`
+	IsValid      bool           `json:"-"`
 }
 
 func (bl *baseline) Compare(other *baseline) bool {

@@ -23,11 +23,11 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		return nil, fmt.Errorf("pool init failed, %w", err)
 	}
 
-	poolctx, cancel := context.WithCancel(ctx)
+	pctx, cancel := context.WithCancel(ctx)
 
 	pool := &Pool{
 		Config: config,
-		//ctx:      ctx,
+		ctx:    pctx,
 		client: pkg.NewClient(config.Thread, 2),
 		worder: words.NewWorder(config.Wordlist),
 		//baseReq:  req,
@@ -50,7 +50,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		var bl *baseline
 		unit := i.(*Unit)
 		req := pool.genReq(unit.path)
-		resp, err := pool.client.Do(poolctx, req)
+		resp, err := pool.client.Do(pctx, req)
 		if err != nil {
 			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
 			pool.errorCount++
@@ -88,7 +88,7 @@ type Pool struct {
 	*pkg.Config
 	client *pkg.Client
 	pool   *ants.PoolWithFunc
-	//ctx          context.Context
+	ctx    context.Context
 	//baseReq      *http.Request
 	baseline   *baseline
 	outputCh   chan *baseline
@@ -156,6 +156,8 @@ Loop:
 		case <-time.NewTimer(time.Duration(p.DeadlineTime)).C:
 			break Loop
 		case <-ctx.Done():
+			break Loop
+		case <-p.ctx.Done():
 			break Loop
 		}
 	}
