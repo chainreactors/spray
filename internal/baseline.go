@@ -46,9 +46,7 @@ func NewBaseline(u *url.URL, resp *http.Response) *baseline {
 		} else {
 			logs.Log.Error("readfull failed" + err.Error())
 		}
-		_ = resp.Body.Close()
 	}
-
 	if len(bl.Body) > 0 {
 		bl.Md5 = parsers.Md5Hash(bl.Body)
 		bl.Mmh3 = parsers.Mmh3Hash32(bl.Body)
