@@ -18,7 +18,14 @@ func NewClient(thread int, timeout int) *Client {
 		MaxConnsPerHost: thread,
 		IdleConnTimeout: time.Duration(timeout) * time.Second,
 	}
-
+	//c := &fasthttp.Client{
+	//	TLSConfig: &tls.Config{
+	//		Renegotiation:      tls.RenegotiateOnceAsClient,
+	//		InsecureSkipVerify: true,
+	//	},
+	//	MaxConnsPerHost:     thread,
+	//	MaxIdleConnDuration: time.Duration(timeout) * time.Second,
+	//}
 	c := &Client{
 		client: &http.Client{
 			Transport:     tr,

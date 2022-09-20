@@ -3,16 +3,14 @@ package pkg
 import (
 	"fmt"
 	"github.com/gosuri/uiprogress"
-	"io"
 	"time"
 )
 
 func NewBar(u string, total int, progress *uiprogress.Progress) *Bar {
 	bar := &Bar{
-		Bar:    progress.AddBar(total),
-		url:    u,
-		writer: progress.Bypass(),
-		spend:  1,
+		Bar:   progress.AddBar(total),
+		url:   u,
+		spend: 1,
 	}
 
 	bar.AppendCompleted()
@@ -37,19 +35,14 @@ func NewBar(u string, total int, progress *uiprogress.Progress) *Bar {
 }
 
 type Bar struct {
-	spend  int
-	url    string
-	close  bool
-	writer io.Writer
+	spend int
+	url   string
+	close bool
 	*uiprogress.Bar
 }
 
 func (bar *Bar) Done() {
 	bar.Incr()
-}
-
-func (bar *Bar) Print(s string) {
-	fmt.Fprintln(bar.writer, s)
 }
 
 func (bar *Bar) Close() {
