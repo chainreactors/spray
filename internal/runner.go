@@ -13,7 +13,7 @@ import (
 	"sync"
 )
 
-var BlackStatus = []int{404, 410}
+var BlackStatus = []int{400, 404, 410}
 var FuzzyStatus = []int{403, 500, 501, 502, 503}
 
 type Runner struct {
@@ -31,6 +31,7 @@ type Runner struct {
 	Pools      map[string]*Pool
 	Deadline   int    `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
 	Debug      bool   `long:"debug"`
+	Quiet      bool   `short:"q" long:"quiet"`
 	Mod        string `short:"m" long:"mod" default:"path"`
 	OutputCh   chan *baseline
 	Progress   *uiprogress.Progress
@@ -38,10 +39,13 @@ type Runner struct {
 
 func (r *Runner) Prepare() error {
 	r.Progress = uiprogress.New()
-	r.Progress.Start()
 
 	if r.Debug {
 		logs.Log.Level = logs.Debug
+	}
+	if !r.Quiet {
+		r.Progress.Start()
+		logs.Log.Writer = r.Progress.Bypass()
 	}
 
 	var file *os.File
@@ -157,7 +161,7 @@ func (r *Runner) Outputting() {
 		select {
 		case bl := <-r.OutputCh:
 			if bl.IsValid {
-				logs.Log.Console(bl.String() + "\n")
+				logs.Log.Console(bl.String())
 			} else {
 				logs.Log.Debug(bl.String())
 			}

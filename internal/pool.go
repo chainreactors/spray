@@ -48,7 +48,6 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			logs.Log.Error(err.Error())
 			return
 		}
-
 		resp, err := pool.client.Do(pctx, req)
 		if err != nil {
 			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
@@ -56,7 +55,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			bl = &baseline{Err: err}
 		} else {
 			defer resp.Body.Close() // 必须要关闭body ,否则keep-alive无法生效
-			if err = pool.PreCompare(resp); err == nil {
+			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URL, resp)
 			} else if err == ErrWaf {
@@ -67,15 +66,11 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		}
 
 		switch unit.source {
-		case InitSource:
+		case CheckSource:
 			pool.baseline = bl
 		case WordSource:
 			// todo compare
-			//pool.outputCh <- bl
-			// todo 重构output
-			if bl.IsValid {
-				pool.bar.Print(bl.String())
-			}
+			pool.outputCh <- bl
 		}
 		//todo connectivity check
 		pool.bar.Done()
@@ -109,7 +104,7 @@ type Pool struct {
 func (p *Pool) Init() error {
 	//for i := 0; i < p.baseReqCount; i++ {
 	p.wg.Add(1)
-	_ = p.pool.Invoke(newUnit(pkg.RandPath(), InitSource))
+	_ = p.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
 	//}
 	p.wg.Wait()
 	// todo 分析baseline
@@ -158,7 +153,7 @@ Loop:
 			break Loop
 		}
 	}
-
+	p.bar.Close()
 	p.wg.Wait()
 }
 
@@ -202,7 +197,7 @@ func (p *Pool) BuildHostRequest(host string) (*http.Request, error) {
 type sourceType int
 
 const (
-	InitSource sourceType = iota + 1
+	CheckSource sourceType = iota + 1
 	WordSource
 	WafSource
 )

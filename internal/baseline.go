@@ -21,15 +21,17 @@ func NewBaseline(u *url.URL, resp *http.Response) *baseline {
 		IsValid:    true,
 	}
 
-	var header string
+	var header strings.Builder
 	for k, v := range resp.Header {
-		// stringbuilder
 		for _, i := range v {
-			header += fmt.Sprintf("%s: %s\r\n", k, i)
+			header.WriteString(k)
+			header.WriteString(": ")
+			header.WriteString(i)
+			header.WriteString("\r\n")
 		}
 	}
-	bl.Header = header
-	bl.HeaderLength = len(header)
+	bl.Header = header.String()
+	bl.HeaderLength = header.Len()
 
 	redirectURL, err := resp.Location()
 	if err == nil {
@@ -120,7 +122,17 @@ func (bl *baseline) FuzzyCompare() bool {
 }
 
 func (bl *baseline) String() string {
-	return fmt.Sprintf("%s - %d - %d [%s]", bl.UrlString, bl.Status, bl.BodyLength, bl.Frameworks.ToString())
+	var line strings.Builder
+	line.WriteString("[+] ")
+	line.WriteString(bl.UrlString)
+	line.WriteString(fmt.Sprintf(" - %d - %d ", bl.Status, bl.BodyLength))
+	if bl.RedirectURL != "" {
+		line.WriteString("-> ")
+		line.WriteString(bl.RedirectURL)
+	}
+	line.WriteString(bl.Frameworks.ToString())
+	//line.WriteString(bl.Extracteds)
+	return line.String()
 }
 
 func (bl *baseline) Jsonify() string {
