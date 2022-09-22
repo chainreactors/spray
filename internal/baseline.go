@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func NewBaseline(u *fasthttp.URI, resp *fasthttp.Response) (*baseline, error) {
+func NewBaseline(u *fasthttp.URI, resp *fasthttp.Response) *baseline {
 	bl := &baseline{
 		Url:       u,
 		UrlString: u.String(),
@@ -24,7 +24,7 @@ func NewBaseline(u *fasthttp.URI, resp *fasthttp.Response) (*baseline, error) {
 	bl.HeaderLength = resp.Header.Len()
 	bl.RedirectURL = string(resp.Header.Peek("Location"))
 	bl.Raw = append(bl.Header, bl.Body...)
-	return bl, nil
+	return bl
 }
 
 func NewInvalidBaseline(u *fasthttp.URI, resp *fasthttp.Response) *baseline {
