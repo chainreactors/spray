@@ -28,4 +28,5 @@ type Config struct {
 	Mod          SprayMod
 	Headers      http.Header
 	DeadlineTime int
+	EnableFuzzy  bool
 }
