@@ -18,11 +18,14 @@ var (
 	CheckWaf        func(*http.Response) bool
 )
 
+var breakThreshold int = 10
+
 func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
 		Config:      config,
 		ctx:         pctx,
+		cancel:      cancel,
 		client:      pkg.NewClient(config.Thread, 2),
 		worder:      words.NewWorder(config.Wordlist),
 		outputCh:    outputCh,
@@ -57,15 +60,14 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
 			pool.errorCount++
 			bl = &baseline{Err: err}
+
 		} else {
 			defer fasthttp.ReleaseResponse(resp)
 			defer fasthttp.ReleaseRequest(req)
 			//defer resp.Body.Close() // 必须要关闭body ,否则keep-alive无法生效
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
-				bl, err = NewBaseline(req.URI(), resp)
-			} else if err == ErrWaf {
-				cancel()
+				bl = NewBaseline(req.URI(), resp)
 			} else {
 				bl = NewInvalidBaseline(req.URI(), resp)
 			}
@@ -104,12 +106,14 @@ type Pool struct {
 	pool   *ants.PoolWithFunc
 	bar    *pkg.Bar
 	ctx    context.Context
+	cancel context.CancelFunc
 	//baseReq      *http.Request
 	baseline    *baseline
 	outputCh    chan *baseline
 	tempCh      chan *baseline
 	reqCount    int
 	errorCount  int
+	failedCount int
 	checkPeriod int
 	errPeriod   int
 	genReq      func(s string) (*fasthttp.Request, error)
@@ -119,10 +123,15 @@ type Pool struct {
 }
 
 func (p *Pool) check() {
-	p.wg.Add(1)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	_ = p.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
 	//}
-	p.wg.Wait()
+	wg.Wait()
+
+	if p.failedCount > breakThreshold {
+		p.cancel()
+	}
 }
 
 func (p *Pool) Init() error {
@@ -131,6 +140,7 @@ func (p *Pool) Init() error {
 	// 检测基本访问能力
 
 	if p.baseline != nil && p.baseline.Err != nil {
+		p.cancel()
 		return p.baseline.Err
 	}
 
