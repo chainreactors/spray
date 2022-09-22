@@ -21,13 +21,15 @@ var (
 func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
-		Config:   config,
-		ctx:      pctx,
-		client:   pkg.NewClient(config.Thread, 2),
-		worder:   words.NewWorder(config.Wordlist),
-		outputCh: outputCh,
-		tempCh:   make(chan *baseline, config.Thread),
-		wg:       &sync.WaitGroup{},
+		Config:      config,
+		ctx:         pctx,
+		client:      pkg.NewClient(config.Thread, 2),
+		worder:      words.NewWorder(config.Wordlist),
+		outputCh:    outputCh,
+		tempCh:      make(chan *baseline, config.Thread),
+		wg:          &sync.WaitGroup{},
+		checkPeriod: 100,
+		errPeriod:   10,
 	}
 
 	switch config.Mod {
@@ -71,7 +73,15 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 		switch unit.source {
 		case CheckSource:
-			pool.baseline = bl
+			if pool.baseline == nil {
+				//初次check覆盖baseline
+				pool.baseline = bl
+			} else if bl.Err != nil {
+				logs.Log.Warn("maybe ip banned by waf")
+			} else if !pool.baseline.Equal(bl) {
+				logs.Log.Warn("maybe trigger risk control")
+			}
+
 		case WordSource:
 			// 异步进行性能消耗较大的深度对比
 			pool.tempCh <- bl
@@ -95,29 +105,36 @@ type Pool struct {
 	bar    *pkg.Bar
 	ctx    context.Context
 	//baseReq      *http.Request
-	baseline   *baseline
-	outputCh   chan *baseline
-	tempCh     chan *baseline
-	totalCount int
-	errorCount int
-	genReq     func(s string) (*fasthttp.Request, error)
+	baseline    *baseline
+	outputCh    chan *baseline
+	tempCh      chan *baseline
+	reqCount    int
+	errorCount  int
+	checkPeriod int
+	errPeriod   int
+	genReq      func(s string) (*fasthttp.Request, error)
 	//wordlist     []string
 	worder *words.Worder
 	wg     *sync.WaitGroup
 }
 
-func (p *Pool) Init() error {
-	//for i := 0; i < p.baseReqCount; i++ {
+func (p *Pool) check() {
 	p.wg.Add(1)
 	_ = p.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
 	//}
 	p.wg.Wait()
+}
+
+func (p *Pool) Init() error {
+	p.check()
 	// todo 分析baseline
 	// 检测基本访问能力
 
 	if p.baseline != nil && p.baseline.Err != nil {
 		return p.baseline.Err
 	}
+
+	p.baseline.Collect()
 
 	if p.baseline.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
@@ -143,8 +160,13 @@ Loop:
 			if !ok {
 				break Loop
 			}
-			p.totalCount++
+			p.reqCount++
 			p.wg.Add(1)
+			if p.reqCount%p.checkPeriod == 0 {
+				go p.check()
+			} else if p.reqCount%p.errPeriod == 0 {
+				go p.check()
+			}
 			_ = p.pool.Invoke(newUnit(u, WordSource))
 		case <-time.NewTimer(time.Duration(p.DeadlineTime) * time.Second).C:
 			break Loop
