@@ -161,7 +161,7 @@ func (r *Runner) Outputting() {
 		select {
 		case bl := <-r.OutputCh:
 			if bl.IsValid {
-				logs.Log.Console(bl.String())
+				logs.Log.Console("[+] " + bl.String() + "\n")
 			} else {
 				logs.Log.Debug(bl.String())
 			}

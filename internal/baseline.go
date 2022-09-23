@@ -15,7 +15,6 @@ func NewBaseline(u *fasthttp.URI, resp *fasthttp.Response) *baseline {
 		UrlString: u.String(),
 		Status:    resp.StatusCode(),
 		IsValid:   true,
-		Body:      make([]byte, 20480),
 	}
 
 	bl.Body = resp.Body()
@@ -31,9 +30,8 @@ func NewInvalidBaseline(u *fasthttp.URI, resp *fasthttp.Response) *baseline {
 	bl := &baseline{
 		Url:       u,
 		UrlString: u.String(),
-		//BodyLength: resp.ContentLength,
-		Status:  resp.StatusCode(),
-		IsValid: false,
+		Status:    resp.StatusCode(),
+		IsValid:   false,
 	}
 
 	bl.RedirectURL = string(resp.Header.Peek("Location"))
@@ -95,7 +93,7 @@ func (bl *baseline) FuzzyEqual(other *baseline) bool {
 
 func (bl *baseline) String() string {
 	var line strings.Builder
-	line.WriteString("[+] ")
+	//line.WriteString("[+] ")
 	line.WriteString(bl.UrlString)
 	line.WriteString(fmt.Sprintf(" - %d - %d ", bl.Status, bl.BodyLength))
 	if bl.RedirectURL != "" {
@@ -104,7 +102,11 @@ func (bl *baseline) String() string {
 	}
 	line.WriteString(bl.Frameworks.ToString())
 	//line.WriteString(bl.Extracteds)
-	line.WriteString("\n")
+	//line.WriteString("\n")
+	if bl.Err != nil {
+		line.WriteString("err: ")
+		line.WriteString(bl.Err.Error())
+	}
 	return line.String()
 }
 

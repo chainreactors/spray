@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+var (
+	DefaultMaxBodySize = 1024 * 100 // 100k
+)
+
 func NewClient(thread int, timeout int) *Client {
 	//tr := &http.Transport{
 	//	//Proxy: Proxy,
@@ -31,7 +35,7 @@ func NewClient(thread int, timeout int) *Client {
 			MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
 			ReadTimeout:         time.Duration(timeout) * time.Second,
 			WriteTimeout:        time.Duration(timeout) * time.Second,
-			MaxResponseBodySize: 20480,
+			MaxResponseBodySize: DefaultMaxBodySize,
 		},
 		timeout: time.Duration(timeout) * time.Second,
 	}

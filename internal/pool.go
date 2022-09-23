@@ -30,19 +30,21 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		worder:      words.NewWorder(config.Wordlist),
 		outputCh:    outputCh,
 		tempCh:      make(chan *baseline, config.Thread),
-		wg:          &sync.WaitGroup{},
+		wg:          sync.WaitGroup{},
+		initwg:      sync.WaitGroup{},
 		checkPeriod: 100,
 		errPeriod:   10,
+		//reqCount:    1,
 	}
 
 	switch config.Mod {
 	case pkg.PathSpray:
 		pool.genReq = func(s string) (*fasthttp.Request, error) {
-			return pool.BuildPathRequest(s)
+			return pool.buildPathRequest(s)
 		}
 	case pkg.HostSpray:
 		pool.genReq = func(s string) (*fasthttp.Request, error) {
-			return pool.BuildHostRequest(s)
+			return pool.buildHostRequest(s)
 		}
 	}
 
@@ -55,12 +57,11 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		}
 
 		var bl *baseline
-		resp, err := pool.client.Do(pctx, req)
-		if err != nil {
+		resp, reqerr := pool.client.Do(pctx, req)
+		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
 			pool.errorCount++
-			bl = &baseline{Err: err}
-
+			bl = &baseline{UrlString: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
 			defer fasthttp.ReleaseResponse(resp)
 			defer fasthttp.ReleaseRequest(req)
@@ -71,22 +72,32 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			} else {
 				bl = NewInvalidBaseline(req.URI(), resp)
 			}
+			bl.Err = reqerr
 		}
 
 		switch unit.source {
 		case CheckSource:
-			if pool.baseline == nil {
+			logs.Log.Debugf("check: " + bl.String())
+			if pool.base == nil {
 				//初次check覆盖baseline
-				pool.baseline = bl
+				pool.base = bl
+				pool.initwg.Done()
 			} else if bl.Err != nil {
 				logs.Log.Warn("maybe ip banned by waf")
-			} else if !pool.baseline.Equal(bl) {
+			} else if !pool.base.Equal(bl) {
 				logs.Log.Warn("maybe trigger risk control")
 			}
 
 		case WordSource:
 			// 异步进行性能消耗较大的深度对比
+			pool.reqCount++
 			pool.tempCh <- bl
+
+			if pool.reqCount%pool.checkPeriod == 0 {
+				go pool.check()
+			} else if pool.reqCount%pool.errPeriod == 0 {
+				go pool.check()
+			}
 		}
 		//todo connectivity check
 		pool.bar.Done()
@@ -108,7 +119,7 @@ type Pool struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	//baseReq      *http.Request
-	baseline    *baseline
+	base        *baseline
 	outputCh    chan *baseline
 	tempCh      chan *baseline
 	reqCount    int
@@ -116,18 +127,16 @@ type Pool struct {
 	failedCount int
 	checkPeriod int
 	errPeriod   int
+	analyzeDone bool
 	genReq      func(s string) (*fasthttp.Request, error)
-	//wordlist     []string
-	worder *words.Worder
-	wg     *sync.WaitGroup
+	worder      *words.Worder
+	wg          sync.WaitGroup
+	initwg      sync.WaitGroup
 }
 
 func (p *Pool) check() {
-	var wg sync.WaitGroup
-	wg.Add(1)
+	p.wg.Add(1)
 	_ = p.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
-	//}
-	wg.Wait()
 
 	if p.failedCount > breakThreshold {
 		p.cancel()
@@ -135,20 +144,21 @@ func (p *Pool) check() {
 }
 
 func (p *Pool) Init() error {
+	p.initwg.Add(1)
 	p.check()
+	p.initwg.Wait()
 	// todo 分析baseline
 	// 检测基本访问能力
 
-	if p.baseline != nil && p.baseline.Err != nil {
+	if p.base != nil && p.base.Err != nil {
 		p.cancel()
-		return p.baseline.Err
+		return p.base.Err
 	}
 
-	p.baseline.Collect()
-
-	if p.baseline.RedirectURL != "" {
+	p.base.Collect()
+	if p.base.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
-			if redirectURL == p.baseline.RedirectURL {
+			if redirectURL == p.base.RedirectURL {
 				// 相同的RedirectURL将被认为是无效数据
 				return false
 			} else {
@@ -170,13 +180,7 @@ Loop:
 			if !ok {
 				break Loop
 			}
-			p.reqCount++
 			p.wg.Add(1)
-			if p.reqCount%p.checkPeriod == 0 {
-				go p.check()
-			} else if p.reqCount%p.errPeriod == 0 {
-				go p.check()
-			}
 			_ = p.pool.Invoke(newUnit(u, WordSource))
 		case <-time.NewTimer(time.Duration(p.DeadlineTime) * time.Second).C:
 			break Loop
@@ -186,8 +190,8 @@ Loop:
 			break Loop
 		}
 	}
-	p.bar.Close()
-	p.wg.Wait()
+
+	p.Close()
 }
 
 func (p *Pool) PreCompare(resp *fasthttp.Response) error {
@@ -212,7 +216,7 @@ func (p *Pool) RunWithWord(words []string) {
 
 func (p *Pool) Comparing() {
 	for bl := range p.tempCh {
-		if p.baseline.Equal(bl) {
+		if p.base.Equal(bl) {
 			// 如果是同一个包则设置为无效包
 			bl.IsValid = false
 			p.outputCh <- bl
@@ -220,7 +224,7 @@ func (p *Pool) Comparing() {
 		}
 
 		bl.Collect()
-		if p.EnableFuzzy && p.baseline.FuzzyEqual(bl) {
+		if p.EnableFuzzy && p.base.FuzzyEqual(bl) {
 			bl.IsValid = false
 			p.outputCh <- bl
 			continue
@@ -228,15 +232,25 @@ func (p *Pool) Comparing() {
 
 		p.outputCh <- bl
 	}
-}
 
-func (p *Pool) BuildPathRequest(path string) (*fasthttp.Request, error) {
+	p.analyzeDone = true
+}
+func (p *Pool) Close() {
+	p.wg.Wait()
+	p.bar.Close()
+
+	close(p.tempCh)
+	for !p.analyzeDone {
+		time.Sleep(time.Duration(100) * time.Millisecond)
+	}
+}
+func (p *Pool) buildPathRequest(path string) (*fasthttp.Request, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(p.BaseURL + path)
 	return req, nil
 }
 
-func (p *Pool) BuildHostRequest(host string) (*fasthttp.Request, error) {
+func (p *Pool) buildHostRequest(host string) (*fasthttp.Request, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(p.BaseURL)
 	req.SetHost(host)
