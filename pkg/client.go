@@ -13,16 +13,6 @@ var (
 )
 
 func NewClient(thread int, timeout int) *Client {
-	//tr := &http.Transport{
-	//	//Proxy: Proxy,
-	//	//TLSHandshakeTimeout : delay * time.Second,
-	//	TLSClientConfig: &tls.Config{
-	//		Renegotiation:      tls.RenegotiateOnceAsClient,
-	//		InsecureSkipVerify: true,
-	//	},
-	//	MaxConnsPerHost: thread,
-	//	IdleConnTimeout: time.Duration(timeout) * time.Second,
-	//}
 	c := &Client{
 		client: &fasthttp.Client{
 			TLSConfig: &tls.Config{
@@ -30,7 +20,7 @@ func NewClient(thread int, timeout int) *Client {
 				InsecureSkipVerify: true,
 			},
 			//ReadBufferSize:      20480,
-			MaxConnsPerHost:     thread,
+			MaxConnsPerHost:     thread * 2,
 			MaxIdleConnDuration: time.Duration(timeout) * time.Second,
 			MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
 			ReadTimeout:         time.Duration(timeout) * time.Second,
