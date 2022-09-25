@@ -58,13 +58,13 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 		var bl *baseline
 		resp, reqerr := pool.client.Do(pctx, req)
+		defer fasthttp.ReleaseResponse(resp)
+		defer fasthttp.ReleaseRequest(req)
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
 			pool.errorCount++
 			bl = &baseline{UrlString: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
-			defer fasthttp.ReleaseResponse(resp)
-			defer fasthttp.ReleaseRequest(req)
 			//defer resp.Body.Close() // 必须要关闭body ,否则keep-alive无法生效
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
