@@ -7,7 +7,6 @@ import (
 	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -15,7 +14,7 @@ import (
 var (
 	CheckStatusCode func(int) bool
 	CheckRedirect   func(string) bool
-	CheckWaf        func(*http.Response) bool
+	CheckWaf        func([]byte) bool
 )
 
 var breakThreshold int = 10
@@ -34,7 +33,6 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		initwg:      sync.WaitGroup{},
 		checkPeriod: 100,
 		errPeriod:   10,
-		//reqCount:    1,
 	}
 
 	switch config.Mod {
@@ -61,11 +59,10 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		defer fasthttp.ReleaseResponse(resp)
 		defer fasthttp.ReleaseRequest(req)
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
-			//logs.Log.Debugf("%s request error, %s", strurl, err.Error())
 			pool.errorCount++
 			bl = &baseline{UrlString: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
-			//defer resp.Body.Close() // 必须要关闭body ,否则keep-alive无法生效
+			pool.errorCount = 0
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URI(), resp)
@@ -105,13 +102,11 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 	})
 
 	pool.pool = p
-	go pool.Comparing()
+	go pool.comparing()
 	return pool, nil
 }
 
 type Pool struct {
-	//url    string
-	//thread int
 	*pkg.Config
 	client *pkg.Client
 	pool   *ants.PoolWithFunc
@@ -120,8 +115,8 @@ type Pool struct {
 	cancel context.CancelFunc
 	//baseReq      *http.Request
 	base        *baseline
-	outputCh    chan *baseline
-	tempCh      chan *baseline
+	outputCh    chan *baseline // 输出的chan, 全局统一
+	tempCh      chan *baseline // 待处理的baseline
 	reqCount    int
 	errorCount  int
 	failedCount int
@@ -131,7 +126,7 @@ type Pool struct {
 	genReq      func(s string) (*fasthttp.Request, error)
 	worder      *words.Worder
 	wg          sync.WaitGroup
-	initwg      sync.WaitGroup
+	initwg      sync.WaitGroup // 初始化用, 之后改成锁
 }
 
 func (p *Pool) check() {
@@ -139,6 +134,7 @@ func (p *Pool) check() {
 	_ = p.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
 
 	if p.failedCount > breakThreshold {
+		// 当报错次数超过上限是, 结束任务
 		p.cancel()
 	}
 }
@@ -203,18 +199,15 @@ func (p *Pool) PreCompare(resp *fasthttp.Response) error {
 		return ErrRedirect
 	}
 
-	//if CheckWaf != nil && !CheckWaf(resp) {
-	//	return ErrWaf
-	//}
+	if CheckWaf != nil && !CheckWaf(nil) {
+		// todo check waf
+		return ErrWaf
+	}
 
 	return nil
 }
 
-func (p *Pool) RunWithWord(words []string) {
-
-}
-
-func (p *Pool) Comparing() {
+func (p *Pool) comparing() {
 	for bl := range p.tempCh {
 		if p.base.Equal(bl) {
 			// 如果是同一个包则设置为无效包
@@ -235,6 +228,7 @@ func (p *Pool) Comparing() {
 
 	p.analyzeDone = true
 }
+
 func (p *Pool) Close() {
 	p.wg.Wait()
 	p.bar.Close()
@@ -244,6 +238,7 @@ func (p *Pool) Close() {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 }
+
 func (p *Pool) buildPathRequest(path string) (*fasthttp.Request, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(p.BaseURL + path)
@@ -265,10 +260,6 @@ const (
 	WafSource
 )
 
-//var sourceMap = map[int]string{
-//
-//}
-
 func newUnit(path string, source sourceType) *Unit {
 	return &Unit{path: path, source: source}
 }
@@ -276,5 +267,4 @@ func newUnit(path string, source sourceType) *Unit {
 type Unit struct {
 	path   string
 	source sourceType
-	//callback func()
 }
