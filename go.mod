@@ -15,7 +15,6 @@ require (
 require (
 	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0
-	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/valyala/fasthttp v1.40.0
 )
 

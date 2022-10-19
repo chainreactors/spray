@@ -59,10 +59,10 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		defer fasthttp.ReleaseResponse(resp)
 		defer fasthttp.ReleaseRequest(req)
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
-			pool.errorCount++
+			pool.failedCount++
 			bl = &baseline{UrlString: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
-			pool.errorCount = 0
+			pool.failedCount = 0
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URI(), resp)
@@ -96,7 +96,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 				go pool.check()
 			}
 		}
-		//todo connectivity check
+
 		pool.bar.Done()
 		pool.wg.Done()
 	})
@@ -118,7 +118,6 @@ type Pool struct {
 	outputCh    chan *baseline // 输出的chan, 全局统一
 	tempCh      chan *baseline // 待处理的baseline
 	reqCount    int
-	errorCount  int
 	failedCount int
 	checkPeriod int
 	errPeriod   int
@@ -250,21 +249,4 @@ func (p *Pool) buildHostRequest(host string) (*fasthttp.Request, error) {
 	req.SetRequestURI(p.BaseURL)
 	req.SetHost(host)
 	return req, nil
-}
-
-type sourceType int
-
-const (
-	CheckSource sourceType = iota + 1
-	WordSource
-	WafSource
-)
-
-func newUnit(path string, source sourceType) *Unit {
-	return &Unit{path: path, source: source}
-}
-
-type Unit struct {
-	path   string
-	source sourceType
 }
