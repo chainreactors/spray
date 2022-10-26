@@ -4,9 +4,11 @@ import (
 	"context"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -25,7 +27,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		Config:      config,
 		ctx:         pctx,
 		cancel:      cancel,
-		client:      pkg.NewClient(config.Thread, 2),
+		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		worder:      words.NewWorder(config.Wordlist),
 		outputCh:    outputCh,
 		tempCh:      make(chan *baseline, config.Thread),
@@ -37,12 +39,31 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 	switch config.Mod {
 	case pkg.PathSpray:
-		pool.genReq = func(s string) (*fasthttp.Request, error) {
+		pool.genReq = func(s string) (*ihttp.Request, error) {
 			return pool.buildPathRequest(s)
 		}
+		pool.check = func() {
+			pool.wg.Add(1)
+			_ = pool.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
+
+			if pool.failedCount > breakThreshold {
+				// 当报错次数超过上限是, 结束任务
+				pool.cancel()
+			}
+		}
 	case pkg.HostSpray:
-		pool.genReq = func(s string) (*fasthttp.Request, error) {
+		pool.genReq = func(s string) (*ihttp.Request, error) {
 			return pool.buildHostRequest(s)
+		}
+
+		pool.check = func() {
+			pool.wg.Add(1)
+			_ = pool.pool.Invoke(newUnit(pkg.RandHost(), CheckSource))
+
+			if pool.failedCount > breakThreshold {
+				// 当报错次数超过上限是, 结束任务
+				pool.cancel()
+			}
 		}
 	}
 
@@ -56,8 +77,11 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 		var bl *baseline
 		resp, reqerr := pool.client.Do(pctx, req)
-		defer fasthttp.ReleaseResponse(resp)
-		defer fasthttp.ReleaseRequest(req)
+		if pool.ClientType == ihttp.FAST {
+			defer fasthttp.ReleaseResponse(resp.FastResponse)
+			defer fasthttp.ReleaseRequest(req.FastRequest)
+		}
+
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
 			bl = &baseline{UrlString: pool.BaseURL + unit.path, Err: reqerr}
@@ -65,9 +89,9 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			pool.failedCount = 0
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
-				bl = NewBaseline(req.URI(), resp)
+				bl = NewBaseline(req.URI(), req.Host(), resp)
 			} else {
-				bl = NewInvalidBaseline(req.URI(), resp)
+				bl = NewInvalidBaseline(req.URI(), req.Host(), resp)
 			}
 			bl.Err = reqerr
 		}
@@ -108,7 +132,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 type Pool struct {
 	*pkg.Config
-	client *pkg.Client
+	client *ihttp.Client
 	pool   *ants.PoolWithFunc
 	bar    *pkg.Bar
 	ctx    context.Context
@@ -122,20 +146,11 @@ type Pool struct {
 	checkPeriod int
 	errPeriod   int
 	analyzeDone bool
-	genReq      func(s string) (*fasthttp.Request, error)
+	genReq      func(s string) (*ihttp.Request, error)
+	check       func()
 	worder      *words.Worder
 	wg          sync.WaitGroup
 	initwg      sync.WaitGroup // 初始化用, 之后改成锁
-}
-
-func (p *Pool) check() {
-	p.wg.Add(1)
-	_ = p.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
-
-	if p.failedCount > breakThreshold {
-		// 当报错次数超过上限是, 结束任务
-		p.cancel()
-	}
 }
 
 func (p *Pool) Init() error {
@@ -189,12 +204,12 @@ Loop:
 	p.Close()
 }
 
-func (p *Pool) PreCompare(resp *fasthttp.Response) error {
+func (p *Pool) PreCompare(resp *ihttp.Response) error {
 	if !CheckStatusCode(resp.StatusCode()) {
 		return ErrBadStatus
 	}
 
-	if CheckRedirect != nil && !CheckRedirect(string(resp.Header.Peek("Location"))) {
+	if CheckRedirect != nil && !CheckRedirect(string(resp.GetHeader("Location"))) {
 		return ErrRedirect
 	}
 
@@ -238,15 +253,26 @@ func (p *Pool) Close() {
 	}
 }
 
-func (p *Pool) buildPathRequest(path string) (*fasthttp.Request, error) {
-	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(p.BaseURL + path)
-	return req, nil
+func (p *Pool) buildPathRequest(path string) (*ihttp.Request, error) {
+	if p.Config.ClientType == ihttp.FAST {
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI(p.BaseURL + path)
+		return &ihttp.Request{FastRequest: req}, nil
+	} else {
+		req, err := http.NewRequest("GET", p.BaseURL+path, nil)
+		return &ihttp.Request{StandardRequest: req}, err
+	}
 }
 
-func (p *Pool) buildHostRequest(host string) (*fasthttp.Request, error) {
-	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(p.BaseURL)
-	req.SetHost(host)
-	return req, nil
+func (p *Pool) buildHostRequest(host string) (*ihttp.Request, error) {
+	if p.Config.ClientType == ihttp.FAST {
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI(p.BaseURL)
+		req.SetHost(host)
+		return &ihttp.Request{FastRequest: req}, nil
+	} else {
+		req, err := http.NewRequest("GET", p.BaseURL, nil)
+		req.Host = host
+		return &ihttp.Request{StandardRequest: req}, err
+	}
 }
