@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/gosuri/uiprogress"
+	"github.com/panjf2000/ants/v2"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -27,8 +29,9 @@ type Runner struct {
 	Offset     int         `long:"offset"`
 	Limit      int         `long:"limit"`
 	Threads    int         `short:"t" long:"thread" default:"20"`
-	PoolSize   int         `short:"p" long:"pool"`
-	Pools      map[string]*Pool
+	PoolSize   int         `short:"p" long:"pool" default:"5"`
+	Pools      *ants.PoolWithFunc
+	poolwg     sync.WaitGroup
 	Deadline   int    `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
 	Debug      bool   `long:"debug"`
 	Quiet      bool   `short:"q" long:"quiet"`
@@ -108,46 +111,52 @@ func (r *Runner) Prepare() error {
 	}
 
 	r.OutputCh = make(chan *baseline, 100)
-	r.Pools = make(map[string]*Pool)
+	ctx := context.Background()
+
+	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
+		u := i.(string)
+		config := &pkg.Config{
+			BaseURL:      u,
+			Wordlist:     r.Wordlist,
+			Thread:       r.Threads,
+			Timeout:      2,
+			Headers:      r.Headers,
+			Mod:          pkg.ModMap[r.Mod],
+			DeadlineTime: r.Deadline,
+		}
+
+		if config.Mod == pkg.PathSpray {
+			config.ClientType = ihttp.FAST
+		} else if config.Mod == pkg.HostSpray {
+			config.ClientType = ihttp.STANDARD
+		}
+
+		pool, err := NewPool(ctx, config, r.OutputCh)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
+		}
+		pool.bar = pkg.NewBar(u, len(r.Wordlist), r.Progress)
+		err = pool.Init()
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
+		}
+		// todo pool 总超时时间
+		pool.Run(ctx)
+		r.poolwg.Done()
+	})
 	go r.Outputting()
 	return nil
 }
 
 func (r *Runner) Run() {
 	// todo pool 结束与并发控制
-	ctx := context.Background()
-	var wg sync.WaitGroup
 	for _, u := range r.URLList {
-		wg.Add(1)
-		u := u
-		go func() {
-			config := &pkg.Config{
-				BaseURL:      u,
-				Wordlist:     r.Wordlist,
-				Thread:       r.Threads,
-				Timeout:      2,
-				Headers:      r.Headers,
-				Mod:          pkg.ModMap[r.Mod],
-				DeadlineTime: r.Deadline,
-			}
-			pool, err := NewPool(ctx, config, r.OutputCh)
-			if err != nil {
-				logs.Log.Error(err.Error())
-				return
-			}
-			pool.bar = pkg.NewBar(u, len(r.Wordlist), r.Progress)
-			err = pool.Init()
-			if err != nil {
-				logs.Log.Error(err.Error())
-				return
-			}
-			r.Pools[u] = pool
-			// todo pool 总超时时间
-			pool.Run(ctx)
-			wg.Done()
-		}()
+		r.poolwg.Add(1)
+		r.Pools.Invoke(u)
 	}
-	wg.Wait()
+	r.poolwg.Wait()
 	for {
 		if len(r.OutputCh) == 0 {
 			close(r.OutputCh)

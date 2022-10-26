@@ -29,4 +29,5 @@ type Config struct {
 	Headers      http.Header
 	DeadlineTime int
 	EnableFuzzy  bool
+	ClientType   int
 }

@@ -56,3 +56,23 @@ func RandPath() string {
 	}
 	return *(*string)(unsafe.Pointer(&b))
 }
+
+func RandHost() string {
+	n := 8
+	b := make([]byte, n)
+	// A rand.Int63() generates 63 random bits, enough for letterIdMax letters!
+	for i, cache, remain := n-1, src.Int63(), letterIdMax; i >= 1; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdMax
+		}
+		if idx := int(cache & letterIdMask); idx < len(letters) {
+			b[i] = letters[idx]
+			i--
+		}
+		cache >>= letterIdBits
+		remain--
+	}
+
+	b[5] = byte(0x2e)
+	return *(*string)(unsafe.Pointer(&b))
+}
