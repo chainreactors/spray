@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-func main() {
+func Spray() {
 	var option internal.Option
 	parser := flags.NewParser(&option, flags.Default)
 	_, err := parser.Parse()
