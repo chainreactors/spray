@@ -93,6 +93,55 @@ func (bl *baseline) FuzzyEqual(other *baseline) bool {
 	return false
 }
 
+func (bl *baseline) Get(key string) string {
+	switch key {
+	case "url":
+		return bl.Url
+	case "host":
+		return bl.Host
+	case "title":
+		return bl.Title
+	case "redirect":
+		return bl.RedirectURL
+	case "md5":
+		if bl.Hashes != nil {
+			return bl.Hashes.BodyMd5
+		} else {
+			return ""
+		}
+	case "simhash":
+		if bl.Hashes != nil {
+			return bl.Hashes.BodySimhash
+		} else {
+			return ""
+		}
+	case "mmh3":
+		if bl.Hashes != nil {
+			return bl.Hashes.BodySimhash
+		} else {
+			return ""
+		}
+	case "stat", "status":
+		return strconv.Itoa(bl.Status)
+	case "spend":
+		return strconv.Itoa(bl.Spended)
+	//case "extract":
+	//	return bl.Extracteds
+	case "frame", "framework":
+		return bl.Frameworks.ToString()
+	default:
+		return ""
+
+	}
+}
+
+func (bl *baseline) Additional(key string) string {
+	if v := bl.Get(key); v != "" {
+		return "[" + v + "]"
+	} else {
+		return ""
+	}
+}
 func (bl *baseline) String() string {
 	var line strings.Builder
 	//line.WriteString("[+] ")
@@ -107,11 +156,8 @@ func (bl *baseline) String() string {
 		line.WriteString(bl.RedirectURL)
 		line.WriteString(" ")
 	}
-	line.WriteString(" [" + bl.Title + "]")
-	if bl.Hashes != nil {
-		line.WriteString(" [" + bl.Hashes.BodyMd5 + "]")
-	}
-
+	line.WriteString(bl.Additional("title"))
+	line.WriteString(bl.Additional("mmh3"))
 	line.WriteString(bl.Frameworks.ToString())
 	//line.WriteString(bl.Extracteds)
 	//line.WriteString("\n")
