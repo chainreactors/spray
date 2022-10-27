@@ -140,7 +140,7 @@ func (bl *baseline) Get(key string) string {
 
 func (bl *baseline) Additional(key string) string {
 	if v := bl.Get(key); v != "" {
-		return "[" + v + "] "
+		return " [" + v + "] "
 	} else {
 		return " "
 	}

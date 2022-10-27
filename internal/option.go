@@ -37,6 +37,7 @@ type Option struct {
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
+	var err error
 	r := &Runner{
 		Progress: uiprogress.New(),
 		Threads:  opt.Threads,
@@ -45,6 +46,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Timeout:  opt.Timeout,
 	}
 
+	err = pkg.LoadTemplates()
+	if err != nil {
+		return nil, err
+	}
+
+	// 一些全局变量初始化
 	if opt.Debug {
 		logs.Log.Level = logs.Debug
 	}
@@ -55,7 +62,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	// prepare url
 	var file *os.File
-	var err error
 	urlfrom := opt.URLFile
 	if opt.URL != "" {
 		r.URLList = append(r.URLList, opt.URL)

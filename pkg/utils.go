@@ -2,6 +2,9 @@ package pkg
 
 import (
 	"fmt"
+	"github.com/chainreactors/gogo/v2/pkg/fingers"
+	"github.com/chainreactors/gogo/v2/pkg/utils"
+	"github.com/chainreactors/ipcs"
 	"github.com/go-dedup/simhash"
 	"math/rand"
 	"os"
@@ -75,4 +78,52 @@ func RandHost() string {
 
 	b[5] = byte(0x2e)
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+var (
+	Md5Fingers  map[string]string = make(map[string]string)
+	Mmh3Fingers map[string]string = make(map[string]string)
+	Fingers     fingers.Fingers
+)
+
+func LoadTemplates() error {
+	var err error
+	Fingers, err = fingers.LoadFingers(LoadConfig("http"))
+	if err != nil {
+		utils.Fatal(err.Error())
+	}
+
+	for _, finger := range Fingers {
+		err := finger.Compile(ipcs.ParsePorts)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, f := range Fingers {
+		for _, rule := range f.Rules {
+			if rule.Favicon != nil {
+				for _, mmh3 := range rule.Favicon.Mmh3 {
+					Mmh3Fingers[mmh3] = f.Name
+				}
+				for _, md5 := range rule.Favicon.Md5 {
+					Md5Fingers[md5] = f.Name
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func FingerDetect(content string) Frameworks {
+	var frames Frameworks
+	//content := string(body)
+	for _, finger := range Fingers {
+		frame, _, ok := fingers.FingerMatcher(finger, content, 0, nil)
+		if ok {
+			frames = append(frames, frame)
+		}
+	}
+	return frames
 }

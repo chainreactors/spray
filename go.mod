@@ -3,15 +3,16 @@ module github.com/chainreactors/spray
 go 1.17
 
 require (
-	github.com/chainreactors/files v0.2.0 // indirect
+	github.com/chainreactors/files v0.2.0
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
-	github.com/chainreactors/gogo/v2 v2.8.7
+	github.com/chainreactors/gogo/v2 v2.8.10
 	github.com/chainreactors/logs v0.6.1
-	github.com/chainreactors/parsers v0.0.1
+	github.com/chainreactors/parsers v0.0.2
 	github.com/chainreactors/words v0.1.1
 )
 
 require (
+	github.com/chainreactors/ipcs v0.0.9
 	github.com/go-dedup/simhash v0.0.0-20170904020510-9ecaca7b509c
 	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0

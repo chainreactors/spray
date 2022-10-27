@@ -154,7 +154,7 @@ type Pool struct {
 
 func (p *Pool) Init() error {
 	p.initwg.Add(1)
-	p.pool.Invoke(newUnit(pkg.RandHost(), InitSource))
+	p.pool.Invoke(newUnit(pkg.RandPath(), InitSource))
 	p.initwg.Wait()
 	// todo 分析baseline
 	// 检测基本访问能力
