@@ -1,4 +1,4 @@
-//go:generate go run internal/templates_gen.go
+//go:generate go run pkg/templates_gen.go
 package main
 
 import "github.com/chainreactors/spray/cmd"

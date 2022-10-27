@@ -87,7 +87,7 @@ func recuLoadYamlFiles2JsonString(dir string, single bool) string {
 }
 
 func main() {
-	template := `package internal
+	template := `package pkg
 
 import (
 	"github.com/chainreactors/files"
@@ -105,7 +105,7 @@ func LoadConfig(typ string) []byte {
 	template = fmt.Sprintf(template,
 		recuLoadYamlFiles2JsonString("fingers/http", false),
 	)
-	f, err := os.OpenFile("internal/templates.go", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	f, err := os.OpenFile("pkg/templates.go", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
 		panic(err)
 	}
