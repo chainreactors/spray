@@ -75,10 +75,10 @@ func (c *Client) StandardDo(ctx context.Context, req *http.Request) (*http.Respo
 func (c *Client) Do(ctx context.Context, req *Request) (*Response, error) {
 	if c.fastClient != nil {
 		resp, err := c.FastDo(ctx, req.FastRequest)
-		return &Response{FastResponse: resp}, err
+		return &Response{FastResponse: resp, ClientType: FAST}, err
 	} else if c.standardClient != nil {
 		resp, err := c.StandardDo(ctx, req.StandardRequest)
-		return &Response{StandardResponse: resp}, err
+		return &Response{StandardResponse: resp, ClientType: STANDARD}, err
 	} else {
 		return nil, fmt.Errorf("not found client")
 	}

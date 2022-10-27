@@ -8,6 +8,7 @@ import (
 type Request struct {
 	StandardRequest *http.Request
 	FastRequest     *fasthttp.Request
+	ClientType      int
 }
 
 func (r *Request) URI() string {

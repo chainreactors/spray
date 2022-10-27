@@ -25,6 +25,7 @@ type sourceType int
 
 const (
 	CheckSource sourceType = iota + 1
+	InitSource
 	WordSource
 	WafSource
 )

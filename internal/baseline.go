@@ -12,9 +12,12 @@ import (
 func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
 	bl := &baseline{
 		Url:     u,
-		Host:    host,
 		Status:  resp.StatusCode(),
 		IsValid: true,
+	}
+
+	if resp.ClientType == ihttp.STANDARD {
+		bl.Host = host
 	}
 
 	bl.Body = resp.Body()
@@ -29,9 +32,12 @@ func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
 func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 	bl := &baseline{
 		Url:     u,
-		Host:    host,
 		Status:  resp.StatusCode(),
 		IsValid: false,
+	}
+
+	if resp.ClientType == ihttp.STANDARD {
+		bl.Host = host
 	}
 
 	bl.RedirectURL = string(resp.GetHeader("Location"))
@@ -79,8 +85,6 @@ func (bl *baseline) Equal(other *baseline) bool {
 	if bl.BodyLength == other.BodyLength {
 		// 如果body length相等且md5相等, 则说明是同一个页面
 		if bl.BodyMd5 == parsers.Md5Hash(other.Raw) {
-			return true
-		} else {
 			return true
 		}
 	}
@@ -131,22 +135,24 @@ func (bl *baseline) Get(key string) string {
 		return bl.Frameworks.ToString()
 	default:
 		return ""
-
 	}
 }
 
 func (bl *baseline) Additional(key string) string {
 	if v := bl.Get(key); v != "" {
-		return "[" + v + "]"
+		return "[" + v + "] "
 	} else {
-		return ""
+		return " "
 	}
 }
+
 func (bl *baseline) String() string {
 	var line strings.Builder
 	//line.WriteString("[+] ")
 	line.WriteString(bl.Url)
-	line.WriteString(" (" + bl.Host + ")")
+	if bl.Host != "" {
+		line.WriteString(" (" + bl.Host + ")")
+	}
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.Status))
 	line.WriteString(" - ")
