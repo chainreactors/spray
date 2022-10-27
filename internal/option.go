@@ -12,7 +12,8 @@ import (
 type Option struct {
 	URL               string   `short:"u" long:"url"`
 	URLFile           string   `short:"l" long:"list"`
-	WordLists         []string `short:"w" long:"word"`
+	Dictionaries      []string `short:"d" long:"dict"`
+	Word              string   `short:"w" long:"word"`
 	Extension         string   `short:"e" long:"extensions"`
 	ExcludeExtensions bool     `long:"exclude-extensions"`
 	RemoveExtensions  bool     `long:"remove-extensions"`
@@ -82,18 +83,23 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	logs.Log.Importantf("load %d urls from %s", len(r.URLList), urlfrom)
 
 	// prepare word
-	words := make([][]string, len(opt.WordLists))
-	for i, f := range opt.WordLists {
-		words[i], err = loadFileToSlice(f)
+	dicts := make([][]string, len(opt.Dictionaries))
+	for i, f := range opt.Dictionaries {
+		dicts[i], err = loadFileToSlice(f)
 		if err != nil {
 			return nil, err
 		}
 		logs.Log.Importantf("load %d word from %s", len(r.Wordlist), f)
 	}
 
-	for _, w := range words {
-		r.Wordlist = append(r.Wordlist, w...)
+	if opt.Word == "" {
+		for _, w := range dicts {
+			r.Wordlist = append(r.Wordlist, w...)
+		}
+	} else {
+
 	}
+
 	// todo mask
 
 	// prepare header
