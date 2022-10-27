@@ -11,11 +11,10 @@ import (
 
 func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
 	bl := &baseline{
-		//Url:       u,
-		UrlString: u,
-		Host:      host,
-		Status:    resp.StatusCode(),
-		IsValid:   true,
+		Url:     u,
+		Host:    host,
+		Status:  resp.StatusCode(),
+		IsValid: true,
 	}
 
 	bl.Body = resp.Body()
@@ -29,11 +28,10 @@ func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
 
 func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 	bl := &baseline{
-		//Url:       u,
-		UrlString: u,
-		Host:      host,
-		Status:    resp.StatusCode(),
-		IsValid:   false,
+		Url:     u,
+		Host:    host,
+		Status:  resp.StatusCode(),
+		IsValid: false,
 	}
 
 	bl.RedirectURL = string(resp.GetHeader("Location"))
@@ -42,7 +40,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 }
 
 type baseline struct {
-	UrlString    string         `json:"url"`
+	Url          string         `json:"url"`
 	Host         string         `json:"host"`
 	Body         []byte         `json:"-"`
 	BodyLength   int            `json:"body_length"`
@@ -98,7 +96,7 @@ func (bl *baseline) FuzzyEqual(other *baseline) bool {
 func (bl *baseline) String() string {
 	var line strings.Builder
 	//line.WriteString("[+] ")
-	line.WriteString(bl.UrlString)
+	line.WriteString(bl.Url)
 	line.WriteString(" (" + bl.Host + ")")
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.Status))

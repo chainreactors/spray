@@ -84,7 +84,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
-			bl = &baseline{UrlString: pool.BaseURL + unit.path, Err: reqerr}
+			bl = &baseline{Url: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
 			pool.failedCount = 0
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
@@ -192,8 +192,6 @@ Loop:
 			}
 			p.wg.Add(1)
 			_ = p.pool.Invoke(newUnit(u, WordSource))
-		case <-time.NewTimer(time.Duration(p.DeadlineTime) * time.Second).C:
-			break Loop
 		case <-ctx.Done():
 			break Loop
 		case <-p.ctx.Done():

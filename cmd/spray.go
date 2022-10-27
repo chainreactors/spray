@@ -8,13 +8,19 @@ import (
 )
 
 func main() {
-	var runner internal.Runner
-	parser := flags.NewParser(&runner, flags.Default)
+	var option internal.Option
+	parser := flags.NewParser(&option, flags.Default)
 	_, err := parser.Parse()
 	if err != nil {
 		if err.(*flags.Error).Type != flags.ErrHelp {
 			fmt.Println(err.Error())
 		}
+		return
+	}
+
+	runner, err := option.PrepareRunner()
+	if err != nil {
+		logs.Log.Errorf(err.Error())
 		return
 	}
 

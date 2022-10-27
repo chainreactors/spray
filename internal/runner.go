@@ -2,16 +2,12 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
-	"io/ioutil"
 	"net/http"
-	"os"
-	"strings"
 	"sync"
 )
 
@@ -19,88 +15,21 @@ var BlackStatus = []int{400, 404, 410}
 var FuzzyStatus = []int{403, 500, 501, 502, 503}
 
 type Runner struct {
-	URL        string `short:"u" long:"url"`
-	URLFile    string `short:"l" long:"list"`
-	URLList    []string
-	WordFile   string `short:"w" long:"work"`
-	Wordlist   []string
-	Headers    http.Header `long:"header"`
-	OutputFile string      `short:"f"`
-	Offset     int         `long:"offset"`
-	Limit      int         `long:"limit"`
-	Threads    int         `short:"t" long:"thread" default:"20"`
-	PoolSize   int         `short:"p" long:"pool" default:"5"`
-	Pools      *ants.PoolWithFunc
-	poolwg     sync.WaitGroup
-	Deadline   int    `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
-	Debug      bool   `long:"debug"`
-	Quiet      bool   `short:"q" long:"quiet"`
-	Mod        string `short:"m" long:"mod" default:"path"`
-	OutputCh   chan *baseline
-	Progress   *uiprogress.Progress
+	URLList  []string
+	Wordlist []string
+	Headers  http.Header
+	Threads  int
+	PoolSize int
+	Pools    *ants.PoolWithFunc
+	poolwg   sync.WaitGroup
+	Timeout  int
+	Mod      string
+	OutputCh chan *baseline
+	Progress *uiprogress.Progress
 }
 
 func (r *Runner) Prepare() error {
-	r.Progress = uiprogress.New()
-
-	if r.Debug {
-		logs.Log.Level = logs.Debug
-	}
-	if !r.Quiet {
-		r.Progress.Start()
-		logs.Log.Writer = r.Progress.Bypass()
-	}
-
-	var file *os.File
 	var err error
-	urlfrom := r.URLFile
-	if r.URL != "" {
-		r.URLList = append(r.URLList, r.URL)
-		urlfrom = "cmd"
-	} else if r.URLFile != "" {
-		file, err = os.Open(r.URLFile)
-		if err != nil {
-			return err
-		}
-	} else if pkg.HasStdin() {
-		file = os.Stdin
-		urlfrom = "stdin"
-	}
-
-	if file != nil {
-		content, err := ioutil.ReadAll(file)
-		if err != nil {
-			return err
-		}
-		r.URLList = strings.Split(string(content), "\n")
-	}
-
-	// todo url formatter
-	for i, u := range r.URLList {
-		r.URLList[i] = strings.TrimSpace(u)
-	}
-	logs.Log.Importantf("load %d urls from %s", len(r.URLList), urlfrom)
-
-	if r.WordFile != "" {
-		content, err := ioutil.ReadFile(r.WordFile)
-		if err != nil {
-			return err
-		}
-		r.Wordlist = strings.Split(string(content), "\n")
-	} else {
-		return fmt.Errorf("not special wordlist")
-	}
-
-	if r.Wordlist != nil && len(r.Wordlist) > 0 {
-		// todo  suffix/prefix/trim/generator
-		for i, word := range r.Wordlist {
-			r.Wordlist[i] = strings.TrimSpace(word)
-		}
-		logs.Log.Importantf("load %d word from %s", len(r.Wordlist), r.WordFile)
-	} else {
-		return fmt.Errorf("no wordlist")
-	}
-
 	CheckStatusCode = func(status int) bool {
 		for _, black := range BlackStatus {
 			if black == status {
@@ -116,13 +45,12 @@ func (r *Runner) Prepare() error {
 	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 		u := i.(string)
 		config := &pkg.Config{
-			BaseURL:      u,
-			Wordlist:     r.Wordlist,
-			Thread:       r.Threads,
-			Timeout:      2,
-			Headers:      r.Headers,
-			Mod:          pkg.ModMap[r.Mod],
-			DeadlineTime: r.Deadline,
+			BaseURL:  u,
+			Wordlist: r.Wordlist,
+			Thread:   r.Threads,
+			Timeout:  r.Timeout,
+			Headers:  r.Headers,
+			Mod:      pkg.ModMap[r.Mod],
 		}
 
 		if config.Mod == pkg.PathSpray {
@@ -146,6 +74,10 @@ func (r *Runner) Prepare() error {
 		pool.Run(ctx)
 		r.poolwg.Done()
 	})
+
+	if err != nil {
+		return err
+	}
 	go r.Outputting()
 	return nil
 }
