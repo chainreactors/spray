@@ -3,6 +3,7 @@ package internal
 import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/words/mask"
 	"github.com/gosuri/uiprogress"
 	"io/ioutil"
 	"os"
@@ -89,7 +90,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
-		logs.Log.Importantf("load %d word from %s", len(r.Wordlist), f)
+		logs.Log.Importantf("load %d word from %s", len(dicts[i]), f)
 	}
 
 	if opt.Word == "" {
@@ -97,10 +98,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			r.Wordlist = append(r.Wordlist, w...)
 		}
 	} else {
-
+		mask.CustomWords = dicts
+		r.Wordlist, err = mask.Run(opt.Word)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	// todo mask
 
 	// prepare header
 	for _, h := range opt.Headers {
