@@ -86,25 +86,24 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			pool.failedCount++
 			bl = &baseline{Url: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
-			pool.failedCount = 0
+			pool.failedCount = 0 // 如果后续访问正常, 重置错误次数
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URI(), req.Host(), resp)
 			} else {
 				bl = NewInvalidBaseline(req.URI(), req.Host(), resp)
 			}
-			bl.Err = reqerr
 		}
 
 		switch unit.source {
+		case InitSource:
+			pool.base = bl
+			pool.initwg.Done()
+			return
 		case CheckSource:
 			logs.Log.Debugf("check: " + bl.String())
-			if pool.base == nil {
-				//初次check覆盖baseline
-				pool.base = bl
-				pool.initwg.Done()
-			} else if bl.Err != nil {
-				logs.Log.Warn("maybe ip banned by waf")
+			if bl.Err != nil {
+				logs.Log.Warnf("maybe ip has banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err.Error())
 			} else if !pool.base.Equal(bl) {
 				logs.Log.Warn("maybe trigger risk control")
 			}
@@ -155,12 +154,12 @@ type Pool struct {
 
 func (p *Pool) Init() error {
 	p.initwg.Add(1)
-	p.check()
+	p.pool.Invoke(newUnit(pkg.RandHost(), InitSource))
 	p.initwg.Wait()
 	// todo 分析baseline
 	// 检测基本访问能力
 
-	if p.base != nil && p.base.Err != nil {
+	if p.base.Err != nil {
 		p.cancel()
 		return p.base.Err
 	}
@@ -255,10 +254,10 @@ func (p *Pool) buildPathRequest(path string) (*ihttp.Request, error) {
 	if p.Config.ClientType == ihttp.FAST {
 		req := fasthttp.AcquireRequest()
 		req.SetRequestURI(p.BaseURL + path)
-		return &ihttp.Request{FastRequest: req}, nil
+		return &ihttp.Request{FastRequest: req, ClientType: p.ClientType}, nil
 	} else {
 		req, err := http.NewRequest("GET", p.BaseURL+path, nil)
-		return &ihttp.Request{StandardRequest: req}, err
+		return &ihttp.Request{StandardRequest: req, ClientType: p.ClientType}, err
 	}
 }
 
@@ -267,10 +266,10 @@ func (p *Pool) buildHostRequest(host string) (*ihttp.Request, error) {
 		req := fasthttp.AcquireRequest()
 		req.SetRequestURI(p.BaseURL)
 		req.SetHost(host)
-		return &ihttp.Request{FastRequest: req}, nil
+		return &ihttp.Request{FastRequest: req, ClientType: p.ClientType}, nil
 	} else {
 		req, err := http.NewRequest("GET", p.BaseURL, nil)
 		req.Host = host
-		return &ihttp.Request{StandardRequest: req}, err
+		return &ihttp.Request{StandardRequest: req, ClientType: p.ClientType}, err
 	}
 }

@@ -11,6 +11,7 @@ import (
 type Response struct {
 	StandardResponse *http.Response
 	FastResponse     *fasthttp.Response
+	ClientType       int
 }
 
 func (r *Response) StatusCode() int {
