@@ -5,6 +5,7 @@ import (
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -15,7 +16,10 @@ func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
 		Status:  resp.StatusCode(),
 		IsValid: true,
 	}
-
+	uu, err := url.Parse(u)
+	if err == nil {
+		bl.Path = uu.Path
+	}
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
 	}
@@ -36,6 +40,11 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 		IsValid: false,
 	}
 
+	uu, err := url.Parse(u)
+	if err == nil {
+		bl.Path = uu.Path
+	}
+
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
 	}
@@ -47,6 +56,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 
 type baseline struct {
 	Url          string         `json:"url"`
+	Path         string         `json:"path"`
 	Host         string         `json:"host"`
 	Body         []byte         `json:"-"`
 	BodyLength   int            `json:"body_length"`
@@ -75,21 +85,30 @@ func (bl *baseline) Collect() {
 	bl.Frameworks = pkg.FingerDetect(string(bl.Raw))
 }
 
-// Equal if this equal other return true
-func (bl *baseline) Equal(other *baseline) bool {
+// Compare if this equal other return true
+func (bl *baseline) Compare(other *baseline) int {
 	if other.RedirectURL != "" && bl.RedirectURL == other.RedirectURL {
-		// 如果重定向url不为空, 且与bl不相同, 则说明不是同一个页面
-		return true
+		// 如果重定向url不为空, 且与base不相同, 则说明不是同一个页面
+		return 1
 	}
 
 	if bl.BodyLength == other.BodyLength {
 		// 如果body length相等且md5相等, 则说明是同一个页面
-		if bl.BodyMd5 == parsers.Md5Hash(other.Raw) {
-			return true
+		if bl.BodyMd5 == parsers.Md5Hash(other.Body) {
+			// 如果length相等, md5也相等, 则判断为全同
+			return 1
+		} else {
+			// 如果长度相等, 但是md5不相等, 可能是存在csrftoken之类的随机值
+			return 0
+		}
+	} else {
+		if strings.Contains(string(other.Body), other.Path) {
+			return 0
+		} else {
+			return -1
 		}
 	}
-
-	return false
+	return -1
 }
 
 func (bl *baseline) FuzzyEqual(other *baseline) bool {

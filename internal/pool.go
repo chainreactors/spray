@@ -87,7 +87,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			bl = &baseline{Url: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
 			pool.failedCount = 0 // 如果后续访问正常, 重置错误次数
-			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource {
+			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource || unit.source == InitSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URI(), req.Host(), resp)
 			} else {
@@ -99,12 +99,13 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		case InitSource:
 			pool.base = bl
 			pool.initwg.Done()
+			logs.Log.Important("[init] " + bl.String())
 			return
 		case CheckSource:
-			logs.Log.Debugf("check: " + bl.String())
+			logs.Log.Debugf("[check] " + bl.String())
 			if bl.Err != nil {
 				logs.Log.Warnf("maybe ip has banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err.Error())
-			} else if !pool.base.Equal(bl) {
+			} else if pool.base.Compare(bl) < 1 {
 				logs.Log.Warn("maybe trigger risk control")
 			}
 
@@ -220,7 +221,7 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 
 func (p *Pool) comparing() {
 	for bl := range p.tempCh {
-		if p.base.Equal(bl) {
+		if p.base.Compare(bl) == 1 {
 			// 如果是同一个包则设置为无效包
 			bl.IsValid = false
 			p.outputCh <- bl
