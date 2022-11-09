@@ -8,33 +8,36 @@ import (
 	"github.com/gosuri/uiprogress"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 )
 
 type Option struct {
-	URL               string   `short:"u" long:"url"`
-	URLFile           string   `short:"l" long:"list"`
-	Dictionaries      []string `short:"d" long:"dict"`
-	Word              string   `short:"w" long:"word"`
-	Extension         string   `short:"e" long:"extensions"`
-	ExcludeExtensions string   `long:"exclude-extensions"`
-	RemoveExtensions  string   `long:"remove-extensions"`
-	Uppercase         bool     `short:"U" long:"uppercase"`
-	Lowercase         bool     `short:"L" long:"lowercase"`
-
-	Deadline    int      `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
-	Timeout     int      `long:"timeout" default:"2"`
-	Headers     []string `long:"header"`
-	OutputFile  string   `short:"f"`
-	OutputProbe string   `long:"probe"`
-	Offset      int      `long:"offset"`
-	Limit       int      `long:"limit"`
-	Threads     int      `short:"t" long:"thread" default:"20"`
-	PoolSize    int      `short:"p" long:"pool" default:"5"`
-	Debug       bool     `long:"debug"`
-	Quiet       bool     `short:"q" long:"quiet"`
-	Mod         string   `short:"m" long:"mod" default:"path"`
-	Client      string   `short:"c" long:"client" default:"auto"`
+	URL               string            `short:"u" long:"url"`
+	URLFile           string            `short:"l" long:"list"`
+	Dictionaries      []string          `short:"d" long:"dict"`
+	Word              string            `short:"w" long:"word"`
+	Extensions        string            `short:"e" long:"extension"`
+	ExcludeExtensions string            `long:"exclude-extension"`
+	RemoveExtensions  string            `long:"remove-extension"`
+	Uppercase         bool              `short:"U" long:"uppercase"`
+	Lowercase         bool              `short:"L" long:"lowercase"`
+	Prefixes          []string          `long:"prefix"`
+	Suffixes          []string          `long:"suffix"`
+	Replaces          map[string]string `long:"replace"`
+	Deadline          int               `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
+	Timeout           int               `long:"timeout" default:"2"`
+	Headers           []string          `long:"header"`
+	OutputFile        string            `short:"f"`
+	OutputProbe       string            `long:"probe"`
+	Offset            int               `long:"offset"`
+	Limit             int               `long:"limit"`
+	Threads           int               `short:"t" long:"thread" default:"20"`
+	PoolSize          int               `short:"p" long:"pool" default:"5"`
+	Debug             bool              `long:"debug"`
+	Quiet             bool              `short:"q" long:"quiet"`
+	Mod               string            `short:"m" long:"mod" default:"path"`
+	Client            string            `short:"c" long:"client" default:"auto"`
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
@@ -104,25 +107,32 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Importantf("load %d word from %s", len(dicts[i]), f)
 	}
 
-	var exts []string
-	if opt.Extension != "" {
-		exts = strings.Split(opt.Extension, ",")
+	if opt.Word == "" {
+		opt.Word = "{?"
+		for i, _ := range dicts {
+			opt.Word += strconv.Itoa(i)
+		}
+		opt.Word = "}"
 	}
 
-	if opt.Word == "" {
-		for _, w := range dicts {
-			r.Wordlist = append(r.Wordlist, w...)
-		}
-	} else {
-		mask.CustomWords = dicts
-		if len(exts) > 0 {
-			mask.CustomWords = append(mask.CustomWords, exts)
-		}
-		opt.Word += fmt.Sprintf("{?%d}", len(exts)-1)
-		r.Wordlist, err = mask.Run(opt.Word)
-		if err != nil {
-			return nil, err
-		}
+	if opt.Suffixes == nil {
+		dicts = append(dicts, opt.Suffixes)
+		opt.Word += fmt.Sprintf("{?%d}", len(dicts)-1)
+	}
+	if opt.Prefixes != nil {
+		dicts = append(dicts, opt.Prefixes)
+		opt.Word = fmt.Sprintf("{?%d}", len(dicts)-1) + opt.Word
+	}
+
+	if opt.Extensions != "" {
+		dicts = append(dicts, strings.Split(opt.Extensions, ","))
+		opt.Word += fmt.Sprintf("{?%d}", len(dicts)-1)
+	}
+
+	mask.CustomWords = dicts
+	r.Wordlist, err = mask.Run(opt.Word)
+	if err != nil {
+		return nil, err
 	}
 
 	if opt.Uppercase {
@@ -131,15 +141,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.Lowercase {
 		r.Fns = append(r.Fns, strings.ToLower)
 	}
-	if opt.ExcludeExtensions != "" {
-		exexts := strings.Split(opt.ExcludeExtensions, ",")
-		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); SliceContains(exexts, ext) {
-				return ""
-			}
-			return s
-		})
-	}
+
 	if opt.RemoveExtensions != "" {
 		rexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
@@ -149,6 +151,26 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			return s
 		})
 	}
+
+	if opt.ExcludeExtensions != "" {
+		exexts := strings.Split(opt.ExcludeExtensions, ",")
+		r.Fns = append(r.Fns, func(s string) string {
+			if ext := parseExtension(s); SliceContains(exexts, ext) {
+				return ""
+			}
+			return s
+		})
+	}
+
+	if opt.Replaces != nil {
+		r.Fns = append(r.Fns, func(s string) string {
+			for k, v := range opt.Replaces {
+				s = strings.Replace(s, k, v, -1)
+			}
+			return s
+		})
+	}
+
 	// prepare header
 	for _, h := range opt.Headers {
 		i := strings.Index(h, ":")
