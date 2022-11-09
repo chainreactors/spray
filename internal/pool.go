@@ -193,6 +193,9 @@ Loop:
 			for _, fn := range p.Fns {
 				u = fn(u)
 			}
+			if u == "" {
+				continue
+			}
 			p.wg.Add(1)
 			_ = p.pool.Invoke(newUnit(u, WordSource))
 		case <-ctx.Done():
