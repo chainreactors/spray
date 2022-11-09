@@ -29,4 +29,5 @@ type Config struct {
 	Headers     http.Header
 	EnableFuzzy bool
 	ClientType  int
+	Fns         []func(string) string
 }

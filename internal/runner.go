@@ -18,6 +18,7 @@ type Runner struct {
 	URLList  []string
 	Wordlist []string
 	Headers  http.Header
+	Fns      []func(string) string
 	Threads  int
 	PoolSize int
 	Pools    *ants.PoolWithFunc
@@ -51,6 +52,7 @@ func (r *Runner) Prepare() error {
 			Timeout:  r.Timeout,
 			Headers:  r.Headers,
 			Mod:      pkg.ModMap[r.Mod],
+			Fns:      r.Fns,
 		}
 
 		if config.Mod == pkg.PathSpray {
