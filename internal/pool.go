@@ -116,7 +116,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 			if pool.reqCount%pool.checkPeriod == 0 {
 				go pool.check()
-			} else if pool.reqCount%pool.errPeriod == 0 {
+			} else if pool.failedCount%pool.errPeriod == 0 {
 				go pool.check()
 			}
 		}
