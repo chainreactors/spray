@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
@@ -16,8 +17,8 @@ type Option struct {
 	Dictionaries      []string `short:"d" long:"dict"`
 	Word              string   `short:"w" long:"word"`
 	Extension         string   `short:"e" long:"extensions"`
-	ExcludeExtensions bool     `long:"exclude-extensions"`
-	RemoveExtensions  bool     `long:"remove-extensions"`
+	ExcludeExtensions string   `long:"exclude-extensions"`
+	RemoveExtensions  string   `long:"remove-extensions"`
 	Uppercase         bool     `short:"U" long:"uppercase"`
 	Lowercase         bool     `short:"L" long:"lowercase"`
 
@@ -37,6 +38,10 @@ type Option struct {
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
+	ok := opt.Validate()
+	if !ok {
+		return nil, fmt.Errorf("validate failed")
+	}
 	var err error
 	r := &Runner{
 		Progress: uiprogress.New(),
@@ -99,18 +104,51 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Importantf("load %d word from %s", len(dicts[i]), f)
 	}
 
+	var exts []string
+	if opt.Extension != "" {
+		exts = strings.Split(opt.Extension, ",")
+	}
+
 	if opt.Word == "" {
 		for _, w := range dicts {
 			r.Wordlist = append(r.Wordlist, w...)
 		}
 	} else {
 		mask.CustomWords = dicts
+		if len(exts) > 0 {
+			mask.CustomWords = append(mask.CustomWords, exts)
+		}
+		opt.Word += fmt.Sprintf("{?%d}", len(exts)-1)
 		r.Wordlist, err = mask.Run(opt.Word)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	if opt.Uppercase {
+		r.Fns = append(r.Fns, strings.ToUpper)
+	}
+	if opt.Lowercase {
+		r.Fns = append(r.Fns, strings.ToLower)
+	}
+	if opt.ExcludeExtensions != "" {
+		exexts := strings.Split(opt.ExcludeExtensions, ",")
+		r.Fns = append(r.Fns, func(s string) string {
+			if ext := parseExtension(s); SliceContains(exexts, ext) {
+				return ""
+			}
+			return s
+		})
+	}
+	if opt.RemoveExtensions != "" {
+		rexts := strings.Split(opt.ExcludeExtensions, ",")
+		r.Fns = append(r.Fns, func(s string) string {
+			if ext := parseExtension(s); SliceContains(rexts, ext) {
+				return strings.TrimSuffix(s, "."+ext)
+			}
+			return s
+		})
+	}
 	// prepare header
 	for _, h := range opt.Headers {
 		i := strings.Index(h, ":")
@@ -122,6 +160,14 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	return r, nil
+}
+
+func (opt *Option) Validate() bool {
+	if opt.Uppercase && opt.Lowercase {
+		logs.Log.Error("Cannot set -U and -L at the same time")
+		return false
+	}
+	return true
 }
 
 func loadFileToSlice(filename string) ([]string, error) {
@@ -139,4 +185,20 @@ func loadFileToSlice(filename string) ([]string, error) {
 	}
 
 	return ss, nil
+}
+
+func parseExtension(s string) string {
+	if i := strings.Index(s, "."); i != -1 {
+		return s[i+1:]
+	}
+	return ""
+}
+
+func SliceContains(s []string, e string) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
 }
