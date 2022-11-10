@@ -113,15 +113,22 @@ Loop:
 }
 
 func (r *Runner) Outputting() {
+	var outFunc func(baseline2 *baseline)
+	if len(r.Probes) > 0 {
+		outFunc = func(bl *baseline) {
+			logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
+		}
+	} else {
+		outFunc = func(bl *baseline) {
+			logs.Log.Console("[+] " + bl.String() + "\n")
+		}
+	}
+
 	for {
 		select {
 		case bl := <-r.OutputCh:
 			if bl.IsValid {
-				if len(r.Probes) > 0 {
-					logs.Log.Console("[+]" + bl.Format(r.Probes) + "\n")
-				} else {
-					logs.Log.Console("[+] " + bl.String() + "\n")
-				}
+				outFunc(bl)
 			} else {
 				logs.Log.Debug(bl.String())
 			}

@@ -19,7 +19,7 @@ var (
 	CheckWaf        func([]byte) bool
 )
 
-var breakThreshold int = 10
+var breakThreshold int = 20
 
 func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
@@ -35,6 +35,8 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		initwg:      sync.WaitGroup{},
 		checkPeriod: 100,
 		errPeriod:   10,
+		reqCount:    1,
+		failedCount: 1,
 	}
 
 	switch config.Mod {
@@ -87,6 +89,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
 			bl = &baseline{Url: pool.BaseURL + unit.path, Err: reqerr}
+			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource || unit.source == InitSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
@@ -271,8 +274,8 @@ func (p *Pool) ResetFailed() {
 func (p *Pool) Recover() {
 	logs.Log.Errorf("failed request exceeds the threshold , task will exit. Breakpoint %d", p.reqCount)
 	logs.Log.Error("collecting failed check")
-	for _, bl := range p.failedBaselines {
-		logs.Log.Error(bl.String())
+	for i, bl := range p.failedBaselines {
+		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
 	}
 }
 
