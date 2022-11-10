@@ -47,10 +47,11 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Headers []string `long:"header"`
-	Method  string   `long:"method"`
-	Cookie  string   `long:"cookie"`
-	Force   bool     `long:"force"`
+	Headers         []string `long:"header"`
+	Method          string   `long:"method"`
+	Cookie          string   `long:"cookie"`
+	Force           bool     `long:"force"`
+	SimhashDistance int      `long:"distance"`
 }
 
 type MiscOptions struct {
@@ -97,6 +98,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if !opt.Quiet {
 		r.Progress.Start()
 		logs.Log.Writer = r.Progress.Bypass()
+	}
+
+	if opt.SimhashDistance != 0 {
+		pkg.Distance = uint8(opt.SimhashDistance)
 	}
 
 	if opt.Force {

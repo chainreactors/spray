@@ -116,9 +116,11 @@ func (bl *Baseline) Compare(other *Baseline) int {
 	return -1
 }
 
+var Distance uint8
+
 func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
 	// todo 模糊匹配
-	if parsers.SimhashCompare(other.BodySimhash, bl.BodySimhash) < 3 {
+	if parsers.SimhashCompare(other.BodySimhash, bl.BodySimhash) < Distance {
 		return true
 	}
 	return false
