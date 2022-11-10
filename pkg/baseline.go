@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -90,14 +91,17 @@ func (bl *Baseline) Collect() {
 	bl.Frameworks = FingerDetect(string(bl.Raw))
 }
 
-// Compare if this equal other return true
+// Compare
+// if totally equal return 1
+// if maybe equal return 0
+// not equal return -1
 func (bl *Baseline) Compare(other *Baseline) int {
 	if other.RedirectURL != "" && bl.RedirectURL == other.RedirectURL {
 		// 如果重定向url不为空, 且与base不相同, 则说明不是同一个页面
 		return 1
 	}
 
-	if bl.BodyLength == other.BodyLength {
+	if math.Abs(float64(bl.BodyLength-other.BodyLength)) < 16 {
 		// 如果body length相等且md5相等, 则说明是同一个页面
 		if bl.BodyMd5 == parsers.Md5Hash(other.Body) {
 			// 如果length相等, md5也相等, 则判断为全同
@@ -108,6 +112,7 @@ func (bl *Baseline) Compare(other *Baseline) int {
 		}
 	} else {
 		if strings.Contains(string(other.Body), other.Path) {
+			// 如果包含路径本身, 可能是路径自身的随机值影响结果
 			return 0
 		} else {
 			return -1
