@@ -28,6 +28,8 @@ type Runner struct {
 	Probes   []string
 	OutputCh chan *baseline
 	Progress *uiprogress.Progress
+	Offset   int
+	Limit    int
 }
 
 func (r *Runner) Prepare() error {
@@ -74,7 +76,7 @@ func (r *Runner) Prepare() error {
 			return
 		}
 		// todo pool 总超时时间
-		pool.Run(ctx)
+		pool.Run(ctx, r.Offset, r.Limit)
 		r.poolwg.Done()
 	})
 
