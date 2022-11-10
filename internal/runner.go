@@ -25,6 +25,7 @@ type Runner struct {
 	poolwg   sync.WaitGroup
 	Timeout  int
 	Mod      string
+	Probes   []string
 	OutputCh chan *baseline
 	Progress *uiprogress.Progress
 }
@@ -104,7 +105,11 @@ func (r *Runner) Outputting() {
 		select {
 		case bl := <-r.OutputCh:
 			if bl.IsValid {
-				logs.Log.Console("[+] " + bl.String() + "\n")
+				if len(r.Probes) > 0 {
+					logs.Log.Console("[+]" + bl.Format(r.Probes) + "\n")
+				} else {
+					logs.Log.Console("[+] " + bl.String() + "\n")
+				}
 			} else {
 				logs.Log.Debug(bl.String())
 			}

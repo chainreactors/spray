@@ -165,6 +165,27 @@ func (bl *baseline) Additional(key string) string {
 	}
 }
 
+func (bl *baseline) Format(probes []string) string {
+	var line strings.Builder
+	line.WriteString(bl.Url)
+	if bl.Host != "" {
+		line.WriteString(" (" + bl.Host + ")")
+	}
+
+	if bl.Err != nil {
+		line.WriteString("err: ")
+		line.WriteString(bl.Err.Error())
+		return line.String()
+	}
+
+	for _, p := range probes {
+		line.WriteString(" ")
+		line.WriteString(bl.Additional(p))
+	}
+
+	return line.String()
+}
+
 func (bl *baseline) String() string {
 	var line strings.Builder
 	//line.WriteString("[+] ")
@@ -172,6 +193,13 @@ func (bl *baseline) String() string {
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
 	}
+
+	if bl.Err != nil {
+		line.WriteString("err: ")
+		line.WriteString(bl.Err.Error())
+		return line.String()
+	}
+
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.Status))
 	line.WriteString(" - ")
@@ -182,14 +210,8 @@ func (bl *baseline) String() string {
 		line.WriteString(" ")
 	}
 	line.WriteString(bl.Additional("title"))
-	line.WriteString(bl.Additional("mmh3"))
 	line.WriteString(bl.Frameworks.ToString())
-	//line.WriteString(bl.Extracteds)
-	//line.WriteString("\n")
-	if bl.Err != nil {
-		line.WriteString("err: ")
-		line.WriteString(bl.Err.Error())
-	}
+
 	return line.String()
 }
 
