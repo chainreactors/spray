@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
 	"github.com/jessevdk/go-flags"
+	"time"
 )
 
 func Spray() {
@@ -24,10 +26,13 @@ func Spray() {
 		return
 	}
 
-	err = runner.Prepare()
+	ctx, _ := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)
+
+	err = runner.Prepare(ctx)
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return
 	}
-	runner.Run()
+
+	runner.Run(ctx)
 }
