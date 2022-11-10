@@ -298,11 +298,7 @@ Loop:
 }
 
 func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
-	if !IntsContains(FuzzyStatus, bl.Status) {
-		return
-	}
-
-	if _, ok := p.baselines[bl.Status]; !ok {
+	if _, ok := p.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
 		p.baselines[bl.Status] = bl
 		logs.Log.Importantf("[baseline.%dinit] %s", bl.Status, bl.String())
