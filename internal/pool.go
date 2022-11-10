@@ -267,11 +267,14 @@ Loop:
 			p.outputCh <- bl
 			continue
 		}
-
-		if base, ok := p.baselines[bl.Status]; ok && base.Compare(bl) == 1 {
+		var status int
+		base, ok := p.baselines[bl.Status]
+		if ok {
 			// 挑选对应状态码的baseline进行compare
-			p.PutToInvalid(bl, "compare failed")
-			continue
+			if status = base.Compare(bl); status == 1 {
+				p.PutToInvalid(bl, "compare failed")
+				continue
+			}
 		}
 
 		bl.Collect()
@@ -282,7 +285,7 @@ Loop:
 			}
 		}
 
-		if base, ok := p.baselines[bl.Status]; ok && base.FuzzyCompare(bl) {
+		if status == 0 && ok && base.FuzzyCompare(bl) {
 			p.PutToInvalid(bl, "fuzzy compare failed")
 			p.PutToFuzzy(bl)
 			continue
