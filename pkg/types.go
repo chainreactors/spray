@@ -2,10 +2,11 @@ package pkg
 
 import (
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
+	"github.com/chainreactors/parsers"
 	"strings"
 )
 
-type Frameworks []*fingers.Framework
+type Frameworks []*parsers.Framework
 
 func (fs Frameworks) ToString() string {
 	frameworkStrs := make([]string, len(fs))

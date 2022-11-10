@@ -260,6 +260,7 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 }
 
 func (p *Pool) comparing() {
+Loop:
 	for bl := range p.tempCh {
 		if !bl.IsValid {
 			// precompare 确认无效数据直接送入管道
@@ -267,26 +268,23 @@ func (p *Pool) comparing() {
 			continue
 		}
 
-		if p.base.Compare(bl) == 1 {
-			// 如果是同一个包则设置为无效包
-			bl.IsValid = false
-			p.outputCh <- bl
-			continue
-		} else if base, ok := p.baselines[bl.Status]; ok && base.Compare(bl) == 1 {
-			bl.IsValid = false
-			bl.IsFuzzy = true
-			p.outputCh <- bl
-			p.fuzzyCh <- bl
+		if base, ok := p.baselines[bl.Status]; ok && base.Compare(bl) == 1 {
+			// 挑选对应状态码的baseline进行compare
+			p.PutToInvalid(bl, "compare failed")
 			continue
 		}
 
 		bl.Collect()
-		// todo fuzzy compare
-		if p.base.FuzzyCompare(bl) {
-			bl.IsValid = false
-			bl.IsFuzzy = true
-			p.outputCh <- bl
-			p.fuzzyCh <- bl
+		for _, f := range bl.Frameworks {
+			if f.Tag == "waf/cdn" {
+				p.PutToInvalid(bl, "waf")
+				continue Loop
+			}
+		}
+
+		if base, ok := p.baselines[bl.Status]; ok && base.FuzzyCompare(bl) {
+			p.PutToInvalid(bl, "fuzzy compare failed")
+			p.PutToFuzzy(bl)
 			continue
 		}
 
@@ -306,6 +304,17 @@ func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 		p.baselines[bl.Status] = bl
 		logs.Log.Importantf("[baseline.%dinit] %s", bl.Status, bl.String())
 	}
+}
+
+func (p *Pool) PutToInvalid(bl *pkg.Baseline, reason string) {
+	bl.IsValid = false
+	bl.Reason = reason
+	p.outputCh <- bl
+}
+
+func (p *Pool) PutToFuzzy(bl *pkg.Baseline) {
+	bl.IsFuzzy = true
+	p.fuzzyCh <- bl
 }
 
 func (p *Pool) resetFailed() {
