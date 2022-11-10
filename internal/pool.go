@@ -109,8 +109,13 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			if bl.Err != nil {
 				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err.Error())
 				pool.failedBaselines = append(pool.failedBaselines, bl)
-			} else if pool.base.Compare(bl) < 1 {
-				logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
+			} else if i := pool.base.Compare(bl); i < 1 {
+				if i == 0 {
+					logs.Log.Debug("[check.fuzzy] maybe trigger risk control, " + bl.String())
+				} else {
+					logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
+				}
+
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else {
 				pool.ResetFailed() // 如果后续访问正常, 重置错误次数
@@ -249,6 +254,11 @@ func (p *Pool) comparing() {
 		if p.base.Compare(bl) == 1 {
 			// 如果是同一个包则设置为无效包
 			bl.IsValid = false
+			p.outputCh <- bl
+			continue
+		}
+		if !bl.IsValid {
+			// 已经时被precompare过滤的项目, 跳过collect, 直接认为是无效数据
 			p.outputCh <- bl
 			continue
 		}
