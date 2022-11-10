@@ -1,17 +1,16 @@
-package internal
+package pkg
 
 import (
 	"encoding/json"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"net/url"
 	"strconv"
 	"strings"
 )
 
-func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
-	bl := &baseline{
+func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
+	bl := &Baseline{
 		Url:     u,
 		Status:  resp.StatusCode(),
 		IsValid: true,
@@ -33,11 +32,12 @@ func NewBaseline(u, host string, resp *ihttp.Response) *baseline {
 	return bl
 }
 
-func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
-	bl := &baseline{
+func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Baseline {
+	bl := &Baseline{
 		Url:     u,
 		Status:  resp.StatusCode(),
 		IsValid: false,
+		Reason:  reason,
 	}
 
 	uu, err := url.Parse(u)
@@ -56,40 +56,42 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 	return bl
 }
 
-type baseline struct {
-	Url          string         `json:"url"`
-	Path         string         `json:"path"`
-	Host         string         `json:"host"`
-	Body         []byte         `json:"-"`
-	BodyLength   int            `json:"body_length"`
-	Header       []byte         `json:"-"`
-	Raw          []byte         `json:"-"`
-	HeaderLength int            `json:"header_length"`
-	RedirectURL  string         `json:"redirect_url"`
-	Status       int            `json:"status"`
-	IsDynamicUrl bool           `json:"is_dynamic_url"` // 判断是否存在动态的url
-	Spended      int            `json:"spended"`        // 耗时, 毫秒
-	Title        string         `json:"title"`
-	Frameworks   pkg.Frameworks `json:"frameworks"`
-	Extracteds   pkg.Extracteds `json:"extracts"`
-	Err          error          `json:"-"`
-	IsValid      bool           `json:"-"`
+type Baseline struct {
+	Url          string     `json:"url"`
+	Path         string     `json:"path"`
+	Host         string     `json:"host"`
+	Body         []byte     `json:"-"`
+	BodyLength   int        `json:"body_length"`
+	Header       []byte     `json:"-"`
+	Raw          []byte     `json:"-"`
+	HeaderLength int        `json:"header_length"`
+	RedirectURL  string     `json:"redirect_url"`
+	Status       int        `json:"status"`
+	IsDynamicUrl bool       `json:"is_dynamic_url"` // 判断是否存在动态的url
+	Spended      int        `json:"spended"`        // 耗时, 毫秒
+	Title        string     `json:"title"`
+	Frameworks   Frameworks `json:"frameworks"`
+	Extracteds   Extracteds `json:"extracts"`
+	Err          string     `json:"error"`
+	Reason       string     `json:"reason"`
+	IsValid      bool       `json:"valid"`
+	IsFuzzy      bool       `json:"fuzzy"`
 	*parsers.Hashes
 }
 
 // Collect 深度收集信息
-func (bl *baseline) Collect() {
+func (bl *Baseline) Collect() {
 	if len(bl.Body) > 0 {
 		bl.Title = parsers.MatchTitle(string(bl.Body))
 	}
 	bl.Hashes = parsers.NewHashes(bl.Raw)
 	// todo extract
-	bl.Extracteds = pkg.Extractors.Extract(string(bl.Raw))
-	bl.Frameworks = pkg.FingerDetect(string(bl.Raw))
+	bl.Extracteds = Extractors.Extract(string(bl.Raw))
+	bl.Frameworks = FingerDetect(string(bl.Raw))
 }
 
 // Compare if this equal other return true
-func (bl *baseline) Compare(other *baseline) int {
+func (bl *Baseline) Compare(other *Baseline) int {
 	if other.RedirectURL != "" && bl.RedirectURL == other.RedirectURL {
 		// 如果重定向url不为空, 且与base不相同, 则说明不是同一个页面
 		return 1
@@ -114,12 +116,15 @@ func (bl *baseline) Compare(other *baseline) int {
 	return -1
 }
 
-func (bl *baseline) FuzzyEqual(other *baseline) bool {
+func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
 	// todo 模糊匹配
+	if parsers.SimhashCompare(other.BodySimhash, bl.BodySimhash) < 3 {
+		return true
+	}
 	return false
 }
 
-func (bl *baseline) Get(key string) string {
+func (bl *Baseline) Get(key string) string {
 	switch key {
 	case "url":
 		return bl.Url
@@ -160,7 +165,7 @@ func (bl *baseline) Get(key string) string {
 	}
 }
 
-func (bl *baseline) Additional(key string) string {
+func (bl *Baseline) Additional(key string) string {
 	if v := bl.Get(key); v != "" {
 		return " [" + v + "] "
 	} else {
@@ -168,16 +173,20 @@ func (bl *baseline) Additional(key string) string {
 	}
 }
 
-func (bl *baseline) Format(probes []string) string {
+func (bl *Baseline) Format(probes []string) string {
 	var line strings.Builder
 	line.WriteString(bl.Url)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
 	}
 
-	if bl.Err != nil {
-		line.WriteString("err: ")
-		line.WriteString(bl.Err.Error())
+	if bl.Reason != "" {
+		line.WriteString(" ,")
+		line.WriteString(bl.Reason)
+	}
+	if bl.Err != "" {
+		line.WriteString(" ,err: ")
+		line.WriteString(bl.Err)
 		return line.String()
 	}
 
@@ -189,7 +198,7 @@ func (bl *baseline) Format(probes []string) string {
 	return line.String()
 }
 
-func (bl *baseline) String() string {
+func (bl *Baseline) String() string {
 	var line strings.Builder
 	//line.WriteString("[+] ")
 	line.WriteString(bl.Url)
@@ -197,9 +206,9 @@ func (bl *baseline) String() string {
 		line.WriteString(" (" + bl.Host + ")")
 	}
 
-	if bl.Err != nil {
+	if bl.Err != "" {
 		line.WriteString("err: ")
-		line.WriteString(bl.Err.Error())
+		line.WriteString(bl.Err)
 		return line.String()
 	}
 
@@ -218,7 +227,7 @@ func (bl *baseline) String() string {
 	return line.String()
 }
 
-func (bl *baseline) Jsonify() string {
+func (bl *Baseline) Jsonify() string {
 	bs, err := json.Marshal(bl)
 	if err != nil {
 		return ""

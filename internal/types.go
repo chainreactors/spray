@@ -4,6 +4,8 @@ type ErrorType uint
 
 const (
 	ErrBadStatus ErrorType = iota
+	ErrSameStatus
+	ErrRequestFailed
 	ErrWaf
 	ErrRedirect
 )
@@ -12,6 +14,10 @@ func (e ErrorType) Error() string {
 	switch e {
 	case ErrBadStatus:
 		return "bad status"
+	case ErrSameStatus:
+		return "same status"
+	case ErrRequestFailed:
+		return "request failed"
 	case ErrWaf:
 		return "maybe ban of waf"
 	case ErrRedirect:
