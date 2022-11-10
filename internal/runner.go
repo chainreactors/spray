@@ -15,7 +15,7 @@ var BlackStatus = []int{400, 404, 410}
 var FuzzyStatus = []int{403, 500, 501, 502, 503}
 
 type Runner struct {
-	URLList  []string
+	URLList  chan string
 	Wordlist []string
 	Headers  http.Header
 	Fns      []func(string) string
@@ -30,9 +30,10 @@ type Runner struct {
 	Progress *uiprogress.Progress
 	Offset   int
 	Limit    int
+	Deadline int
 }
 
-func (r *Runner) Prepare() error {
+func (r *Runner) Prepare(ctx context.Context) error {
 	var err error
 	CheckStatusCode = func(status int) bool {
 		for _, black := range BlackStatus {
@@ -44,7 +45,6 @@ func (r *Runner) Prepare() error {
 	}
 
 	r.OutputCh = make(chan *baseline, 100)
-	ctx := context.Background()
 
 	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 		u := i.(string)
@@ -75,7 +75,7 @@ func (r *Runner) Prepare() error {
 			logs.Log.Error(err.Error())
 			return
 		}
-		// todo pool 总超时时间
+
 		pool.Run(ctx, r.Offset, r.Limit)
 		r.poolwg.Done()
 	})
@@ -87,12 +87,22 @@ func (r *Runner) Prepare() error {
 	return nil
 }
 
-func (r *Runner) Run() {
-	// todo pool 结束与并发控制
-	for _, u := range r.URLList {
-		r.poolwg.Add(1)
-		r.Pools.Invoke(u)
+func (r *Runner) Run(ctx context.Context) {
+Loop:
+	for {
+		select {
+		case <-ctx.Done():
+			logs.Log.Error("cancel with deadline")
+			break Loop
+		case u, ok := <-r.URLList:
+			if !ok {
+				break Loop
+			}
+			r.poolwg.Add(1)
+			r.Pools.Invoke(u)
+		}
 	}
+
 	r.poolwg.Wait()
 	for {
 		if len(r.OutputCh) == 0 {

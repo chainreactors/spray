@@ -37,7 +37,7 @@ type InputOptions struct {
 }
 
 type OutputOptions struct {
-	Matches     map[string]string `short:"m" long:"match" description:"String, "`
+	Matches     map[string]string `long:"match" description:"String, "`
 	Filters     map[string]string `long:"filter" description:"String, "`
 	Extracts    []string          `long:"extract" description:"String, "`
 	OutputFile  string            `short:"f" description:"String, output filename"`
@@ -74,6 +74,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Mod:      opt.Mod,
 		Timeout:  opt.Timeout,
 		Probes:   strings.Split(opt.OutputProbe, ","),
+		Deadline: opt.Deadline,
+		Offset:   opt.Offset,
+		Limit:    opt.Limit,
+		URLList:  make(chan string),
 	}
 
 	err = pkg.LoadTemplates()
@@ -91,10 +95,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	// prepare url
+	var urls []string
 	var file *os.File
 	urlfrom := opt.URLFile
 	if opt.URL != "" {
-		r.URLList = append(r.URLList, opt.URL)
+		urls = append(urls, opt.URL)
 		urlfrom = "cmd"
 	} else if opt.URLFile != "" {
 		file, err = os.Open(opt.URLFile)
@@ -111,13 +116,19 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
-		r.URLList = strings.Split(string(content), "\n")
+		urls = strings.Split(string(content), "\n")
 	}
 
-	for i, u := range r.URLList {
-		r.URLList[i] = strings.TrimSpace(u)
+	for i, u := range urls {
+		urls[i] = strings.TrimSpace(u)
 	}
-	logs.Log.Importantf("load %d urls from %s", len(r.URLList), urlfrom)
+	logs.Log.Importantf("load %d urls from %s", len(urls), urlfrom)
+	go func() {
+		for _, u := range urls {
+			r.URLList <- u
+		}
+		close(r.URLList)
+	}()
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
@@ -134,10 +145,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		for i, _ := range dicts {
 			opt.Word += strconv.Itoa(i)
 		}
-		opt.Word = "}"
+		opt.Word += "}"
 	}
 
-	if opt.Suffixes == nil {
+	if opt.Suffixes != nil {
 		dicts = append(dicts, opt.Suffixes)
 		opt.Word += fmt.Sprintf("{?%d}", len(dicts)-1)
 	}
@@ -155,6 +166,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	r.Wordlist, err = mask.Run(opt.Word)
 	if err != nil {
 		return nil, err
+	}
+	if r.Limit == 0 {
+		r.Limit = len(r.Wordlist)
 	}
 
 	if opt.Uppercase {
@@ -184,7 +198,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		})
 	}
 
-	if opt.Replaces != nil {
+	if len(opt.Replaces) > 0 {
 		r.Fns = append(r.Fns, func(s string) string {
 			for k, v := range opt.Replaces {
 				s = strings.Replace(s, k, v, -1)
