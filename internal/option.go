@@ -48,6 +48,7 @@ type RequestOptions struct {
 	Headers []string `long:"header"`
 	Method  string   `long:"method"`
 	Cookie  string   `long:"cookie"`
+	Force   bool     `long:"force"`
 }
 
 type MiscOptions struct {
@@ -73,7 +74,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		PoolSize: opt.PoolSize,
 		Mod:      opt.Mod,
 		Timeout:  opt.Timeout,
-		Probes:   strings.Split(opt.OutputProbe, ","),
 		Deadline: opt.Deadline,
 		Offset:   opt.Offset,
 		Limit:    opt.Limit,
@@ -92,6 +92,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if !opt.Quiet {
 		r.Progress.Start()
 		logs.Log.Writer = r.Progress.Bypass()
+	}
+
+	if opt.Force {
+		breakThreshold = 999999
 	}
 
 	// prepare url
@@ -217,6 +221,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 	}
 
+	if opt.OutputProbe != "" {
+		r.Probes = strings.Split(opt.OutputProbe, ",")
+	}
 	return r, nil
 }
 

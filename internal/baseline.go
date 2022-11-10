@@ -49,6 +49,8 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response) *baseline {
 		bl.Host = host
 	}
 
+	bl.Body = resp.Body()
+	bl.BodyLength = resp.ContentLength()
 	bl.RedirectURL = string(resp.GetHeader("Location"))
 
 	return bl
