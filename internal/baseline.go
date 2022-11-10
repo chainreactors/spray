@@ -79,11 +79,12 @@ type baseline struct {
 
 // Collect 深度收集信息
 func (bl *baseline) Collect() {
+	if len(bl.Body) > 0 {
+		bl.Title = parsers.MatchTitle(string(bl.Body))
+	}
 	bl.Hashes = parsers.NewHashes(bl.Raw)
-	bl.Title = parsers.MatchTitle(string(bl.Body))
 	// todo extract
 	bl.Extracteds = pkg.Extractors.Extract(string(bl.Raw))
-	// todo 指纹识别
 	bl.Frameworks = pkg.FingerDetect(string(bl.Raw))
 }
 
