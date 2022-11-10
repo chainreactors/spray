@@ -48,6 +48,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 			if pool.failedCount > breakThreshold {
 				// 当报错次数超过上限是, 结束任务
+				pool.Recover()
 				pool.cancel()
 			}
 		}
@@ -62,6 +63,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 			if pool.failedCount > breakThreshold {
 				// 当报错次数超过上限是, 结束任务
+				pool.Recover()
 				pool.cancel()
 			}
 		}
@@ -86,7 +88,6 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			pool.failedCount++
 			bl = &baseline{Url: pool.BaseURL + unit.path, Err: reqerr}
 		} else {
-			pool.failedCount = 0 // 如果后续访问正常, 重置错误次数
 			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource || unit.source == InitSource {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = NewBaseline(req.URI(), req.Host(), resp)
@@ -99,14 +100,18 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		case InitSource:
 			pool.base = bl
 			pool.initwg.Done()
-			logs.Log.Important("[init] " + bl.String())
+			logs.Log.Important("[baseline] " + bl.String())
 			return
 		case CheckSource:
-			logs.Log.Debugf("[check] " + bl.String())
 			if bl.Err != nil {
-				logs.Log.Warnf("maybe ip has banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err.Error())
+				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err.Error())
+				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else if pool.base.Compare(bl) < 1 {
-				logs.Log.Warn("maybe trigger risk control")
+				logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
+				pool.failedBaselines = append(pool.failedBaselines, bl)
+			} else {
+				pool.ResetFailed() // 如果后续访问正常, 重置错误次数
+				logs.Log.Debug("[check.pass] " + bl.String())
 			}
 
 		case WordSource:
@@ -119,9 +124,9 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			} else if pool.failedCount%pool.errPeriod == 0 {
 				go pool.check()
 			}
+			pool.bar.Done()
 		}
 
-		pool.bar.Done()
 		pool.wg.Done()
 	})
 
@@ -138,19 +143,20 @@ type Pool struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	//baseReq      *http.Request
-	base        *baseline
-	outputCh    chan *baseline // 输出的chan, 全局统一
-	tempCh      chan *baseline // 待处理的baseline
-	reqCount    int
-	failedCount int
-	checkPeriod int
-	errPeriod   int
-	analyzeDone bool
-	genReq      func(s string) (*ihttp.Request, error)
-	check       func()
-	worder      *words.Worder
-	wg          sync.WaitGroup
-	initwg      sync.WaitGroup // 初始化用, 之后改成锁
+	base            *baseline
+	outputCh        chan *baseline // 输出的chan, 全局统一
+	tempCh          chan *baseline // 待处理的baseline
+	reqCount        int
+	failedCount     int
+	checkPeriod     int
+	errPeriod       int
+	failedBaselines []*baseline
+	analyzeDone     bool
+	genReq          func(s string) (*ihttp.Request, error)
+	check           func()
+	worder          *words.Worder
+	wg              sync.WaitGroup
+	initwg          sync.WaitGroup // 初始化用, 之后改成锁
 }
 
 func (p *Pool) Init() error {
@@ -247,10 +253,22 @@ func (p *Pool) comparing() {
 	p.analyzeDone = true
 }
 
+func (p *Pool) ResetFailed() {
+	p.failedCount = 0
+	p.failedBaselines = nil
+}
+
+func (p *Pool) Recover() {
+	logs.Log.Errorf("failed request exceeds the threshold , task will exit. Breakpoint %d", p.reqCount)
+	logs.Log.Error("collecting failed check")
+	for _, bl := range p.failedBaselines {
+		logs.Log.Error(bl.String())
+	}
+}
+
 func (p *Pool) Close() {
 	p.wg.Wait()
 	p.bar.Close()
-
 	close(p.tempCh)
 	for !p.analyzeDone {
 		time.Sleep(time.Duration(100) * time.Millisecond)

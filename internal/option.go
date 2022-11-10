@@ -13,31 +13,52 @@ import (
 )
 
 type Option struct {
-	URL               string            `short:"u" long:"url"`
-	URLFile           string            `short:"l" long:"list"`
-	Dictionaries      []string          `short:"d" long:"dict"`
-	Word              string            `short:"w" long:"word"`
-	Extensions        string            `short:"e" long:"extension"`
-	ExcludeExtensions string            `long:"exclude-extension"`
-	RemoveExtensions  string            `long:"remove-extension"`
-	Uppercase         bool              `short:"U" long:"uppercase"`
-	Lowercase         bool              `short:"L" long:"lowercase"`
-	Prefixes          []string          `long:"prefix"`
-	Suffixes          []string          `long:"suffix"`
-	Replaces          map[string]string `long:"replace"`
-	Deadline          int               `long:"deadline" default:"600"` // todo 总的超时时间,适配云函数的deadline
-	Timeout           int               `long:"timeout" default:"2"`
-	Headers           []string          `long:"header"`
-	OutputFile        string            `short:"f"`
-	OutputProbe       string            `long:"probe"`
-	Offset            int               `long:"offset"`
-	Limit             int               `long:"limit"`
-	Threads           int               `short:"t" long:"thread" default:"20"`
-	PoolSize          int               `short:"p" long:"pool" default:"5"`
-	Debug             bool              `long:"debug"`
-	Quiet             bool              `short:"q" long:"quiet"`
-	Mod               string            `short:"m" long:"mod" default:"path"`
-	Client            string            `short:"c" long:"client" default:"auto"`
+	InputOptions
+	OutputOptions
+	RequestOptions
+	MiscOptions
+}
+
+type InputOptions struct {
+	URL               string            `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
+	URLFile           string            `short:"l" long:"list" description:"File, input filename"`
+	Offset            int               `long:"offset" description:"Int, wordlist offset"`
+	Limit             int               `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	Dictionaries      []string          `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
+	Word              string            `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
+	Extensions        string            `short:"e" long:"extension" description:"String, add extensions (separated by commas), e.g.: -e jsp,jspx"`
+	ExcludeExtensions string            `long:"exclude-extension" description:"String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx"`
+	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
+	Uppercase         bool              `short:"U" long:"uppercase" description:"Bool, upper wordlist, e.g.: --uppercase"`
+	Lowercase         bool              `short:"L" long:"lowercase" description:"Bool, lower wordlist, e.g.: --lowercase"`
+	Prefixes          []string          `long:"prefix" description:"Strings, add prefix, e.g.: --prefix aaa --prefix bbb"`
+	Suffixes          []string          `long:"suffix" description:"Strings, add suffix, e.g.: --suffix aaa --suffix bbb"`
+	Replaces          map[string]string `long:"replace" description:"Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd"`
+}
+
+type OutputOptions struct {
+	Matches     map[string]string `short:"m" long:"match" description:"String, "`
+	Filters     map[string]string `long:"filter" description:"String, "`
+	Extracts    []string          `long:"extract" description:"String, "`
+	OutputFile  string            `short:"f" description:"String, output filename"`
+	OutputProbe string            `long:"probe" description:"String, output format"`
+}
+
+type RequestOptions struct {
+	Headers []string `long:"header"`
+	Method  string   `long:"method"`
+	Cookie  string   `long:"cookie"`
+}
+
+type MiscOptions struct {
+	Deadline int    `long:"deadline" default:"600" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
+	Timeout  int    `long:"timeout" default:"2" description:"Int, timeout with request (seconds)"`
+	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
+	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
+	Debug    bool   `long:"debug" description:"Bool, output debug info"`
+	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
+	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
+	Client   string `short:"c" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
@@ -52,6 +73,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		PoolSize: opt.PoolSize,
 		Mod:      opt.Mod,
 		Timeout:  opt.Timeout,
+		Probes:   strings.Split(opt.OutputProbe, ","),
 	}
 
 	err = pkg.LoadTemplates()
