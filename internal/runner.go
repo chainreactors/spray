@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
@@ -15,22 +16,26 @@ var BlackStatus = []int{400, 404, 410}
 var FuzzyStatus = []int{403, 500, 501, 502, 503}
 
 type Runner struct {
-	URLList  chan string
-	Wordlist []string
-	Headers  http.Header
-	Fns      []func(string) string
-	Threads  int
-	PoolSize int
-	Pools    *ants.PoolWithFunc
-	poolwg   sync.WaitGroup
-	Timeout  int
-	Mod      string
-	Probes   []string
-	OutputCh chan *baseline
-	Progress *uiprogress.Progress
-	Offset   int
-	Limit    int
-	Deadline int
+	URLList    chan string
+	Wordlist   []string
+	Headers    http.Header
+	Fns        []func(string) string
+	Threads    int
+	PoolSize   int
+	Pools      *ants.PoolWithFunc
+	poolwg     sync.WaitGroup
+	Timeout    int
+	Mod        string
+	Probes     []string
+	OutputCh   chan *pkg.Baseline
+	FuzzyCh    chan *pkg.Baseline
+	Fuzzy      bool
+	OutputFile *files.File
+	FuzzyFile  *files.File
+	Progress   *uiprogress.Progress
+	Offset     int
+	Limit      int
+	Deadline   int
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
@@ -44,8 +49,6 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		return true
 	}
 
-	r.OutputCh = make(chan *baseline, 100)
-
 	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 		u := i.(string)
 		config := &pkg.Config{
@@ -56,6 +59,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			Headers:  r.Headers,
 			Mod:      pkg.ModMap[r.Mod],
 			Fns:      r.Fns,
+			OutputCh: r.OutputCh,
+			FuzzyCh:  r.FuzzyCh,
 		}
 
 		if config.Mod == pkg.PathSpray {
@@ -64,7 +69,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			config.ClientType = ihttp.STANDARD
 		}
 
-		pool, err := NewPool(ctx, config, r.OutputCh)
+		pool, err := NewPool(ctx, config)
 		if err != nil {
 			logs.Log.Error(err.Error())
 			return
@@ -83,7 +88,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	go r.Outputting()
+	r.Outputting()
 	return nil
 }
 
@@ -107,31 +112,51 @@ Loop:
 	for {
 		if len(r.OutputCh) == 0 {
 			close(r.OutputCh)
-			return
+			break
+		}
+	}
+
+	for {
+		if len(r.FuzzyCh) == 0 {
+			close(r.FuzzyCh)
+			break
 		}
 	}
 }
 
 func (r *Runner) Outputting() {
-	var outFunc func(baseline2 *baseline)
-	if len(r.Probes) > 0 {
-		outFunc = func(bl *baseline) {
-			logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
-		}
-	} else {
-		outFunc = func(bl *baseline) {
-			logs.Log.Console("[+] " + bl.String() + "\n")
-		}
-	}
-
-	for {
-		select {
-		case bl := <-r.OutputCh:
-			if bl.IsValid {
-				outFunc(bl)
-			} else {
-				logs.Log.Debug(bl.String())
+	go func() {
+		var outFunc func(*pkg.Baseline)
+		if len(r.Probes) > 0 {
+			outFunc = func(bl *pkg.Baseline) {
+				logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
+			}
+		} else {
+			outFunc = func(bl *pkg.Baseline) {
+				logs.Log.Console("[+] " + bl.String() + "\n")
 			}
 		}
-	}
+
+		for {
+			select {
+			case bl := <-r.OutputCh:
+				if bl.IsValid {
+					outFunc(bl)
+				} else {
+					logs.Log.Debug(bl.String())
+				}
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case bl := <-r.FuzzyCh:
+				if r.Fuzzy {
+					logs.Log.Console("[baseline.fuzzy] " + bl.String() + "\n")
+				}
+			}
+		}
+	}()
 }

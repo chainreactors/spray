@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
@@ -21,7 +22,7 @@ var (
 
 var breakThreshold int = 20
 
-func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (*Pool, error) {
+func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
 		Config:      config,
@@ -29,8 +30,10 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		worder:      words.NewWorder(config.Wordlist),
-		outputCh:    outputCh,
-		tempCh:      make(chan *baseline, config.Thread),
+		outputCh:    config.OutputCh,
+		fuzzyCh:     config.FuzzyCh,
+		baselines:   make(map[int]*pkg.Baseline),
+		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		checkPeriod: 100,
@@ -50,7 +53,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 			if pool.failedCount > breakThreshold {
 				// 当报错次数超过上限是, 结束任务
-				pool.Recover()
+				pool.recover()
 				pool.cancel()
 			}
 		}
@@ -65,7 +68,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 			if pool.failedCount > breakThreshold {
 				// 当报错次数超过上限是, 结束任务
-				pool.Recover()
+				pool.recover()
 				pool.cancel()
 			}
 		}
@@ -79,7 +82,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 			return
 		}
 
-		var bl *baseline
+		var bl *pkg.Baseline
 		resp, reqerr := pool.client.Do(pctx, req)
 		if pool.ClientType == ihttp.FAST {
 			defer fasthttp.ReleaseResponse(resp.FastResponse)
@@ -88,26 +91,27 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
-			bl = &baseline{Url: pool.BaseURL + unit.path, Err: reqerr}
+			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, Err: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
-			if err = pool.PreCompare(resp); err == nil || unit.source == CheckSource || unit.source == InitSource {
+			if err = pool.PreCompare(resp); unit.source == CheckSource || unit.source == InitSource || err == nil {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
-				bl = NewBaseline(req.URI(), req.Host(), resp)
+				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+				pool.addFuzzyBaseline(bl)
 			} else {
-				bl = NewInvalidBaseline(req.URI(), req.Host(), resp)
+				bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
 			}
 		}
 
 		switch unit.source {
 		case InitSource:
 			pool.base = bl
+			pool.addFuzzyBaseline(bl)
 			pool.initwg.Done()
-			logs.Log.Important("[baseline] " + bl.String())
 			return
 		case CheckSource:
-			if bl.Err != nil {
-				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err.Error())
+			if bl.Err != "" {
+				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err)
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else if i := pool.base.Compare(bl); i < 1 {
 				if i == 0 {
@@ -118,7 +122,7 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else {
-				pool.ResetFailed() // 如果后续访问正常, 重置错误次数
+				pool.resetFailed() // 如果后续访问正常, 重置错误次数
 				logs.Log.Debug("[check.pass] " + bl.String())
 			}
 
@@ -144,20 +148,21 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 type Pool struct {
 	*pkg.Config
-	client *ihttp.Client
-	pool   *ants.PoolWithFunc
-	bar    *pkg.Bar
-	ctx    context.Context
-	cancel context.CancelFunc
-	//baseReq      *http.Request
-	base            *baseline
-	outputCh        chan *baseline // 输出的chan, 全局统一
-	tempCh          chan *baseline // 待处理的baseline
+	client          *ihttp.Client
+	pool            *ants.PoolWithFunc
+	bar             *pkg.Bar
+	ctx             context.Context
+	cancel          context.CancelFunc
+	outputCh        chan *pkg.Baseline // 输出的chan, 全局统一
+	fuzzyCh         chan *pkg.Baseline
+	tempCh          chan *pkg.Baseline // 待处理的baseline
 	reqCount        int
 	failedCount     int
 	checkPeriod     int
 	errPeriod       int
-	failedBaselines []*baseline
+	failedBaselines []*pkg.Baseline
+	base            *pkg.Baseline
+	baselines       map[int]*pkg.Baseline
 	analyzeDone     bool
 	genReq          func(s string) (*ihttp.Request, error)
 	check           func()
@@ -173,12 +178,13 @@ func (p *Pool) Init() error {
 	// todo 分析baseline
 	// 检测基本访问能力
 
-	if p.base.Err != nil {
+	if p.base.Err != "" {
 		p.cancel()
-		return p.base.Err
+		return fmt.Errorf(p.base.String())
 	}
 
 	p.base.Collect()
+	logs.Log.Important("[baseline.init] " + p.base.String())
 	if p.base.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
 			if redirectURL == p.base.RedirectURL {
@@ -233,6 +239,10 @@ Loop:
 }
 
 func (p *Pool) PreCompare(resp *ihttp.Response) error {
+	if p.base != nil && p.base.Status != 200 && p.base.Status == resp.StatusCode() {
+		return ErrSameStatus
+	}
+
 	if !CheckStatusCode(resp.StatusCode()) {
 		return ErrBadStatus
 	}
@@ -251,22 +261,32 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 
 func (p *Pool) comparing() {
 	for bl := range p.tempCh {
+		if !bl.IsValid {
+			// precompare 确认无效数据直接送入管道
+			p.outputCh <- bl
+			continue
+		}
+
 		if p.base.Compare(bl) == 1 {
 			// 如果是同一个包则设置为无效包
 			bl.IsValid = false
 			p.outputCh <- bl
 			continue
-		}
-		if !bl.IsValid {
-			// 已经时被precompare过滤的项目, 跳过collect, 直接认为是无效数据
+		} else if base, ok := p.baselines[bl.Status]; ok && base.Compare(bl) == 1 {
+			bl.IsValid = false
+			bl.IsFuzzy = true
 			p.outputCh <- bl
+			p.fuzzyCh <- bl
 			continue
 		}
 
 		bl.Collect()
-		if p.EnableFuzzy && p.base.FuzzyEqual(bl) {
+		// todo fuzzy compare
+		if p.base.FuzzyCompare(bl) {
 			bl.IsValid = false
+			bl.IsFuzzy = true
 			p.outputCh <- bl
+			p.fuzzyCh <- bl
 			continue
 		}
 
@@ -276,12 +296,24 @@ func (p *Pool) comparing() {
 	p.analyzeDone = true
 }
 
-func (p *Pool) ResetFailed() {
+func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
+	if !IntsContains(FuzzyStatus, bl.Status) {
+		return
+	}
+
+	if _, ok := p.baselines[bl.Status]; !ok {
+		bl.Collect()
+		p.baselines[bl.Status] = bl
+		logs.Log.Importantf("[baseline.%dinit] %s", bl.Status, bl.String())
+	}
+}
+
+func (p *Pool) resetFailed() {
 	p.failedCount = 0
 	p.failedBaselines = nil
 }
 
-func (p *Pool) Recover() {
+func (p *Pool) recover() {
 	logs.Log.Errorf("failed request exceeds the threshold , task will exit. Breakpoint %d", p.reqCount)
 	logs.Log.Error("collecting failed check")
 	for i, bl := range p.failedBaselines {

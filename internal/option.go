@@ -41,6 +41,8 @@ type OutputOptions struct {
 	Filters     map[string]string `long:"filter" description:"String, "`
 	Extracts    []string          `long:"extract" description:"String, "`
 	OutputFile  string            `short:"f" description:"String, output filename"`
+	FuzzyFile   string            `long:"fuzzy-file" description:"String, fuzzy output filename"`
+	Fuzzy       bool              `long:"fuzzy" description:"String, open fuzzy output"`
 	OutputProbe string            `long:"probe" description:"String, output format"`
 }
 
@@ -78,6 +80,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Offset:   opt.Offset,
 		Limit:    opt.Limit,
 		URLList:  make(chan string),
+		OutputCh: make(chan *pkg.Baseline, 100),
+		FuzzyCh:  make(chan *pkg.Baseline, 100),
+		Fuzzy:    opt.Fuzzy,
 	}
 
 	err = pkg.LoadTemplates()
@@ -185,7 +190,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.RemoveExtensions != "" {
 		rexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); SliceContains(rexts, ext) {
+			if ext := parseExtension(s); StringsContains(rexts, ext) {
 				return strings.TrimSuffix(s, "."+ext)
 			}
 			return s
@@ -195,7 +200,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.ExcludeExtensions != "" {
 		exexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); SliceContains(exexts, ext) {
+			if ext := parseExtension(s); StringsContains(exexts, ext) {
 				return ""
 			}
 			return s
@@ -259,7 +264,16 @@ func parseExtension(s string) string {
 	return ""
 }
 
-func SliceContains(s []string, e string) bool {
+func StringsContains(s []string, e string) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
+}
+
+func IntsContains(s []int, e int) bool {
 	for _, v := range s {
 		if v == e {
 			return true

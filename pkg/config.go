@@ -30,4 +30,6 @@ type Config struct {
 	EnableFuzzy bool
 	ClientType  int
 	Fns         []func(string) string
+	OutputCh    chan *Baseline
+	FuzzyCh     chan *Baseline
 }
