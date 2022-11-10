@@ -116,7 +116,6 @@ func NewPool(ctx context.Context, config *pkg.Config, outputCh chan *baseline) (
 
 		case WordSource:
 			// 异步进行性能消耗较大的深度对比
-			pool.reqCount++
 			pool.tempCh <- bl
 
 			if pool.reqCount%pool.checkPeriod == 0 {
@@ -187,8 +186,8 @@ func (p *Pool) Init() error {
 	return nil
 }
 
-func (p *Pool) Run(ctx context.Context) {
-
+func (p *Pool) Run(ctx context.Context, offset, limit int) {
+	maxreq := offset + limit
 Loop:
 	for {
 		select {
@@ -196,12 +195,23 @@ Loop:
 			if !ok {
 				break Loop
 			}
+
+			if p.reqCount < offset {
+				p.reqCount++
+				continue
+			}
+
+			if p.reqCount > maxreq {
+				break Loop
+			}
+
 			for _, fn := range p.Fns {
 				u = fn(u)
 			}
 			if u == "" {
 				continue
 			}
+			p.reqCount++
 			p.wg.Add(1)
 			_ = p.pool.Invoke(newUnit(u, WordSource))
 		case <-ctx.Done():
