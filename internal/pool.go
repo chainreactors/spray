@@ -274,30 +274,35 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 		p.OutputCh <- bl
 		return
 	}
-	var status int
-	base, ok := p.baselines[bl.Status]
-	if !ok {
+	var status = -1
+	base, ok := p.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
+	if !ok && p.base.Status == bl.Status {
+		// 当other的状态码与base相同时, 会使用base
+		ok = true
 		base = p.base
 	}
 
-	// 挑选对应状态码的baseline进行compare
-	if status = base.Compare(bl); status == 1 {
-		p.PutToInvalid(bl, "compare failed")
-		return
-	}
-
-	bl.Collect()
-	for _, f := range bl.Frameworks {
-		if f.Tag == "waf/cdn" {
-			p.PutToInvalid(bl, "waf")
+	if ok {
+		if status = base.Compare(bl); status == 1 {
+			p.PutToInvalid(bl, "compare failed")
 			return
 		}
 	}
 
-	if status == 0 && base.FuzzyCompare(bl) {
-		p.PutToInvalid(bl, "fuzzy compare failed")
-		p.PutToFuzzy(bl)
-		return
+	if status == 0 {
+		bl.Collect()
+		for _, f := range bl.Frameworks {
+			if f.Tag == "waf/cdn" {
+				p.PutToInvalid(bl, "waf")
+				return
+			}
+		}
+
+		if ok && base.FuzzyCompare(bl) {
+			p.PutToInvalid(bl, "fuzzy compare failed")
+			p.PutToFuzzy(bl)
+			return
+		}
 	}
 
 	p.OutputCh <- bl
