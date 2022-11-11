@@ -127,7 +127,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		case WordSource:
 			// 异步进行性能消耗较大的深度对比
 			pool.tempCh <- bl
-
+			pool.reqCount++
 			if pool.reqCount%pool.checkPeriod == 0 {
 				pool.reqCount++
 				go pool.check()
@@ -236,7 +236,6 @@ Loop:
 			if u == "" {
 				continue
 			}
-			p.reqCount++
 			p.wg.Add(1)
 			_ = p.pool.Invoke(newUnit(u, WordSource))
 		case <-ctx.Done():
@@ -323,7 +322,7 @@ func (p *Pool) PutToFuzzy(bl *pkg.Baseline) {
 }
 
 func (p *Pool) resetFailed() {
-	p.failedCount = 0
+	p.failedCount = 1
 	p.failedBaselines = nil
 }
 
