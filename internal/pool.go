@@ -30,8 +30,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		worder:      words.NewWorder(config.Wordlist),
-		outputCh:    config.OutputCh,
-		fuzzyCh:     config.FuzzyCh,
 		baselines:   make(map[int]*pkg.Baseline),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		wg:          sync.WaitGroup{},
@@ -131,8 +129,10 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.tempCh <- bl
 
 			if pool.reqCount%pool.checkPeriod == 0 {
+				pool.reqCount++
 				go pool.check()
 			} else if pool.failedCount%pool.errPeriod == 0 {
+				pool.failedCount++
 				go pool.check()
 			}
 			pool.bar.Done()
@@ -142,7 +142,19 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	})
 
 	pool.pool = p
-	go pool.comparing()
+	go func() {
+		for bl := range pool.tempCh {
+			if pool.customCompare != nil {
+				if pool.customCompare(bl) {
+					pool.OutputCh <- bl
+				}
+			} else {
+				pool.BaseCompare(bl)
+			}
+		}
+
+		pool.analyzeDone = true
+	}()
 	return pool, nil
 }
 
@@ -153,8 +165,6 @@ type Pool struct {
 	bar             *pkg.Bar
 	ctx             context.Context
 	cancel          context.CancelFunc
-	outputCh        chan *pkg.Baseline // 输出的chan, 全局统一
-	fuzzyCh         chan *pkg.Baseline
 	tempCh          chan *pkg.Baseline // 待处理的baseline
 	reqCount        int
 	failedCount     int
@@ -166,6 +176,7 @@ type Pool struct {
 	analyzeDone     bool
 	genReq          func(s string) (*ihttp.Request, error)
 	check           func()
+	customCompare   func(*pkg.Baseline) bool
 	worder          *words.Worder
 	wg              sync.WaitGroup
 	initwg          sync.WaitGroup // 初始化用, 之后改成锁
@@ -259,42 +270,37 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 	return nil
 }
 
-func (p *Pool) comparing() {
-Loop:
-	for bl := range p.tempCh {
-		if !bl.IsValid {
-			// precompare 确认无效数据直接送入管道
-			p.outputCh <- bl
-			continue
+func (p *Pool) BaseCompare(bl *pkg.Baseline) {
+	if !bl.IsValid {
+		// precompare 确认无效数据直接送入管道
+		p.OutputCh <- bl
+		return
+	}
+	var status int
+	base, ok := p.baselines[bl.Status]
+	if ok {
+		// 挑选对应状态码的baseline进行compare
+		if status = base.Compare(bl); status == 1 {
+			p.PutToInvalid(bl, "compare failed")
+			return
 		}
-		var status int
-		base, ok := p.baselines[bl.Status]
-		if ok {
-			// 挑选对应状态码的baseline进行compare
-			if status = base.Compare(bl); status == 1 {
-				p.PutToInvalid(bl, "compare failed")
-				continue
-			}
-		}
-
-		bl.Collect()
-		for _, f := range bl.Frameworks {
-			if f.Tag == "waf/cdn" {
-				p.PutToInvalid(bl, "waf")
-				continue Loop
-			}
-		}
-
-		if status == 0 && ok && base.FuzzyCompare(bl) {
-			p.PutToInvalid(bl, "fuzzy compare failed")
-			p.PutToFuzzy(bl)
-			continue
-		}
-
-		p.outputCh <- bl
 	}
 
-	p.analyzeDone = true
+	bl.Collect()
+	for _, f := range bl.Frameworks {
+		if f.Tag == "waf/cdn" {
+			p.PutToInvalid(bl, "waf")
+			return
+		}
+	}
+
+	if status == 0 && ok && base.FuzzyCompare(bl) {
+		p.PutToInvalid(bl, "fuzzy compare failed")
+		p.PutToFuzzy(bl)
+		return
+	}
+
+	p.OutputCh <- bl
 }
 
 func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
@@ -308,12 +314,12 @@ func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 func (p *Pool) PutToInvalid(bl *pkg.Baseline, reason string) {
 	bl.IsValid = false
 	bl.Reason = reason
-	p.outputCh <- bl
+	p.OutputCh <- bl
 }
 
 func (p *Pool) PutToFuzzy(bl *pkg.Baseline) {
 	bl.IsFuzzy = true
-	p.fuzzyCh <- bl
+	p.FuzzyCh <- bl
 }
 
 func (p *Pool) resetFailed() {

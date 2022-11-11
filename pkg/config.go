@@ -19,17 +19,15 @@ var ModMap = map[string]SprayMod{
 }
 
 type Config struct {
-	BaseURL     string
-	Wordlist    []string
-	Thread      int
-	Timeout     int
-	BaseReq     *http.Request
-	Method      string
-	Mod         SprayMod
-	Headers     http.Header
-	EnableFuzzy bool
-	ClientType  int
-	Fns         []func(string) string
-	OutputCh    chan *Baseline
-	FuzzyCh     chan *Baseline
+	BaseURL    string
+	Wordlist   []string
+	Thread     int
+	Timeout    int
+	Method     string
+	Mod        SprayMod
+	Headers    http.Header
+	ClientType int
+	Fns        []func(string) string
+	OutputCh   chan *Baseline
+	FuzzyCh    chan *Baseline
 }
