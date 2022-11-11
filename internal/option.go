@@ -55,7 +55,7 @@ type RequestOptions struct {
 }
 
 type MiscOptions struct {
-	Deadline int    `long:"deadline" default:"600" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
+	Deadline int    `long:"deadline" default:"99999" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
 	Timeout  int    `long:"timeout" default:"2" description:"Int, timeout with request (seconds)"`
 	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
@@ -183,6 +183,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	if r.Limit == 0 {
 		r.Limit = len(r.Wordlist)
+	} else {
+		r.Limit = r.Offset + opt.Limit
 	}
 
 	if opt.Uppercase {

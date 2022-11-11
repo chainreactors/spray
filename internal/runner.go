@@ -74,7 +74,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			logs.Log.Error(err.Error())
 			return
 		}
-		pool.bar = pkg.NewBar(u, len(r.Wordlist), r.Progress)
+		pool.bar = pkg.NewBar(u, r.Limit-r.Offset, r.Progress)
 		err = pool.Init()
 		if err != nil {
 			logs.Log.Error(err.Error())

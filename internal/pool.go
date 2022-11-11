@@ -212,7 +212,6 @@ func (p *Pool) Init() error {
 }
 
 func (p *Pool) Run(ctx context.Context, offset, limit int) {
-	maxreq := offset + limit
 Loop:
 	for {
 		select {
@@ -226,7 +225,7 @@ Loop:
 				continue
 			}
 
-			if p.reqCount > maxreq {
+			if p.reqCount > limit {
 				break Loop
 			}
 
@@ -277,12 +276,14 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 	}
 	var status int
 	base, ok := p.baselines[bl.Status]
-	if ok {
-		// 挑选对应状态码的baseline进行compare
-		if status = base.Compare(bl); status == 1 {
-			p.PutToInvalid(bl, "compare failed")
-			return
-		}
+	if !ok {
+		base = p.base
+	}
+
+	// 挑选对应状态码的baseline进行compare
+	if status = base.Compare(bl); status == 1 {
+		p.PutToInvalid(bl, "compare failed")
+		return
 	}
 
 	bl.Collect()
@@ -293,7 +294,7 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 		}
 	}
 
-	if status == 0 && ok && base.FuzzyCompare(bl) {
+	if status == 0 && base.FuzzyCompare(bl) {
 		p.PutToInvalid(bl, "fuzzy compare failed")
 		p.PutToFuzzy(bl)
 		return
