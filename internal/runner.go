@@ -32,6 +32,7 @@ type Runner struct {
 	Fuzzy      bool
 	OutputFile *files.File
 	FuzzyFile  *files.File
+	Force      bool
 	Progress   *uiprogress.Progress
 	Offset     int
 	Limit      int
@@ -72,13 +73,19 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		pool, err := NewPool(ctx, config)
 		if err != nil {
 			logs.Log.Error(err.Error())
+			pool.cancel()
+			r.poolwg.Done()
 			return
 		}
 		pool.bar = pkg.NewBar(u, r.Limit-r.Offset, r.Progress)
 		err = pool.Init()
 		if err != nil {
 			logs.Log.Error(err.Error())
-			return
+			if !r.Force {
+				pool.cancel()
+				r.poolwg.Done()
+				return
+			}
 		}
 
 		pool.Run(ctx, r.Offset, r.Limit)

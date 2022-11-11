@@ -6,7 +6,7 @@ require (
 	github.com/chainreactors/files v0.2.4
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 	github.com/chainreactors/gogo/v2 v2.9.5-0.20221110124606-bb8c89742d4d
-	github.com/chainreactors/logs v0.6.1
+	github.com/chainreactors/logs v0.6.2
 	github.com/chainreactors/parsers v0.2.7
 	github.com/chainreactors/words v0.1.1
 )
@@ -21,7 +21,6 @@ require (
 )
 
 require (
-	github.com/M09ic/go-ntlmssp v1.2.9 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/go-dedup/megophone v0.0.0-20170830025436-f01be21026f5 // indirect
 	github.com/go-dedup/text v0.0.0-20170907015346-8bb1b95e3cb7 // indirect
@@ -30,8 +29,6 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	golang.org/x/crypto v0.2.0 // indirect
-	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
