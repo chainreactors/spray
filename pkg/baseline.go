@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg/ihttp"
-	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -101,7 +100,7 @@ func (bl *Baseline) Compare(other *Baseline) int {
 		return 1
 	}
 
-	if math.Abs(float64(bl.BodyLength-other.BodyLength)) < 16 {
+	if i := bl.BodyLength - other.BodyLength; i < 16 || i > -16 {
 		// 如果body length相等且md5相等, 则说明是同一个页面
 		if bl.BodyMd5 == parsers.Md5Hash(other.Body) {
 			// 如果length相等, md5也相等, 则判断为全同
@@ -121,10 +120,9 @@ func (bl *Baseline) Compare(other *Baseline) int {
 	return -1
 }
 
-var Distance uint8
+var Distance uint8 = 5
 
 func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
-	// todo 模糊匹配
 	if parsers.SimhashCompare(other.BodySimhash, bl.BodySimhash) < Distance {
 		return true
 	}
@@ -240,4 +238,10 @@ func (bl *Baseline) Jsonify() string {
 		return ""
 	}
 	return string(bs)
+}
+
+func (bl *Baseline) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"status": bl.Status,
+	}
 }
