@@ -89,7 +89,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
-			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, Err: reqerr.Error(), Reason: ErrRequestFailed.Error()}
+			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, Err: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
 			if err = pool.PreCompare(resp); unit.source == CheckSource || unit.source == InitSource || err == nil {
@@ -190,7 +190,6 @@ func (p *Pool) Init() error {
 	// 检测基本访问能力
 
 	if p.base.Err != "" {
-		p.cancel()
 		return fmt.Errorf(p.base.String())
 	}
 
@@ -243,7 +242,7 @@ Loop:
 			break Loop
 		}
 	}
-
+	p.wg.Wait()
 	p.Close()
 }
 
@@ -289,20 +288,18 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 		}
 	}
 
-	if status == 0 {
-		bl.Collect()
-		for _, f := range bl.Frameworks {
-			if f.Tag == "waf/cdn" {
-				p.PutToInvalid(bl, "waf")
-				return
-			}
-		}
-
-		if ok && base.FuzzyCompare(bl) {
-			p.PutToInvalid(bl, "fuzzy compare failed")
-			p.PutToFuzzy(bl)
+	bl.Collect()
+	for _, f := range bl.Frameworks {
+		if f.Tag == "waf/cdn" {
+			p.PutToInvalid(bl, "waf")
 			return
 		}
+	}
+
+	if ok && status == 0 && base.FuzzyCompare(bl) {
+		p.PutToInvalid(bl, "fuzzy compare failed")
+		p.PutToFuzzy(bl)
+		return
 	}
 
 	p.OutputCh <- bl
@@ -341,12 +338,11 @@ func (p *Pool) recover() {
 }
 
 func (p *Pool) Close() {
-	p.wg.Wait()
-	p.bar.Close()
-	close(p.tempCh)
 	for !p.analyzeDone {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
+	close(p.tempCh)
+	p.bar.Close()
 }
 
 func (p *Pool) buildPathRequest(path string) (*ihttp.Request, error) {

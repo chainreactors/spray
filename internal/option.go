@@ -84,6 +84,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		OutputCh: make(chan *pkg.Baseline, 100),
 		FuzzyCh:  make(chan *pkg.Baseline, 100),
 		Fuzzy:    opt.Fuzzy,
+		Force:    opt.Force,
 	}
 
 	err = pkg.LoadTemplates()

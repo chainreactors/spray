@@ -211,9 +211,15 @@ func (bl *Baseline) String() string {
 		line.WriteString(" (" + bl.Host + ")")
 	}
 
+	if bl.Reason != "" {
+		line.WriteString(" [reason: ")
+		line.WriteString(bl.Reason)
+		line.WriteString("]")
+	}
 	if bl.Err != "" {
-		line.WriteString("err: ")
+		line.WriteString(" [err: ")
 		line.WriteString(bl.Err)
+		line.WriteString("]")
 		return line.String()
 	}
 
