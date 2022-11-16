@@ -8,6 +8,8 @@ const (
 	ErrRequestFailed
 	ErrWaf
 	ErrRedirect
+	ErrCompareFailed
+	ErrFuzzyCompareFailed
 )
 
 func (e ErrorType) Error() string {
@@ -22,6 +24,10 @@ func (e ErrorType) Error() string {
 		return "maybe ban of waf"
 	case ErrRedirect:
 		return "duplicate redirect url"
+	case ErrCompareFailed:
+		return "compare failed"
+	case ErrFuzzyCompareFailed:
+		return "fuzzy compare failed"
 	default:
 		return "unknown error"
 	}
