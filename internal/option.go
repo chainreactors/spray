@@ -52,6 +52,7 @@ type RequestOptions struct {
 	Cookie          string   `long:"cookie"`
 	Force           bool     `long:"force"`
 	SimhashDistance int      `long:"distance"`
+	CheckOnly       bool     `long:"--check-only"`
 }
 
 type MiscOptions struct {
@@ -72,19 +73,20 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	var err error
 	r := &Runner{
-		Progress: uiprogress.New(),
-		Threads:  opt.Threads,
-		PoolSize: opt.PoolSize,
-		Mod:      opt.Mod,
-		Timeout:  opt.Timeout,
-		Deadline: opt.Deadline,
-		Offset:   opt.Offset,
-		Limit:    opt.Limit,
-		URLList:  make(chan string),
-		OutputCh: make(chan *pkg.Baseline, 100),
-		FuzzyCh:  make(chan *pkg.Baseline, 100),
-		Fuzzy:    opt.Fuzzy,
-		Force:    opt.Force,
+		Progress:  uiprogress.New(),
+		Threads:   opt.Threads,
+		PoolSize:  opt.PoolSize,
+		Mod:       opt.Mod,
+		Timeout:   opt.Timeout,
+		Deadline:  opt.Deadline,
+		Offset:    opt.Offset,
+		Limit:     opt.Limit,
+		URLList:   make(chan string),
+		OutputCh:  make(chan *pkg.Baseline, 100),
+		FuzzyCh:   make(chan *pkg.Baseline, 100),
+		Fuzzy:     opt.Fuzzy,
+		Force:     opt.Force,
+		CheckOnly: opt.CheckOnly,
 	}
 
 	err = pkg.LoadTemplates()
