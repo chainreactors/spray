@@ -89,7 +89,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, Err: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
-			if err = pool.PreCompare(resp); unit.source == CheckSource || unit.source == InitSource || err == nil {
+			if err = pool.PreCompare(resp); unit.source != WordSource || err == nil {
 				// 通过预对比跳过一些无用数据, 减少性能消耗
 				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 				pool.addFuzzyBaseline(bl)
@@ -99,9 +99,13 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		}
 
 		switch unit.source {
-		case InitSource:
+		case InitRandomSource:
 			pool.base = bl
 			pool.addFuzzyBaseline(bl)
+			pool.initwg.Done()
+			return
+		case InitIndexSource:
+			pool.index = bl
 			pool.initwg.Done()
 			return
 		case CheckSource:
@@ -167,6 +171,7 @@ type Pool struct {
 	failedCount     int
 	failedBaselines []*pkg.Baseline
 	base            *pkg.Baseline
+	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
 	analyzeDone     bool
 	genReq          func(s string) (*ihttp.Request, error)
@@ -178,8 +183,9 @@ type Pool struct {
 }
 
 func (p *Pool) Init() error {
-	p.initwg.Add(1)
-	p.pool.Invoke(newUnit(pkg.RandPath(), InitSource))
+	p.initwg.Add(2)
+	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
+	p.pool.Invoke(newUnit("/", InitIndexSource))
 	p.initwg.Wait()
 	// todo 分析baseline
 	// 检测基本访问能力
@@ -188,8 +194,16 @@ func (p *Pool) Init() error {
 		return fmt.Errorf(p.base.String())
 	}
 
+	if p.index.Err != "" {
+		return fmt.Errorf(p.index.String())
+	}
+
 	p.base.Collect()
-	logs.Log.Important("[baseline.init] " + p.base.String())
+	p.index.Collect()
+
+	logs.Log.Important("[baseline.random] " + p.base.String())
+	logs.Log.Important("[baseline.index] " + p.base.String())
+
 	if p.base.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
 			if redirectURL == p.base.RedirectURL {
@@ -270,10 +284,17 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 	}
 	var status = -1
 	base, ok := p.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
-	if !ok && p.base.Status == bl.Status {
-		// 当other的状态码与base相同时, 会使用base
-		ok = true
-		base = p.base
+	if !ok {
+		if p.base.Status == bl.Status {
+			// 当other的状态码与base相同时, 会使用base
+			ok = true
+			base = p.base
+		} else if p.index.Status == bl.Status {
+			// 当other的状态码与index相同时, 会使用index
+			ok = true
+			base = p.index
+		}
+
 	}
 
 	if ok {

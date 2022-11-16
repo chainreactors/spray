@@ -31,7 +31,8 @@ type sourceType int
 
 const (
 	CheckSource sourceType = iota + 1
-	InitSource
+	InitRandomSource
+	InitIndexSource
 	WordSource
 	WafSource
 )
