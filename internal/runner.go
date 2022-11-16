@@ -17,28 +17,31 @@ var BlackStatus = []int{400, 404, 410}
 var FuzzyStatus = []int{403, 500, 501, 502, 503}
 
 type Runner struct {
-	URLList    chan string
-	Wordlist   []string
-	Headers    http.Header
-	Fns        []func(string) string
-	Threads    int
-	PoolSize   int
-	Pools      *ants.PoolWithFunc
-	poolwg     sync.WaitGroup
-	Timeout    int
-	Mod        string
-	Probes     []string
-	OutputCh   chan *pkg.Baseline
-	FuzzyCh    chan *pkg.Baseline
-	Fuzzy      bool
-	OutputFile *files.File
-	FuzzyFile  *files.File
-	Force      bool
-	Progress   *uiprogress.Progress
-	Offset     int
-	Limit      int
-	Deadline   int
-	CheckOnly  bool
+	URLList        chan string
+	Wordlist       []string
+	Headers        http.Header
+	Fns            []func(string) string
+	Threads        int
+	PoolSize       int
+	Pools          *ants.PoolWithFunc
+	poolwg         sync.WaitGroup
+	Timeout        int
+	Mod            string
+	Probes         []string
+	OutputCh       chan *pkg.Baseline
+	FuzzyCh        chan *pkg.Baseline
+	Fuzzy          bool
+	OutputFile     *files.File
+	FuzzyFile      *files.File
+	Force          bool
+	Progress       *uiprogress.Progress
+	Offset         int
+	Limit          int
+	Deadline       int
+	CheckPeriod    int
+	ErrPeriod      int
+	BreakThreshold int
+	CheckOnly      bool
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
@@ -55,15 +58,18 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 		u := i.(string)
 		config := &pkg.Config{
-			BaseURL:  u,
-			Wordlist: r.Wordlist,
-			Thread:   r.Threads,
-			Timeout:  r.Timeout,
-			Headers:  r.Headers,
-			Mod:      pkg.ModMap[r.Mod],
-			Fns:      r.Fns,
-			OutputCh: r.OutputCh,
-			FuzzyCh:  r.FuzzyCh,
+			BaseURL:        u,
+			Wordlist:       r.Wordlist,
+			Thread:         r.Threads,
+			Timeout:        r.Timeout,
+			Headers:        r.Headers,
+			Mod:            pkg.ModMap[r.Mod],
+			Fns:            r.Fns,
+			OutputCh:       r.OutputCh,
+			FuzzyCh:        r.FuzzyCh,
+			CheckPeriod:    r.CheckPeriod,
+			ErrPeriod:      r.ErrPeriod,
+			BreakThreshold: r.BreakThreshold,
 		}
 
 		if config.Mod == pkg.PathSpray {
@@ -84,6 +90,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		if err != nil {
 			logs.Log.Error(err.Error())
 			if !r.Force {
+				// 如果没开启force, init失败将会关闭pool
 				pool.cancel()
 				r.poolwg.Done()
 				return
