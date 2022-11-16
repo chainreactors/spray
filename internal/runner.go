@@ -10,6 +10,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"net/http"
 	"sync"
+	"time"
 )
 
 var BlackStatus = []int{400, 404, 410}
@@ -37,6 +38,7 @@ type Runner struct {
 	Offset     int
 	Limit      int
 	Deadline   int
+	CheckOnly  bool
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
@@ -129,6 +131,7 @@ Loop:
 			break
 		}
 	}
+	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
 }
 
 func (r *Runner) Outputting() {
