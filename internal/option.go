@@ -16,6 +16,7 @@ type Option struct {
 	InputOptions
 	OutputOptions
 	RequestOptions
+	ModeOptions
 	MiscOptions
 }
 
@@ -50,9 +51,15 @@ type RequestOptions struct {
 	Headers         []string `long:"header"`
 	Method          string   `long:"method"`
 	Cookie          string   `long:"cookie"`
-	Force           bool     `long:"force"`
-	SimhashDistance int      `long:"distance"`
-	CheckOnly       bool     `long:"--check-only"`
+	SimhashDistance int      `long:"distance" default:"5"`
+}
+
+type ModeOptions struct {
+	Force          bool `long:"force"`
+	CheckOnly      bool `long:"check-only"`
+	CheckPeriod    int  `long:"check-period" default:"100"`
+	ErrPeriod      int  `long:"error-period" default:"10"`
+	BreakThreshold int  `long:"error-threshold" default:"20"`
 }
 
 type MiscOptions struct {
@@ -73,20 +80,23 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	var err error
 	r := &Runner{
-		Progress:  uiprogress.New(),
-		Threads:   opt.Threads,
-		PoolSize:  opt.PoolSize,
-		Mod:       opt.Mod,
-		Timeout:   opt.Timeout,
-		Deadline:  opt.Deadline,
-		Offset:    opt.Offset,
-		Limit:     opt.Limit,
-		URLList:   make(chan string),
-		OutputCh:  make(chan *pkg.Baseline, 100),
-		FuzzyCh:   make(chan *pkg.Baseline, 100),
-		Fuzzy:     opt.Fuzzy,
-		Force:     opt.Force,
-		CheckOnly: opt.CheckOnly,
+		Progress:       uiprogress.New(),
+		Threads:        opt.Threads,
+		PoolSize:       opt.PoolSize,
+		Mod:            opt.Mod,
+		Timeout:        opt.Timeout,
+		Deadline:       opt.Deadline,
+		Offset:         opt.Offset,
+		Limit:          opt.Limit,
+		URLList:        make(chan string),
+		OutputCh:       make(chan *pkg.Baseline, 100),
+		FuzzyCh:        make(chan *pkg.Baseline, 100),
+		Fuzzy:          opt.Fuzzy,
+		Force:          opt.Force,
+		CheckOnly:      opt.CheckOnly,
+		CheckPeriod:    opt.CheckPeriod,
+		ErrPeriod:      opt.ErrPeriod,
+		BreakThreshold: opt.BreakThreshold,
 	}
 
 	err = pkg.LoadTemplates()
@@ -108,7 +118,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Force {
-		breakThreshold = 999999
+		// 如果开启了force模式, 将关闭check机制, err积累到一定数量自动退出机制
+		r.BreakThreshold = max
+		r.CheckPeriod = max
+		r.ErrPeriod = max
 	}
 
 	// prepare url

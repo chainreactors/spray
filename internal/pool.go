@@ -19,8 +19,7 @@ var (
 	CheckRedirect   func(string) bool
 	CheckWaf        func([]byte) bool
 )
-
-var breakThreshold int = 20
+var max = 2147483647
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
@@ -34,8 +33,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
-		checkPeriod: 100,
-		errPeriod:   10,
 		reqCount:    1,
 		failedCount: 1,
 	}
@@ -49,7 +46,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.wg.Add(1)
 			_ = pool.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
 
-			if pool.failedCount > breakThreshold {
+			if pool.failedCount > pool.BreakThreshold {
 				// 当报错次数超过上限是, 结束任务
 				pool.recover()
 				pool.cancel()
@@ -64,7 +61,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.wg.Add(1)
 			_ = pool.pool.Invoke(newUnit(pkg.RandHost(), CheckSource))
 
-			if pool.failedCount > breakThreshold {
+			if pool.failedCount > pool.BreakThreshold {
 				// 当报错次数超过上限是, 结束任务
 				pool.recover()
 				pool.cancel()
@@ -109,7 +106,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			return
 		case CheckSource:
 			if bl.Err != "" {
-				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, breakThreshold, bl.Err)
+				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, pool.BreakThreshold, bl.Err)
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else if i := pool.base.Compare(bl); i < 1 {
 				if i == 0 {
@@ -128,10 +125,10 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			// 异步进行性能消耗较大的深度对比
 			pool.tempCh <- bl
 			pool.reqCount++
-			if pool.reqCount%pool.checkPeriod == 0 {
+			if pool.reqCount%pool.CheckPeriod == 0 {
 				pool.reqCount++
 				go pool.check()
-			} else if pool.failedCount%pool.errPeriod == 0 {
+			} else if pool.failedCount%pool.ErrPeriod == 0 {
 				pool.failedCount++
 				go pool.check()
 			}
@@ -168,8 +165,6 @@ type Pool struct {
 	tempCh          chan *pkg.Baseline // 待处理的baseline
 	reqCount        int
 	failedCount     int
-	checkPeriod     int
-	errPeriod       int
 	failedBaselines []*pkg.Baseline
 	base            *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
