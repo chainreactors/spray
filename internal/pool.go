@@ -299,7 +299,7 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 
 	if ok {
 		if status = base.Compare(bl); status == 1 {
-			p.PutToInvalid(bl, "compare failed")
+			p.PutToInvalid(bl, ErrCompareFailed.Error())
 			return
 		}
 	}
@@ -307,13 +307,13 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 	bl.Collect()
 	for _, f := range bl.Frameworks {
 		if f.Tag == "waf/cdn" {
-			p.PutToInvalid(bl, "waf")
+			p.PutToInvalid(bl, ErrWaf.Error())
 			return
 		}
 	}
 
 	if ok && status == 0 && base.FuzzyCompare(bl) {
-		p.PutToInvalid(bl, "fuzzy compare failed")
+		p.PutToInvalid(bl, ErrFuzzyCompareFailed.Error())
 		p.PutToFuzzy(bl)
 		return
 	}
