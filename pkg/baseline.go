@@ -24,7 +24,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	}
 
 	bl.Body = resp.Body()
-	bl.BodyLength = resp.ContentLength()
+	bl.BodyLength = len(resp.Body())
 	bl.Header = resp.Header()
 	bl.HeaderLength = len(bl.Header)
 	bl.RedirectURL = resp.GetHeader("Location")
@@ -50,7 +50,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 	}
 
 	bl.Body = resp.Body()
-	bl.BodyLength = resp.ContentLength()
+	bl.BodyLength = len(bl.Body)
 	bl.RedirectURL = string(resp.GetHeader("Location"))
 
 	return bl
