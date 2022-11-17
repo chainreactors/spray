@@ -61,6 +61,7 @@ type ModeOptions struct {
 	ErrPeriod      int    `long:"error-period" default:"10"`
 	BreakThreshold int    `long:"error-threshold" default:"20"`
 	BlackStatus    string `long:"black-status" default:"default"`
+	WhiteStatus    string `long:"black-status" `
 }
 
 type MiscOptions struct {
@@ -135,6 +136,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 	} else {
 		BlackStatus = []int{400, 404, 410}
+	}
+
+	if opt.WhiteStatus != "" {
+		for _, s := range strings.Split(opt.WhiteStatus, ",") {
+			si, err := strconv.Atoi(s)
+			if err != nil {
+				return nil, err
+			}
+			WhiteStatus = append(WhiteStatus, si)
+		}
 	}
 
 	// prepare url
