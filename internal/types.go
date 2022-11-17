@@ -21,7 +21,7 @@ func (e ErrorType) Error() string {
 	case ErrRequestFailed:
 		return "request failed"
 	case ErrWaf:
-		return "maybe ban of waf"
+		return "maybe banned by waf"
 	case ErrRedirect:
 		return "duplicate redirect url"
 	case ErrCompareFailed:
