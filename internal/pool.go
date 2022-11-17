@@ -15,18 +15,8 @@ import (
 )
 
 var (
-	CheckBadStatus func(int) bool
-	CheckRedirect  func(string) bool
+	CheckRedirect func(string) bool
 )
-
-func CheckWaf(status int) bool {
-	for _, s := range WAFStatus {
-		if status == s {
-			return true
-		}
-	}
-	return false
-}
 
 var max = 2147483647
 
@@ -264,15 +254,19 @@ Loop:
 
 func (p *Pool) PreCompare(resp *ihttp.Response) error {
 	status := resp.StatusCode()
+	if IntsContains(WhiteStatus, status) {
+		// 如果为白名单状态码则直接返回
+		return nil
+	}
 	if p.base != nil && p.base.Status != 200 && p.base.Status == status {
 		return ErrSameStatus
 	}
 
-	if CheckBadStatus(status) {
+	if IntsContains(BlackStatus, status) {
 		return ErrBadStatus
 	}
 
-	if CheckWaf(status) {
+	if IntsContains(WAFStatus, status) {
 		return ErrWaf
 	}
 

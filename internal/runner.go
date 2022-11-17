@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	BlackStatus = []int{}
+	WhiteStatus []int
+	BlackStatus []int
 	FuzzyStatus = []int{403, 500, 501, 502, 503}
 	WAFStatus   = []int{493, 418}
 )
@@ -49,14 +50,6 @@ type Runner struct {
 
 func (r *Runner) Prepare(ctx context.Context) error {
 	var err error
-	CheckBadStatus = func(status int) bool {
-		for _, black := range BlackStatus {
-			if black == status {
-				return true
-			}
-		}
-		return false
-	}
 
 	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 		u := i.(string)
