@@ -159,7 +159,11 @@ func (r *Runner) Outputting() {
 
 		for {
 			select {
-			case bl := <-r.OutputCh:
+			case bl, ok := <-r.OutputCh:
+				if !ok {
+					return
+				}
+
 				if bl.IsValid {
 					outFunc(bl)
 				} else {
@@ -172,7 +176,10 @@ func (r *Runner) Outputting() {
 	go func() {
 		for {
 			select {
-			case bl := <-r.FuzzyCh:
+			case bl, ok := <-r.FuzzyCh:
+				if !ok {
+					return
+				}
 				if r.Fuzzy {
 					logs.Log.Console("[baseline.fuzzy] " + bl.String() + "\n")
 				}

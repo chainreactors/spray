@@ -52,7 +52,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			return pool.buildPathRequest(s)
 		}
 		pool.check = func() {
-			pool.wg.Add(1)
 			_ = pool.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
 
 			if pool.failedCount > pool.BreakThreshold {
@@ -67,7 +66,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		}
 
 		pool.check = func() {
-			pool.wg.Add(1)
 			_ = pool.pool.Invoke(newUnit(pkg.RandHost(), CheckSource))
 
 			if pool.failedCount > pool.BreakThreshold {
@@ -83,7 +81,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		req, err := pool.genReq(unit.path)
 		if err != nil {
 			logs.Log.Error(err.Error())
-			return
 		}
 
 		var bl *pkg.Baseline
@@ -148,7 +145,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.bar.Done()
 		}
 
-		pool.wg.Done()
 	})
 
 	pool.pool = p
@@ -160,6 +156,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 				}
 			} else {
 				pool.BaseCompare(bl)
+				pool.wg.Done()
 			}
 		}
 
@@ -260,6 +257,7 @@ Loop:
 			break Loop
 		}
 	}
+	//p.wg.Add(100)
 	p.wg.Wait()
 	p.Close()
 }
@@ -363,7 +361,7 @@ func (p *Pool) recover() {
 }
 
 func (p *Pool) Close() {
-	for !p.analyzeDone {
+	for p.analyzeDone {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 	close(p.tempCh)
