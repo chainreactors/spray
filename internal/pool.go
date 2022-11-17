@@ -15,10 +15,19 @@ import (
 )
 
 var (
-	CheckStatusCode func(int) bool
-	CheckRedirect   func(string) bool
-	CheckWaf        func([]byte) bool
+	CheckBadStatus func(int) bool
+	CheckRedirect  func(string) bool
 )
+
+func CheckWaf(status int) bool {
+	for _, s := range WAFStatus {
+		if status == s {
+			return true
+		}
+	}
+	return false
+}
+
 var max = 2147483647
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
@@ -202,7 +211,7 @@ func (p *Pool) Init() error {
 	p.index.Collect()
 
 	logs.Log.Important("[baseline.random] " + p.base.String())
-	logs.Log.Important("[baseline.index] " + p.base.String())
+	logs.Log.Important("[baseline.index] " + p.index.String())
 
 	if p.base.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
@@ -256,21 +265,21 @@ Loop:
 }
 
 func (p *Pool) PreCompare(resp *ihttp.Response) error {
-	if p.base != nil && p.base.Status != 200 && p.base.Status == resp.StatusCode() {
+	status := resp.StatusCode()
+	if p.base != nil && p.base.Status != 200 && p.base.Status == status {
 		return ErrSameStatus
 	}
 
-	if !CheckStatusCode(resp.StatusCode()) {
+	if CheckBadStatus(status) {
 		return ErrBadStatus
+	}
+
+	if CheckWaf(status) {
+		return ErrWaf
 	}
 
 	if CheckRedirect != nil && !CheckRedirect(string(resp.GetHeader("Location"))) {
 		return ErrRedirect
-	}
-
-	if CheckWaf != nil && !CheckWaf(nil) {
-		// todo check waf
-		return ErrWaf
 	}
 
 	return nil

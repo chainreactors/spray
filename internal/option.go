@@ -55,11 +55,12 @@ type RequestOptions struct {
 }
 
 type ModeOptions struct {
-	Force          bool `long:"force"`
-	CheckOnly      bool `long:"check-only"`
-	CheckPeriod    int  `long:"check-period" default:"100"`
-	ErrPeriod      int  `long:"error-period" default:"10"`
-	BreakThreshold int  `long:"error-threshold" default:"20"`
+	Force          bool   `long:"force"`
+	CheckOnly      bool   `long:"check-only"`
+	CheckPeriod    int    `long:"check-period" default:"100"`
+	ErrPeriod      int    `long:"error-period" default:"10"`
+	BreakThreshold int    `long:"error-threshold" default:"20"`
+	BlackStatus    string `long:"black-status" default:"default"`
 }
 
 type MiscOptions struct {
@@ -122,6 +123,18 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.BreakThreshold = max
 		r.CheckPeriod = max
 		r.ErrPeriod = max
+	}
+
+	if opt.BlackStatus != "default" {
+		for _, s := range strings.Split(opt.BlackStatus, ",") {
+			si, err := strconv.Atoi(s)
+			if err != nil {
+				return nil, err
+			}
+			BlackStatus = append(BlackStatus, si)
+		}
+	} else {
+		BlackStatus = []int{400, 404, 410}
 	}
 
 	// prepare url

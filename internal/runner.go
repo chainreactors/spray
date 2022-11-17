@@ -13,8 +13,11 @@ import (
 	"time"
 )
 
-var BlackStatus = []int{400, 404, 410}
-var FuzzyStatus = []int{403, 500, 501, 502, 503}
+var (
+	BlackStatus = []int{}
+	FuzzyStatus = []int{403, 500, 501, 502, 503}
+	WAFStatus   = []int{493, 418}
+)
 
 type Runner struct {
 	URLList        chan string
@@ -46,13 +49,13 @@ type Runner struct {
 
 func (r *Runner) Prepare(ctx context.Context) error {
 	var err error
-	CheckStatusCode = func(status int) bool {
+	CheckBadStatus = func(status int) bool {
 		for _, black := range BlackStatus {
 			if black == status {
-				return false
+				return true
 			}
 		}
-		return true
+		return false
 	}
 
 	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
