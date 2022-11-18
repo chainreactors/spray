@@ -61,11 +61,11 @@ type ModeOptions struct {
 	ErrPeriod      int    `long:"error-period" default:"10"`
 	BreakThreshold int    `long:"error-threshold" default:"20"`
 	BlackStatus    string `long:"black-status" default:"default"`
-	WhiteStatus    string `long:"black-status" `
+	WhiteStatus    string `long:"white-status" `
 }
 
 type MiscOptions struct {
-	Deadline int    `long:"deadline" default:"99999" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
+	Deadline int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
 	Timeout  int    `long:"timeout" default:"2" description:"Int, timeout with request (seconds)"`
 	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
@@ -90,7 +90,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Deadline:       opt.Deadline,
 		Offset:         opt.Offset,
 		Limit:          opt.Limit,
-		URLList:        make(chan string),
+		URLCh:          make(chan string),
 		OutputCh:       make(chan *pkg.Baseline, 100),
 		FuzzyCh:        make(chan *pkg.Baseline, 100),
 		Fuzzy:          opt.Fuzzy,
@@ -177,12 +177,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		urls[i] = strings.TrimSpace(u)
 	}
 	logs.Log.Importantf("load %d urls from %s", len(urls), urlfrom)
-	go func() {
-		for _, u := range urls {
-			r.URLList <- u
-		}
-		close(r.URLList)
-	}()
+	if !opt.CheckOnly {
+		go func() {
+			for _, u := range urls {
+				r.URLCh <- u
+			}
+			close(r.URLCh)
+		}()
+	} else {
+		r.URLList = urls
+	}
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
@@ -222,7 +226,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	if r.Limit == 0 {
-		r.Limit = len(r.Wordlist)
+		if r.CheckOnly {
+			r.Limit = len(r.URLList)
+		} else {
+			r.Limit = len(r.Wordlist)
+		}
 	} else {
 		r.Limit = r.Offset + opt.Limit
 	}
