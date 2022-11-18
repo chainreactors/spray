@@ -21,7 +21,8 @@ var (
 )
 
 type Runner struct {
-	URLList        chan string
+	URLCh          chan string
+	URLList        []string
 	Wordlist       []string
 	Headers        http.Header
 	Fns            []func(string) string
@@ -48,54 +49,74 @@ type Runner struct {
 	CheckOnly      bool
 }
 
+func (r *Runner) PrepareConfig() *pkg.Config {
+	config := &pkg.Config{
+		Thread:         r.Threads,
+		Timeout:        r.Timeout,
+		Headers:        r.Headers,
+		Mod:            pkg.ModMap[r.Mod],
+		Fns:            r.Fns,
+		OutputCh:       r.OutputCh,
+		FuzzyCh:        r.FuzzyCh,
+		CheckPeriod:    r.CheckPeriod,
+		ErrPeriod:      r.ErrPeriod,
+		BreakThreshold: r.BreakThreshold,
+	}
+	if config.Mod == pkg.PathSpray {
+		config.ClientType = ihttp.FAST
+	} else if config.Mod == pkg.HostSpray {
+		config.ClientType = ihttp.STANDARD
+	}
+	return config
+}
+
 func (r *Runner) Prepare(ctx context.Context) error {
 	var err error
-
-	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
-		u := i.(string)
-		config := &pkg.Config{
-			BaseURL:        u,
-			Wordlist:       r.Wordlist,
-			Thread:         r.Threads,
-			Timeout:        r.Timeout,
-			Headers:        r.Headers,
-			Mod:            pkg.ModMap[r.Mod],
-			Fns:            r.Fns,
-			OutputCh:       r.OutputCh,
-			FuzzyCh:        r.FuzzyCh,
-			CheckPeriod:    r.CheckPeriod,
-			ErrPeriod:      r.ErrPeriod,
-			BreakThreshold: r.BreakThreshold,
-		}
-
-		if config.Mod == pkg.PathSpray {
-			config.ClientType = ihttp.FAST
-		} else if config.Mod == pkg.HostSpray {
-			config.ClientType = ihttp.STANDARD
-		}
-
-		pool, err := NewPool(ctx, config)
-		if err != nil {
-			logs.Log.Error(err.Error())
-			pool.cancel()
-			r.poolwg.Done()
-			return
-		}
-		pool.bar = pkg.NewBar(u, r.Limit-r.Offset, r.Progress)
-		err = pool.Init()
-		if err != nil {
-			logs.Log.Error(err.Error())
-			if !r.Force {
-				// 如果没开启force, init失败将会关闭pool
+	if r.CheckOnly {
+		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
+			config := r.PrepareConfig()
+			config.Wordlist = r.URLList
+			pool, err := NewCheckPool(ctx, config)
+			if err != nil {
+				logs.Log.Error(err.Error())
 				pool.cancel()
 				r.poolwg.Done()
 				return
 			}
-		}
+			pool.bar = pkg.NewBar("check", r.Limit-r.Offset, r.Progress)
+			pool.Run(ctx, r.Offset, r.Limit)
+			r.poolwg.Done()
+		})
+	} else {
+		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
+			u := i.(string)
+			config := r.PrepareConfig()
+			config.BaseURL = u
+			config.Wordlist = r.Wordlist
+			pool, err := NewPool(ctx, config)
+			if err != nil {
+				logs.Log.Error(err.Error())
+				pool.cancel()
+				r.poolwg.Done()
+				return
+			}
+			pool.bar = pkg.NewBar(u, r.Limit-r.Offset, r.Progress)
+			err = pool.Init()
+			if err != nil {
+				logs.Log.Error(err.Error())
+				if !r.Force {
+					// 如果没开启force, init失败将会关闭pool
+					pool.cancel()
+					r.poolwg.Done()
+					return
+				}
+			}
 
-		pool.Run(ctx, r.Offset, r.Limit)
-		r.poolwg.Done()
-	})
+			pool.Run(ctx, r.Offset, r.Limit)
+			r.poolwg.Done()
+		})
+
+	}
 
 	if err != nil {
 		return err
@@ -111,7 +132,7 @@ Loop:
 		case <-ctx.Done():
 			logs.Log.Error("cancel with deadline")
 			break Loop
-		case u, ok := <-r.URLList:
+		case u, ok := <-r.URLCh:
 			if !ok {
 				break Loop
 			}
@@ -134,6 +155,38 @@ Loop:
 			break
 		}
 	}
+	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
+}
+
+func (r *Runner) RunWithCheck(ctx context.Context) {
+	stopCh := make(chan struct{})
+	r.poolwg.Add(1)
+	err := r.Pools.Invoke(struct{}{})
+	if err != nil {
+		return
+	}
+	go func() {
+		r.poolwg.Wait()
+		stopCh <- struct{}{}
+	}()
+Loop:
+	for {
+		select {
+		case <-ctx.Done():
+			logs.Log.Error("cancel with deadline")
+			break Loop
+		case <-stopCh:
+			break Loop
+		}
+	}
+
+	for {
+		if len(r.OutputCh) == 0 {
+			close(r.OutputCh)
+			break
+		}
+	}
+
 	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
 }
 

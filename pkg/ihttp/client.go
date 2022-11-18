@@ -34,7 +34,8 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 				WriteTimeout:        time.Duration(timeout) * time.Second,
 				MaxResponseBodySize: DefaultMaxBodySize,
 			},
-			timeout: time.Duration(timeout) * time.Second,
+			timeout:    time.Duration(timeout) * time.Second,
+			clientType: clientType,
 		}
 	} else {
 		return &Client{
@@ -52,7 +53,8 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 				Timeout:       time.Second * time.Duration(timeout),
 				CheckRedirect: checkRedirect,
 			},
-			timeout: time.Duration(timeout) * time.Second,
+			timeout:    time.Duration(timeout) * time.Second,
+			clientType: clientType,
 		}
 	}
 }
@@ -60,7 +62,16 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 type Client struct {
 	fastClient     *fasthttp.Client
 	standardClient *http.Client
+	clientType     int
 	timeout        time.Duration
+}
+
+func (c *Client) TransToCheck() {
+	if c.fastClient != nil {
+		c.fastClient.MaxConnsPerHost = 1
+	} else if c.standardClient != nil {
+
+	}
 }
 
 func (c *Client) FastDo(ctx context.Context, req *fasthttp.Request) (*fasthttp.Response, error) {

@@ -34,5 +34,9 @@ func Spray() {
 		return
 	}
 
-	runner.Run(ctx)
+	if runner.CheckOnly {
+		runner.RunWithCheck(ctx)
+	} else {
+		runner.Run(ctx)
+	}
 }

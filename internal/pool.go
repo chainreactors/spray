@@ -9,7 +9,6 @@ import (
 	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -39,7 +38,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	switch config.Mod {
 	case pkg.PathSpray:
 		pool.genReq = func(s string) (*ihttp.Request, error) {
-			return pool.buildPathRequest(s)
+			return ihttp.BuildPathRequest(pool.ClientType, pool.BaseURL, s)
 		}
 		pool.check = func() {
 			_ = pool.pool.Invoke(newUnit(pkg.RandPath(), CheckSource))
@@ -52,7 +51,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		}
 	case pkg.HostSpray:
 		pool.genReq = func(s string) (*ihttp.Request, error) {
-			return pool.buildHostRequest(s)
+			return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
 		}
 
 		pool.check = func() {
@@ -247,7 +246,6 @@ Loop:
 			break Loop
 		}
 	}
-	//p.wg.Add(100)
 	p.wg.Wait()
 	p.Close()
 }
@@ -360,28 +358,4 @@ func (p *Pool) Close() {
 	}
 	close(p.tempCh)
 	p.bar.Close()
-}
-
-func (p *Pool) buildPathRequest(path string) (*ihttp.Request, error) {
-	if p.Config.ClientType == ihttp.FAST {
-		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(p.BaseURL + path)
-		return &ihttp.Request{FastRequest: req, ClientType: p.ClientType}, nil
-	} else {
-		req, err := http.NewRequest("GET", p.BaseURL+path, nil)
-		return &ihttp.Request{StandardRequest: req, ClientType: p.ClientType}, err
-	}
-}
-
-func (p *Pool) buildHostRequest(host string) (*ihttp.Request, error) {
-	if p.Config.ClientType == ihttp.FAST {
-		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(p.BaseURL)
-		req.SetHost(host)
-		return &ihttp.Request{FastRequest: req, ClientType: p.ClientType}, nil
-	} else {
-		req, err := http.NewRequest("GET", p.BaseURL, nil)
-		req.Host = host
-		return &ihttp.Request{StandardRequest: req, ClientType: p.ClientType}, err
-	}
 }
