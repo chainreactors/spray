@@ -90,7 +90,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Deadline:       opt.Deadline,
 		Offset:         opt.Offset,
 		Limit:          opt.Limit,
-		URLCh:          make(chan string),
+		urlCh:          make(chan string),
 		OutputCh:       make(chan *pkg.Baseline, 100),
 		FuzzyCh:        make(chan *pkg.Baseline, 100),
 		Fuzzy:          opt.Fuzzy,
@@ -173,20 +173,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		urls = strings.Split(string(content), "\n")
 	}
 
-	for i, u := range urls {
-		urls[i] = strings.TrimSpace(u)
-	}
+	r.URLList = urls
 	logs.Log.Importantf("load %d urls from %s", len(urls), urlfrom)
-	if !opt.CheckOnly {
-		go func() {
-			for _, u := range urls {
-				r.URLCh <- u
-			}
-			close(r.URLCh)
-		}()
-	} else {
-		r.URLList = urls
-	}
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))

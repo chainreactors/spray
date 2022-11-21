@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
@@ -9,6 +10,7 @@ import (
 	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,7 +23,11 @@ var (
 )
 
 type Runner struct {
-	URLCh          chan string
+	urlCh    chan string
+	poolwg   sync.WaitGroup
+	bar      *uiprogress.Bar
+	finished int
+
 	URLList        []string
 	Wordlist       []string
 	Headers        http.Header
@@ -29,7 +35,6 @@ type Runner struct {
 	Threads        int
 	PoolSize       int
 	Pools          *ants.PoolWithFunc
-	poolwg         sync.WaitGroup
 	Timeout        int
 	Mod            string
 	Probes         []string
@@ -88,6 +93,22 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			r.poolwg.Done()
 		})
 	} else {
+		go func() {
+			for _, u := range r.URLList {
+				r.urlCh <- strings.TrimSpace(u)
+			}
+			close(r.urlCh)
+		}()
+
+		if len(r.URLList) > 0 {
+			r.bar = r.Progress.AddBar(len(r.URLList))
+			r.bar.PrependCompleted()
+			r.bar.PrependFunc(func(b *uiprogress.Bar) string {
+				return fmt.Sprintf("total progressive: %d/%d ", r.finished, len(r.URLList))
+			})
+			r.bar.AppendElapsed()
+		}
+
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 			u := i.(string)
 			config := r.PrepareConfig()
@@ -97,9 +118,10 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			if err != nil {
 				logs.Log.Error(err.Error())
 				pool.cancel()
-				r.poolwg.Done()
+				r.Done()
 				return
 			}
+
 			pool.bar = pkg.NewBar(u, r.Limit-r.Offset, r.Progress)
 			err = pool.Init()
 			if err != nil {
@@ -107,13 +129,13 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				if !r.Force {
 					// 如果没开启force, init失败将会关闭pool
 					pool.cancel()
-					r.poolwg.Done()
+					r.Done()
 					return
 				}
 			}
 
 			pool.Run(ctx, r.Offset, r.Limit)
-			r.poolwg.Done()
+			r.Done()
 		})
 
 	}
@@ -132,7 +154,7 @@ Loop:
 		case <-ctx.Done():
 			logs.Log.Error("cancel with deadline")
 			break Loop
-		case u, ok := <-r.URLCh:
+		case u, ok := <-r.urlCh:
 			if !ok {
 				break Loop
 			}
@@ -142,6 +164,8 @@ Loop:
 	}
 
 	r.poolwg.Wait()
+
+	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
 	for {
 		if len(r.OutputCh) == 0 {
 			close(r.OutputCh)
@@ -169,6 +193,7 @@ func (r *Runner) RunWithCheck(ctx context.Context) {
 		r.poolwg.Wait()
 		stopCh <- struct{}{}
 	}()
+
 Loop:
 	for {
 		select {
@@ -188,6 +213,12 @@ Loop:
 	}
 
 	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
+}
+
+func (r *Runner) Done() {
+	r.bar.Incr()
+	r.finished++
+	r.poolwg.Done()
 }
 
 func (r *Runner) Outputting() {

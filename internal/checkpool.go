@@ -57,7 +57,6 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 			bl.Collect()
 		}
 
-		// 异步进行性能消耗较大的深度对比
 		pool.OutputCh <- bl
 		pool.reqCount++
 		pool.wg.Done()
