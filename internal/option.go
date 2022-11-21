@@ -183,7 +183,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
-		logs.Log.Importantf("load %d word from %s", len(dicts[i]), f)
+		logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
 	}
 
 	if opt.Word == "" {
@@ -213,6 +213,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+	logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
+
 	if r.Limit == 0 {
 		if r.CheckOnly {
 			r.Limit = len(r.URLList)
@@ -258,7 +260,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			return s
 		})
 	}
-
+	logs.Log.Importantf("Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 	// prepare header
 	for _, h := range opt.Headers {
 		i := strings.Index(h, ":")
