@@ -215,6 +215,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
+	pkg.DefaultStatistor.Total = len(r.Wordlist)
+	pkg.DefaultStatistor.Word = opt.Word
+	pkg.DefaultStatistor.Dictionaries = opt.Dictionaries
 
 	if r.Limit == 0 {
 		if r.CheckOnly {
