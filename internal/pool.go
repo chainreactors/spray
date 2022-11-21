@@ -3,12 +3,15 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/antonmedv/expr"
+	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -81,15 +84,22 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
-			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, Err: reqerr.Error(), Reason: ErrRequestFailed.Error()}
+			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
-			if err = pool.PreCompare(resp); unit.source != WordSource || err == nil {
-				// 通过预对比跳过一些无用数据, 减少性能消耗
+			if unit.source != WordSource {
 				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
-				pool.addFuzzyBaseline(bl)
 			} else {
-				bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
+				if unit.source != WordSource || pool.MatchExpr != nil {
+					// 如果非wordsource, 或自定义了match函数, 则所有数据送入tempch中
+					bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+				} else if err = pool.PreCompare(resp); err == nil {
+					// 通过预对比跳过一些无用数据, 减少性能消耗
+					bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+					pool.addFuzzyBaseline(bl)
+				} else {
+					bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
+				}
 			}
 		}
 
@@ -104,8 +114,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.initwg.Done()
 			return
 		case CheckSource:
-			if bl.Err != "" {
-				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, pool.BreakThreshold, bl.Err)
+			if bl.ErrString != "" {
+				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, pool.BreakThreshold, bl.ErrString)
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else if i := pool.base.Compare(bl); i < 1 {
 				if i == 0 {
@@ -139,14 +149,27 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pool.pool = p
 	go func() {
 		for bl := range pool.tempCh {
-			if pool.customCompare != nil {
-				if pool.customCompare(bl) {
-					pool.OutputCh <- bl
+			var status bool
+			if pool.MatchExpr != nil {
+				if pool.CompareWithExpr(pool.MatchExpr, bl) {
+					status = true
 				}
 			} else {
-				pool.BaseCompare(bl)
-				pool.wg.Done()
+				if pool.BaseCompare(bl) {
+					status = true
+				}
 			}
+
+			if status {
+				if pool.FilterExpr != nil && pool.CompareWithExpr(pool.FilterExpr, bl) {
+					bl.Reason = ErrCustomFilter.Error()
+					bl.IsValid = false
+				}
+			} else {
+				bl.IsValid = false
+			}
+			pool.OutputCh <- bl
+			pool.wg.Done()
 		}
 
 		pool.analyzeDone = true
@@ -171,7 +194,6 @@ type Pool struct {
 	analyzeDone     bool
 	genReq          func(s string) (*ihttp.Request, error)
 	check           func()
-	customCompare   func(*pkg.Baseline) bool
 	worder          *words.Worder
 	wg              sync.WaitGroup
 	initwg          sync.WaitGroup // 初始化用, 之后改成锁
@@ -185,11 +207,11 @@ func (p *Pool) Init() error {
 	// todo 分析baseline
 	// 检测基本访问能力
 
-	if p.base.Err != "" {
+	if p.base.ErrString != "" {
 		return fmt.Errorf(p.base.String())
 	}
 
-	if p.index.Err != "" {
+	if p.index.ErrString != "" {
 		return fmt.Errorf(p.index.String())
 	}
 
@@ -275,11 +297,11 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 	return nil
 }
 
-func (p *Pool) BaseCompare(bl *pkg.Baseline) {
+func (p *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	if !bl.IsValid {
 		// precompare 确认无效数据直接送入管道
 		p.OutputCh <- bl
-		return
+		return false
 	}
 	var status = -1
 	base, ok := p.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
@@ -293,31 +315,56 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) {
 			ok = true
 			base = p.index
 		}
-
 	}
 
 	if ok {
 		if status = base.Compare(bl); status == 1 {
-			p.PutToInvalid(bl, ErrCompareFailed.Error())
-			return
+			bl.Reason = ErrCompareFailed.Error()
+			return false
 		}
 	}
 
 	bl.Collect()
 	for _, f := range bl.Frameworks {
 		if f.Tag == "waf/cdn" {
-			p.PutToInvalid(bl, ErrWaf.Error())
-			return
+			bl.Reason = ErrWaf.Error()
+			return false
 		}
 	}
 
 	if ok && status == 0 && base.FuzzyCompare(bl) {
-		p.PutToInvalid(bl, ErrFuzzyCompareFailed.Error())
+		bl.Reason = ErrFuzzyCompareFailed.Error()
 		p.PutToFuzzy(bl)
-		return
+		return false
 	}
 
-	p.OutputCh <- bl
+	return true
+}
+
+func (p *Pool) CompareWithExpr(exp *vm.Program, other *pkg.Baseline) bool {
+	params := map[string]interface{}{
+		"index":   p.index,
+		"base":    p.base,
+		"current": other,
+	}
+	for _, status := range FuzzyStatus {
+		if bl, ok := p.baselines[status]; ok {
+			params["bl"+strconv.Itoa(status)] = bl
+		} else {
+			params["bl"+strconv.Itoa(status)] = &pkg.Baseline{}
+		}
+	}
+
+	res, err := expr.Run(exp, params)
+	if err != nil {
+		logs.Log.Warn(err.Error())
+	}
+
+	if res == true {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
@@ -330,7 +377,6 @@ func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 
 func (p *Pool) PutToInvalid(bl *pkg.Baseline, reason string) {
 	bl.IsValid = false
-	bl.Reason = reason
 	p.OutputCh <- bl
 }
 
