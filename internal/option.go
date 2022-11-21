@@ -170,11 +170,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
-		urls = strings.Split(string(content), "\n")
+		urls = strings.Split(strings.TrimSpace(string(content)), "\n")
 	}
 
 	r.URLList = urls
-	logs.Log.Importantf("load %d urls from %s", len(urls), urlfrom)
+	logs.Log.Importantf("Loaded %d urls from %s", len(urls), urlfrom)
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
