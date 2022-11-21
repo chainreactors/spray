@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
@@ -32,6 +33,8 @@ type Runner struct {
 	Wordlist       []string
 	Headers        http.Header
 	Fns            []func(string) string
+	FilterExpr     *vm.Program
+	MatchExpr      *vm.Program
 	Threads        int
 	PoolSize       int
 	Pools          *ants.PoolWithFunc
@@ -66,6 +69,8 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		CheckPeriod:    r.CheckPeriod,
 		ErrPeriod:      r.ErrPeriod,
 		BreakThreshold: r.BreakThreshold,
+		MatchExpr:      r.MatchExpr,
+		FilterExpr:     r.FilterExpr,
 	}
 	if config.Mod == pkg.PathSpray {
 		config.ClientType = ihttp.FAST

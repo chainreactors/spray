@@ -10,6 +10,8 @@ const (
 	ErrRedirect
 	ErrCompareFailed
 	ErrFuzzyCompareFailed
+	ErrCustomCompareFailed
+	ErrCustomFilter
 )
 
 func (e ErrorType) Error() string {
@@ -28,6 +30,10 @@ func (e ErrorType) Error() string {
 		return "compare failed"
 	case ErrFuzzyCompareFailed:
 		return "fuzzy compare failed"
+	case ErrCustomCompareFailed:
+		return "custom compare failed"
+	case ErrCustomFilter:
+		return "custom filtered"
 	default:
 		return "unknown error"
 	}

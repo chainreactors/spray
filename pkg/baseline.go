@@ -72,7 +72,7 @@ type Baseline struct {
 	Title        string     `json:"title"`
 	Frameworks   Frameworks `json:"frameworks"`
 	Extracteds   Extracteds `json:"extracts"`
-	Err          string     `json:"error"`
+	ErrString    string     `json:"error"`
 	Reason       string     `json:"reason"`
 	IsValid      bool       `json:"valid"`
 	IsFuzzy      bool       `json:"fuzzy"`
@@ -189,9 +189,9 @@ func (bl *Baseline) Format(probes []string) string {
 		line.WriteString(" ,")
 		line.WriteString(bl.Reason)
 	}
-	if bl.Err != "" {
+	if bl.ErrString != "" {
 		line.WriteString(" ,err: ")
-		line.WriteString(bl.Err)
+		line.WriteString(bl.ErrString)
 		return line.String()
 	}
 
@@ -216,9 +216,9 @@ func (bl *Baseline) String() string {
 		line.WriteString(bl.Reason)
 		line.WriteString("]")
 	}
-	if bl.Err != "" {
+	if bl.ErrString != "" {
 		line.WriteString(" [err: ")
-		line.WriteString(bl.Err)
+		line.WriteString(bl.ErrString)
 		line.WriteString("]")
 		return line.String()
 	}

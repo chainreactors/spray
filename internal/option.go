@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/antonmedv/expr"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
@@ -38,13 +39,13 @@ type InputOptions struct {
 }
 
 type OutputOptions struct {
-	Matches     map[string]string `long:"match" description:"String, "`
-	Filters     map[string]string `long:"filter" description:"String, "`
-	Extracts    []string          `long:"extract" description:"String, "`
-	OutputFile  string            `short:"f" description:"String, output filename"`
-	FuzzyFile   string            `long:"fuzzy-file" description:"String, fuzzy output filename"`
-	Fuzzy       bool              `long:"fuzzy" description:"String, open fuzzy output"`
-	OutputProbe string            `long:"probe" description:"String, output format"`
+	Match       string   `long:"match" description:"String, "`
+	Filter      string   `long:"filter" description:"String, "`
+	Extracts    []string `long:"extract" description:"String, "`
+	OutputFile  string   `short:"f" description:"String, output filename"`
+	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename"`
+	Fuzzy       bool     `long:"fuzzy" description:"String, open fuzzy output"`
+	OutputProbe string   `long:"probe" description:"String, output format"`
 }
 
 type RequestOptions struct {
@@ -261,6 +262,23 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		})
 	}
 	logs.Log.Importantf("Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
+
+	if opt.Match != "" {
+		exp, err := expr.Compile(opt.Match)
+		if err != nil {
+			return nil, err
+		}
+		r.MatchExpr = exp
+	}
+
+	if opt.Filter != "" {
+		exp, err := expr.Compile(opt.Filter)
+		if err != nil {
+			return nil, err
+		}
+		r.FilterExpr = exp
+	}
+
 	// prepare header
 	for _, h := range opt.Headers {
 		i := strings.Index(h, ":")

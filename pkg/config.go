@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"github.com/antonmedv/expr/vm"
 	"net/http"
 )
 
@@ -31,6 +32,9 @@ type Config struct {
 	Headers        http.Header
 	ClientType     int
 	Fns            []func(string) string
-	OutputCh       chan *Baseline
-	FuzzyCh        chan *Baseline
+	MatchExpr      *vm.Program
+	FilterExpr     *vm.Program
+
+	OutputCh chan *Baseline
+	FuzzyCh  chan *Baseline
 }
