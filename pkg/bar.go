@@ -16,7 +16,7 @@ func NewBar(u string, total int, progress *uiprogress.Progress) *Bar {
 	metrics.Register(bar.url, bar.m)
 	bar.PrependCompleted()
 	bar.PrependFunc(func(b *uiprogress.Bar) string {
-		return fmt.Sprintf("%f/s %v/%v", bar.m.Rate1(), bar.m.Count(), bar.Bar.Total)
+		return fmt.Sprintf("%f/s %d/%d", bar.m.Rate1(), bar.m.Count(), bar.Bar.Total)
 	})
 	bar.PrependFunc(func(b *uiprogress.Bar) string {
 		return u
