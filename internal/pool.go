@@ -26,6 +26,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
 		Config:      config,
+		Statistor:   pkg.NewStatistor(config.BaseURL),
 		ctx:         pctx,
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
@@ -68,7 +69,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		}
 	}
 
+	var mutex sync.Mutex
 	p, _ := ants.NewPoolWithFunc(config.Thread, func(i interface{}) {
+		pool.Statistor.ReqNumber++
 		unit := i.(*Unit)
 		req, err := pool.genReq(unit.path)
 		if err != nil {
@@ -84,9 +87,17 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
+			pool.Statistor.FailedNumber++
 			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
+			mutex.Lock()
+			if _, ok := pool.Statistor.Counts[resp.StatusCode()]; ok {
+				pool.Statistor.Counts[resp.StatusCode()]++
+			} else {
+				pool.Statistor.Counts[resp.StatusCode()] = 1
+			}
+			mutex.Unlock()
 			if unit.source != WordSource {
 				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 			} else {
@@ -136,9 +147,11 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.reqCount++
 			if pool.reqCount%pool.CheckPeriod == 0 {
 				pool.reqCount++
+				pool.Statistor.CheckNumber++
 				go pool.check()
 			} else if pool.failedCount%pool.ErrPeriod == 0 {
 				pool.failedCount++
+				pool.Statistor.CheckNumber++
 				go pool.check()
 			}
 			pool.bar.Done()
@@ -161,7 +174,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			}
 
 			if status {
+				pool.Statistor.FoundNumber++
 				if pool.FilterExpr != nil && pool.CompareWithExpr(pool.FilterExpr, bl) {
+					pool.Statistor.FilteredNumber++
 					bl.Reason = ErrCustomFilter.Error()
 					bl.IsValid = false
 				}
@@ -179,6 +194,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 type Pool struct {
 	*pkg.Config
+	Statistor       *pkg.Statistor
 	client          *ihttp.Client
 	pool            *ants.PoolWithFunc
 	bar             *pkg.Bar
@@ -237,6 +253,7 @@ func (p *Pool) Init() error {
 }
 
 func (p *Pool) Run(ctx context.Context, offset, limit int) {
+	p.Statistor.Offset = offset
 Loop:
 	for {
 		select {
@@ -244,13 +261,13 @@ Loop:
 			if !ok {
 				break Loop
 			}
-
+			p.Statistor.End++
 			if p.reqCount < offset {
 				p.reqCount++
 				continue
 			}
 
-			if p.reqCount > limit {
+			if p.Statistor.End > limit {
 				break Loop
 			}
 
@@ -269,6 +286,7 @@ Loop:
 		}
 	}
 	p.wg.Wait()
+	p.Statistor.ReqNumber = p.reqCount
 	p.Close()
 }
 
@@ -327,12 +345,14 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	bl.Collect()
 	for _, f := range bl.Frameworks {
 		if f.Tag == "waf/cdn" {
+			p.Statistor.WafedNumber++
 			bl.Reason = ErrWaf.Error()
 			return false
 		}
 	}
 
 	if ok && status == 0 && base.FuzzyCompare(bl) {
+		p.Statistor.FuzzyNumber++
 		bl.Reason = ErrFuzzyCompareFailed.Error()
 		p.PutToFuzzy(bl)
 		return false
