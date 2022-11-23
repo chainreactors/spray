@@ -69,7 +69,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		}
 	}
 
-	var mutex sync.Mutex
 	p, _ := ants.NewPoolWithFunc(config.Thread, func(i interface{}) {
 		pool.Statistor.ReqNumber++
 		unit := i.(*Unit)
@@ -91,13 +90,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
-			mutex.Lock()
-			if _, ok := pool.Statistor.Counts[resp.StatusCode()]; ok {
-				pool.Statistor.Counts[resp.StatusCode()]++
-			} else {
-				pool.Statistor.Counts[resp.StatusCode()] = 1
-			}
-			mutex.Unlock()
 			if unit.source != WordSource {
 				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 			} else {
@@ -162,6 +154,11 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pool.pool = p
 	go func() {
 		for bl := range pool.tempCh {
+			if _, ok := pool.Statistor.Counts[bl.Status]; ok {
+				pool.Statistor.Counts[bl.Status]++
+			} else {
+				pool.Statistor.Counts[bl.Status] = 1
+			}
 			var status bool
 			if pool.MatchExpr != nil {
 				if pool.CompareWithExpr(pool.MatchExpr, bl) {
