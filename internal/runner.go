@@ -46,6 +46,7 @@ type Runner struct {
 	Fuzzy          bool
 	OutputFile     *files.File
 	FuzzyFile      *files.File
+	StatFile       *files.File
 	Force          bool
 	Progress       *uiprogress.Progress
 	Offset         int
@@ -142,6 +143,10 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			pool.Run(ctx, r.Offset, r.Limit)
 			logs.Log.Important(pool.Statistor.String())
 			logs.Log.Important(pool.Statistor.Detail())
+			if r.StatFile != nil {
+				r.StatFile.SafeWrite(pool.Statistor.Json() + "\n")
+				r.StatFile.SafeSync()
+			}
 			r.Done()
 		})
 
@@ -230,14 +235,23 @@ func (r *Runner) Done() {
 
 func (r *Runner) Outputting() {
 	go func() {
-		var outFunc func(*pkg.Baseline)
-		if len(r.Probes) > 0 {
-			outFunc = func(bl *pkg.Baseline) {
-				logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
+		var saveFunc func(*pkg.Baseline)
+
+		if r.OutputFile != nil {
+			saveFunc = func(bl *pkg.Baseline) {
+				r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
+				r.OutputFile.SafeSync()
 			}
+
 		} else {
-			outFunc = func(bl *pkg.Baseline) {
-				logs.Log.Console("[+] " + bl.String() + "\n")
+			if len(r.Probes) > 0 {
+				saveFunc = func(bl *pkg.Baseline) {
+					logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
+				}
+			} else {
+				saveFunc = func(bl *pkg.Baseline) {
+					logs.Log.Console("[+] " + bl.String() + "\n")
+				}
 			}
 		}
 
@@ -249,7 +263,7 @@ func (r *Runner) Outputting() {
 				}
 
 				if bl.IsValid {
-					outFunc(bl)
+					saveFunc(bl)
 				} else {
 					logs.Log.Debug(bl.String())
 				}
@@ -258,15 +272,27 @@ func (r *Runner) Outputting() {
 	}()
 
 	go func() {
+		var fuzzySaveFunc func(*pkg.Baseline)
+		if r.FuzzyFile != nil {
+			fuzzySaveFunc = func(bl *pkg.Baseline) {
+				r.FuzzyFile.SafeWrite(bl.Jsonify() + "\n")
+				r.FuzzyFile.SafeSync()
+			}
+		} else {
+			fuzzySaveFunc = func(bl *pkg.Baseline) {
+				if r.Fuzzy {
+					logs.Log.Console("[baseline.fuzzy] " + bl.String() + "\n")
+				}
+			}
+		}
+
 		for {
 			select {
 			case bl, ok := <-r.FuzzyCh:
 				if !ok {
 					return
 				}
-				if r.Fuzzy {
-					logs.Log.Console("[baseline.fuzzy] " + bl.String() + "\n")
-				}
+				fuzzySaveFunc(bl)
 			}
 		}
 	}()

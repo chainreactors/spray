@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"github.com/antonmedv/expr"
+	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
@@ -294,6 +295,21 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	if opt.OutputProbe != "" {
 		r.Probes = strings.Split(opt.OutputProbe, ",")
+	}
+
+	if opt.OutputFile != "" {
+		r.OutputFile, err = files.NewFile(opt.OutputFile, false, false, true)
+		if err != nil {
+			return nil, err
+		}
+		r.FuzzyFile, err = files.NewFile(opt.OutputFile+"fuzzy", false, false, true)
+		if err != nil {
+			return nil, err
+		}
+		r.StatFile, err = files.NewFile(opt.OutputFile+"fuzzy", false, false, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return r, nil
 }
