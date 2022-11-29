@@ -27,12 +27,15 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 					InsecureSkipVerify: true,
 				},
 				//ReadBufferSize:      20480,
-				MaxConnsPerHost:     thread * 2,
-				MaxIdleConnDuration: time.Duration(timeout) * time.Second,
-				MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
-				ReadTimeout:         time.Duration(timeout) * time.Second,
-				WriteTimeout:        time.Duration(timeout) * time.Second,
-				MaxResponseBodySize: DefaultMaxBodySize,
+				MaxConnsPerHost:               thread * 2,
+				MaxIdleConnDuration:           time.Duration(timeout) * time.Second,
+				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
+				ReadTimeout:                   time.Duration(timeout) * time.Second,
+				WriteTimeout:                  time.Duration(timeout) * time.Second,
+				MaxResponseBodySize:           DefaultMaxBodySize,
+				NoDefaultUserAgentHeader:      true,
+				DisablePathNormalizing:        true,
+				DisableHeaderNamesNormalizing: true,
 			},
 			timeout:    time.Duration(timeout) * time.Second,
 			clientType: clientType,
@@ -50,8 +53,10 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 					MaxConnsPerHost: thread,
 					IdleConnTimeout: time.Duration(timeout) * time.Second,
 				},
-				Timeout:       time.Second * time.Duration(timeout),
-				CheckRedirect: checkRedirect,
+				Timeout: time.Second * time.Duration(timeout),
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
 			},
 			timeout:    time.Duration(timeout) * time.Second,
 			clientType: clientType,
@@ -93,13 +98,4 @@ func (c *Client) Do(ctx context.Context, req *Request) (*Response, error) {
 	} else {
 		return nil, fmt.Errorf("not found client")
 	}
-}
-
-var MaxRedirects = 0
-var checkRedirect = func(req *http.Request, via []*http.Request) error {
-	if len(via) > MaxRedirects {
-		return http.ErrUseLastResponse
-	}
-
-	return nil
 }
