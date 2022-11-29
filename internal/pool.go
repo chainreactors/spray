@@ -33,7 +33,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		ctx:         pctx,
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
-		worder:      words.NewWorder(config.Wordlist),
+		worder:      words.NewWorder(config.Wordlist, config.Fns),
 		baselines:   make(map[int]*pkg.Baseline),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		wg:          sync.WaitGroup{},

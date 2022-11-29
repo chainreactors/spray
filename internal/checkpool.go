@@ -18,7 +18,7 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 		ctx:         pctx,
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
-		worder:      words.NewWorder(config.Wordlist),
+		worder:      words.NewWorder(config.Wordlist, config.Fns),
 		wg:          sync.WaitGroup{},
 		reqCount:    1,
 		failedCount: 1,
@@ -103,12 +103,6 @@ Loop:
 				break Loop
 			}
 
-			for _, fn := range p.Fns {
-				u = fn(u)
-			}
-			if u == "" {
-				continue
-			}
 			p.wg.Add(1)
 			_ = p.pool.Invoke(newUnit(u, WordSource))
 		case <-ctx.Done():

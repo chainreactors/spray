@@ -208,17 +208,23 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Suffixes != nil {
-		dicts = append(dicts, opt.Suffixes)
-		opt.Word += fmt.Sprintf("{?%d}", len(dicts)-1)
+		mask.SpecialWords["suffix"] = opt.Suffixes
+		opt.Word += "{@suffix}"
 	}
 	if opt.Prefixes != nil {
-		dicts = append(dicts, opt.Prefixes)
-		opt.Word = fmt.Sprintf("{?%d}", len(dicts)-1) + opt.Word
+		mask.SpecialWords["prefix"] = opt.Prefixes
+		opt.Word = "{@prefix}" + opt.Word
 	}
 
 	if opt.Extensions != "" {
-		dicts = append(dicts, strings.Split(opt.Extensions, ","))
-		opt.Word += fmt.Sprintf("{?%d}", len(dicts)-1)
+		exts := strings.Split(opt.Extensions, ",")
+		for i, e := range exts {
+			if !strings.HasPrefix(e, ".") {
+				exts[i] = "." + e
+			}
+		}
+		mask.SpecialWords["ext"] = exts
+		opt.Word += "{@ext}"
 	}
 
 	mask.CustomWords = dicts
