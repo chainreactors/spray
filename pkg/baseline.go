@@ -11,13 +11,14 @@ import (
 
 func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl := &Baseline{
-		Url:     u,
-		Status:  resp.StatusCode(),
-		IsValid: true,
+		UrlString: u,
+		Status:    resp.StatusCode(),
+		IsValid:   true,
 	}
 	uu, err := url.Parse(u)
 	if err == nil {
 		bl.Path = uu.Path
+		bl.Url = uu
 	}
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
@@ -34,15 +35,16 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 
 func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Baseline {
 	bl := &Baseline{
-		Url:     u,
-		Status:  resp.StatusCode(),
-		IsValid: false,
-		Reason:  reason,
+		UrlString: u,
+		Status:    resp.StatusCode(),
+		IsValid:   false,
+		Reason:    reason,
 	}
 
 	uu, err := url.Parse(u)
 	if err == nil {
 		bl.Path = uu.Path
+		bl.Url = uu
 	}
 
 	if resp.ClientType == ihttp.STANDARD {
@@ -57,7 +59,8 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 }
 
 type Baseline struct {
-	Url          string     `json:"url"`
+	Url          *url.URL   `json:"-"`
+	UrlString    string     `json:"url"`
 	Path         string     `json:"path"`
 	Host         string     `json:"host"`
 	Body         []byte     `json:"-"`
@@ -132,7 +135,7 @@ func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
 func (bl *Baseline) Get(key string) string {
 	switch key {
 	case "url":
-		return bl.Url
+		return bl.UrlString
 	case "host":
 		return bl.Host
 	case "title":
@@ -180,7 +183,7 @@ func (bl *Baseline) Additional(key string) string {
 
 func (bl *Baseline) Format(probes []string) string {
 	var line strings.Builder
-	line.WriteString(bl.Url)
+	line.WriteString(bl.UrlString)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
 	}
@@ -206,7 +209,7 @@ func (bl *Baseline) Format(probes []string) string {
 func (bl *Baseline) String() string {
 	var line strings.Builder
 	//line.WriteString("[+] ")
-	line.WriteString(bl.Url)
+	line.WriteString(bl.UrlString)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
 	}

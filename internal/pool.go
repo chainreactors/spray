@@ -11,7 +11,9 @@ import (
 	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
+	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -87,7 +89,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
 			pool.Statistor.FailedNumber++
-			bl = &pkg.Baseline{Url: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
+			bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
 			if unit.source != WordSource {
@@ -228,6 +230,15 @@ func (p *Pool) Init() error {
 		return fmt.Errorf(p.index.String())
 	}
 
+	if p.base.RedirectURL != "" {
+		// 自定协议升级
+		// 某些网站http会重定向到https, 如果发现随机目录出现这种情况, 则自定将baseurl升级为https
+		rurl, err := url.Parse(p.base.RedirectURL)
+		if err == nil && rurl.Host == p.base.Url.Host && p.base.Url.Scheme == "http" && rurl.Scheme == "https" {
+			logs.Log.Importantf("baseurl %s upgrade http to https", p.BaseURL)
+			p.BaseURL = strings.Replace(p.BaseURL, "http", "https", 1)
+		}
+	}
 	p.base.Collect()
 	p.index.Collect()
 
@@ -341,7 +352,7 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) bool {
 
 	bl.Collect()
 	for _, f := range bl.Frameworks {
-		if f.Tag == "waf/cdn" {
+		if f.Tag == "waf" || f.Tag == "cdn" {
 			p.Statistor.WafedNumber++
 			bl.Reason = ErrWaf.Error()
 			return false

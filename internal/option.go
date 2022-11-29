@@ -117,7 +117,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Progress.Start()
 		logs.Log.Writer = r.Progress.Bypass()
 	} else {
-		logs.Log.Level = 100
+		logs.Log.Quiet = true
 	}
 
 	if opt.SimhashDistance != 0 {
@@ -315,9 +315,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 	}
 
-	r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
-	if err != nil {
-		return nil, err
+	if opt.FuzzyFile != "" {
+		r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	r.StatFile, err = files.NewFile("stat.json", false, false, true)
