@@ -23,6 +23,7 @@ var (
 )
 
 var max = 2147483647
+var maxRedirect = 3
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
@@ -92,15 +93,22 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
-			if unit.source != WordSource {
+			if unit.source != WordSource && unit.source != RedirectSource {
 				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 			} else {
-				if unit.source != WordSource || pool.MatchExpr != nil {
+				if pool.MatchExpr != nil {
 					// 如果非wordsource, 或自定义了match函数, 则所有数据送入tempch中
 					bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 				} else if err = pool.PreCompare(resp); err == nil {
 					// 通过预对比跳过一些无用数据, 减少性能消耗
 					bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+					if err != ErrRedirect && bl.RedirectURL != "" {
+						if bl.RedirectURL != "" && !strings.HasPrefix(bl.RedirectURL, "http") {
+							bl.RedirectURL = "/" + strings.TrimLeft(bl.RedirectURL, "/")
+							bl.RedirectURL = pool.BaseURL + bl.RedirectURL
+						}
+						pool.addRedirect(bl, unit.reCount)
+					}
 					pool.addFuzzyBaseline(bl)
 				} else {
 					bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
@@ -149,6 +157,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 				go pool.check()
 			}
 			pool.bar.Done()
+		case RedirectSource:
+			bl.FrontURL = unit.frontUrl
+			pool.tempCh <- bl
 		}
 
 	})
@@ -234,7 +245,7 @@ func (p *Pool) Init() error {
 		// 自定协议升级
 		// 某些网站http会重定向到https, 如果发现随机目录出现这种情况, 则自定将baseurl升级为https
 		rurl, err := url.Parse(p.base.RedirectURL)
-		if err == nil && rurl.Host == p.base.Url.Host && p.base.Url.Scheme == "http" && rurl.Scheme == "https" {
+		if err == nil && rurl.Hostname() == p.base.Url.Hostname() && p.base.Url.Scheme == "http" && rurl.Scheme == "https" {
 			logs.Log.Importantf("baseurl %s upgrade http to https", p.BaseURL)
 			p.BaseURL = strings.Replace(p.BaseURL, "http", "https", 1)
 		}
@@ -258,6 +269,22 @@ func (p *Pool) Init() error {
 	}
 
 	return nil
+}
+
+func (p *Pool) addRedirect(bl *pkg.Baseline, reCount int) {
+	if reCount >= maxRedirect {
+		return
+	}
+
+	if uu, err := url.Parse(bl.RedirectURL); err == nil && uu.Hostname() == p.index.Url.Hostname() {
+		p.wg.Add(1)
+		_ = p.pool.Invoke(&Unit{
+			path:     uu.Path,
+			source:   RedirectSource,
+			frontUrl: bl.UrlString,
+			reCount:  reCount + 1,
+		})
+	}
 }
 
 func (p *Pool) Run(ctx context.Context, offset, limit int) {
@@ -316,7 +343,7 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 		return ErrWaf
 	}
 
-	if CheckRedirect != nil && !CheckRedirect(string(resp.GetHeader("Location"))) {
+	if CheckRedirect != nil && !CheckRedirect(resp.GetHeader("Location")) {
 		return ErrRedirect
 	}
 

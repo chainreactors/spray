@@ -68,10 +68,10 @@ type Baseline struct {
 	Header       []byte     `json:"-"`
 	Raw          []byte     `json:"-"`
 	HeaderLength int        `json:"header_length"`
-	RedirectURL  string     `json:"redirect_url"`
+	RedirectURL  string     `json:"redirect_url,omitempty"`
+	FrontURL     string     `json:"front_url,omitempty"`
 	Status       int        `json:"status"`
-	IsDynamicUrl bool       `json:"is_dynamic_url"` // 判断是否存在动态的url
-	Spended      int        `json:"spended"`        // 耗时, 毫秒
+	Spended      int        `json:"spended"` // 耗时, 毫秒
 	Title        string     `json:"title"`
 	Frameworks   Frameworks `json:"frameworks"`
 	Extracteds   Extracteds `json:"extracts"`
@@ -183,6 +183,11 @@ func (bl *Baseline) Additional(key string) string {
 
 func (bl *Baseline) Format(probes []string) string {
 	var line strings.Builder
+	if bl.FrontURL != "" {
+		line.WriteString("\t")
+		line.WriteString(bl.FrontURL)
+		line.WriteString(" -> ")
+	}
 	line.WriteString(bl.UrlString)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
@@ -208,7 +213,11 @@ func (bl *Baseline) Format(probes []string) string {
 
 func (bl *Baseline) String() string {
 	var line strings.Builder
-	//line.WriteString("[+] ")
+	if bl.FrontURL != "" {
+		line.WriteString("\t")
+		line.WriteString(bl.FrontURL)
+		line.WriteString(" --> ")
+	}
 	line.WriteString(bl.UrlString)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
@@ -230,14 +239,13 @@ func (bl *Baseline) String() string {
 	line.WriteString(strconv.Itoa(bl.Status))
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.BodyLength))
+	line.WriteString(bl.Additional("title"))
+	line.WriteString(bl.Frameworks.ToString())
 	if bl.RedirectURL != "" {
-		line.WriteString(" -> ")
+		line.WriteString(" --> ")
 		line.WriteString(bl.RedirectURL)
 		line.WriteString(" ")
 	}
-	line.WriteString(bl.Additional("title"))
-	line.WriteString(bl.Frameworks.ToString())
-
 	return line.String()
 }
 
