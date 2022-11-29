@@ -62,8 +62,9 @@ type ModeOptions struct {
 	CheckPeriod    int    `long:"check-period" default:"100"`
 	ErrPeriod      int    `long:"error-period" default:"10"`
 	BreakThreshold int    `long:"error-threshold" default:"20"`
-	BlackStatus    string `long:"black-status" default:"default"`
-	WhiteStatus    string `long:"white-status" `
+	BlackStatus    string `long:"black-status" default:"404,400,410"`
+	WhiteStatus    string `long:"white-status" default:"200"`
+	FuzzyStatus    string `long:"fuzzy-status" default:"403,500,501,502,503"`
 }
 
 type MiscOptions struct {
@@ -128,7 +129,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.ErrPeriod = max
 	}
 
-	if opt.BlackStatus != "default" {
+	if opt.BlackStatus != "" {
 		for _, s := range strings.Split(opt.BlackStatus, ",") {
 			si, err := strconv.Atoi(s)
 			if err != nil {
@@ -136,8 +137,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			}
 			BlackStatus = append(BlackStatus, si)
 		}
-	} else {
-		BlackStatus = []int{400, 404, 410}
 	}
 
 	if opt.WhiteStatus != "" {
@@ -147,6 +146,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 				return nil, err
 			}
 			WhiteStatus = append(WhiteStatus, si)
+		}
+	}
+
+	if opt.FuzzyStatus != "" {
+		for _, s := range strings.Split(opt.FuzzyStatus, ",") {
+			si, err := strconv.Atoi(s)
+			if err != nil {
+				return nil, err
+			}
+			FuzzyStatus = append(FuzzyStatus, si)
 		}
 	}
 

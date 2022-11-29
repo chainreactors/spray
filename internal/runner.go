@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	WhiteStatus []int
-	BlackStatus []int
+	WhiteStatus = []int{200}
+	BlackStatus = []int{400, 404, 410}
 	FuzzyStatus = []int{403, 500, 501, 502, 503}
 	WAFStatus   = []int{493, 418}
 )
