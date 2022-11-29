@@ -45,6 +45,7 @@ const (
 	CheckSource sourceType = iota + 1
 	InitRandomSource
 	InitIndexSource
+	RedirectSource
 	WordSource
 	WafSource
 )
@@ -54,6 +55,8 @@ func newUnit(path string, source sourceType) *Unit {
 }
 
 type Unit struct {
-	path   string
-	source sourceType
+	path     string
+	source   sourceType
+	frontUrl string
+	reCount  int
 }
