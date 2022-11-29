@@ -313,14 +313,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
-		r.FuzzyFile, err = files.NewFile(opt.OutputFile+"_fuzzy", false, false, true)
-		if err != nil {
-			return nil, err
-		}
-		r.StatFile, err = files.NewFile(opt.OutputFile+"_stat", false, false, true)
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
+	if err != nil {
+		return nil, err
+	}
+
+	r.StatFile, err = files.NewFile("stat.json", false, false, true)
+	if err != nil {
+		return nil, err
 	}
 	return r, nil
 }
