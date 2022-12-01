@@ -425,7 +425,10 @@ func (p *Pool) CompareWithExpr(exp *vm.Program, other *pkg.Baseline) bool {
 func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := p.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
+		var lock sync.Mutex
+		lock.Lock()
 		p.baselines[bl.Status] = bl
+		lock.Unlock()
 		logs.Log.Importantf("[baseline.%dinit] %s", bl.Status, bl.String())
 	}
 }
