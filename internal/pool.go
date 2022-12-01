@@ -217,6 +217,7 @@ type Pool struct {
 	base            *pkg.Baseline
 	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
+	locker          sync.Mutex
 	analyzeDone     bool
 	genReq          func(s string) (*ihttp.Request, error)
 	check           func()
@@ -425,10 +426,9 @@ func (p *Pool) CompareWithExpr(exp *vm.Program, other *pkg.Baseline) bool {
 func (p *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := p.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
-		var lock sync.Mutex
-		lock.Lock()
+		p.locker.Lock()
 		p.baselines[bl.Status] = bl
-		lock.Unlock()
+		p.locker.Unlock()
 		logs.Log.Importantf("[baseline.%dinit] %s", bl.Status, bl.String())
 	}
 }
