@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
+	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
 	"github.com/gosuri/uiprogress"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -109,6 +111,15 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 
+	if opt.Extracts != nil {
+		for _, e := range opt.Extracts {
+			if reg, ok := fingers.PresetExtracts[e]; ok {
+				pkg.Extractors[e] = reg
+			} else {
+				pkg.Extractors[e] = regexp.MustCompile(e)
+			}
+		}
+	}
 	// 一些全局变量初始化
 	if opt.Debug {
 		logs.Log.Level = logs.Debug

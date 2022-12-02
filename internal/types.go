@@ -17,9 +17,9 @@ const (
 func (e ErrorType) Error() string {
 	switch e {
 	case ErrBadStatus:
-		return "bad status"
+		return "blacklist status"
 	case ErrSameStatus:
-		return "same status"
+		return "same status with random baseline"
 	case ErrRequestFailed:
 		return "request failed"
 	case ErrWaf:

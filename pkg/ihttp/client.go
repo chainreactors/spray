@@ -26,12 +26,12 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 					Renegotiation:      tls.RenegotiateOnceAsClient,
 					InsecureSkipVerify: true,
 				},
-				//ReadBufferSize:      20480,
 				MaxConnsPerHost:               thread * 2,
 				MaxIdleConnDuration:           time.Duration(timeout) * time.Second,
 				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
 				ReadTimeout:                   time.Duration(timeout) * time.Second,
 				WriteTimeout:                  time.Duration(timeout) * time.Second,
+				ReadBufferSize:                8192,
 				MaxResponseBodySize:           DefaultMaxBodySize,
 				NoDefaultUserAgentHeader:      true,
 				DisablePathNormalizing:        true,
@@ -81,7 +81,8 @@ func (c *Client) TransToCheck() {
 
 func (c *Client) FastDo(ctx context.Context, req *fasthttp.Request) (*fasthttp.Response, error) {
 	resp := fasthttp.AcquireResponse()
-	return resp, c.fastClient.Do(req, resp)
+	err := c.fastClient.Do(req, resp)
+	return resp, err
 }
 
 func (c *Client) StandardDo(ctx context.Context, req *http.Request) (*http.Response, error) {
