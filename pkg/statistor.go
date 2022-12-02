@@ -1,8 +1,10 @@
 package pkg
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +35,7 @@ type Statistor struct {
 	Total          int         `json:"total"`
 	StartTime      int64       `json:"start_time"`
 	EndTime        int64       `json:"end_time"`
+	WordCount      int         `json:"word_count"`
 	Word           string      `json:"word"`
 	Dictionaries   []string    `json:"dictionaries"`
 }
@@ -71,5 +74,24 @@ func (stat *Statistor) Json() string {
 	if err != nil {
 		return err.Error()
 	}
-	return string(content)
+	return string(content) + "\n"
 }
+
+func ReadStatistors(filename string) (Statistors, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	var stats Statistors
+	for _, line := range bytes.Split(content, []byte("\n")) {
+		var stat Statistor
+		err := json.Unmarshal(line, &stat)
+		if err != nil {
+			return nil, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, nil
+}
+
+type Statistors []Statistor

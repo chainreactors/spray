@@ -73,7 +73,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	}
 
 	p, _ := ants.NewPoolWithFunc(config.Thread, func(i interface{}) {
-		pool.Statistor.ReqNumber++
+		pool.Statistor.Total++
 		unit := i.(*Unit)
 		req, err := pool.genReq(unit.path)
 		if err != nil {
@@ -287,7 +287,6 @@ func (p *Pool) addRedirect(bl *pkg.Baseline, reCount int) {
 }
 
 func (p *Pool) Run(ctx context.Context, offset, limit int) {
-	p.Statistor.Offset = offset
 Loop:
 	for {
 		select {

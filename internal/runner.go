@@ -11,7 +11,6 @@ import (
 	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -24,11 +23,12 @@ var (
 )
 
 type Runner struct {
-	urlCh    chan string
+	taskCh   chan *Task
 	poolwg   sync.WaitGroup
 	bar      *uiprogress.Bar
 	finished int
 
+	Tasks          []*Task
 	URLList        []string
 	Wordlist       []string
 	Headers        http.Header
@@ -50,7 +50,7 @@ type Runner struct {
 	Force          bool
 	Progress       *uiprogress.Progress
 	Offset         int
-	Limit          int
+	Total          int
 	Deadline       int
 	CheckPeriod    int
 	ErrPeriod      int
@@ -84,6 +84,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 func (r *Runner) Prepare(ctx context.Context) error {
 	var err error
 	if r.CheckOnly {
+		// 仅check, 类似httpx
 		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
 			config := r.PrepareConfig()
 			config.Wordlist = r.URLList
@@ -94,31 +95,31 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				r.poolwg.Done()
 				return
 			}
-			pool.bar = pkg.NewBar("check", r.Limit-r.Offset, r.Progress)
-			pool.Run(ctx, r.Offset, r.Limit)
+			pool.bar = pkg.NewBar("check", r.Total-r.Offset, r.Progress)
+			pool.Run(ctx, r.Offset, r.Total)
 			r.poolwg.Done()
 		})
 	} else {
 		go func() {
-			for _, u := range r.URLList {
-				r.urlCh <- strings.TrimSpace(u)
+			for _, t := range r.Tasks {
+				r.taskCh <- t
 			}
-			close(r.urlCh)
+			close(r.taskCh)
 		}()
 
-		if len(r.URLList) > 0 {
-			r.bar = r.Progress.AddBar(len(r.URLList))
+		if len(r.Tasks) > 0 {
+			r.bar = r.Progress.AddBar(len(r.Tasks))
 			r.bar.PrependCompleted()
 			r.bar.PrependFunc(func(b *uiprogress.Bar) string {
-				return fmt.Sprintf("total progressive: %d/%d ", r.finished, len(r.URLList))
+				return fmt.Sprintf("total progressive: %d/%d ", r.finished, len(r.Tasks))
 			})
 			r.bar.AppendElapsed()
 		}
 
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
-			u := i.(string)
+			t := i.(*Task)
 			config := r.PrepareConfig()
-			config.BaseURL = u
+			config.BaseURL = t.baseUrl
 			config.Wordlist = r.Wordlist
 			pool, err := NewPool(ctx, config)
 			if err != nil {
@@ -128,7 +129,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				return
 			}
 
-			pool.bar = pkg.NewBar(u, r.Limit-r.Offset, r.Progress)
+			pool.bar = pkg.NewBar(config.BaseURL, t.total-t.offset, r.Progress)
 			err = pool.Init()
 			if err != nil {
 				logs.Log.Error(err.Error())
@@ -140,12 +141,11 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			pool.Run(ctx, r.Offset, r.Limit)
-
+			pool.Run(ctx, t.offset, t.total)
 			logs.Log.Important(pool.Statistor.String())
 			logs.Log.Important(pool.Statistor.Detail())
 			if r.StatFile != nil {
-				r.StatFile.SafeWrite(pool.Statistor.Json() + "\n")
+				r.StatFile.SafeWrite(pool.Statistor.Json())
 				r.StatFile.SafeSync()
 			}
 			r.Done()
@@ -167,18 +167,17 @@ Loop:
 		case <-ctx.Done():
 			logs.Log.Error("cancel with deadline")
 			break Loop
-		case u, ok := <-r.urlCh:
+		case t, ok := <-r.taskCh:
 			if !ok {
 				break Loop
 			}
 			r.poolwg.Add(1)
-			r.Pools.Invoke(u)
+			r.Pools.Invoke(t)
 		}
 	}
 
 	r.poolwg.Wait()
-
-	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
+	//time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
 	for {
 		if len(r.OutputCh) == 0 {
 			close(r.OutputCh)
@@ -192,7 +191,7 @@ Loop:
 			break
 		}
 	}
-	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
+	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
 }
 
 func (r *Runner) RunWithCheck(ctx context.Context) {
@@ -225,7 +224,7 @@ Loop:
 		}
 	}
 
-	time.Sleep(100) // 延迟100ms, 等所有数据处理完毕
+	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
 }
 
 func (r *Runner) Done() {
