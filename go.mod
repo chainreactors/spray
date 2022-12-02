@@ -18,7 +18,7 @@ require (
 	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.6.0
-	github.com/valyala/fasthttp v1.40.0
+	github.com/valyala/fasthttp v1.43.0
 )
 
 require (

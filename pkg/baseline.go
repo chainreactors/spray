@@ -25,7 +25,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	}
 
 	bl.Body = resp.Body()
-	bl.BodyLength = len(resp.Body())
+	bl.BodyLength = len(bl.Body)
 	bl.Header = resp.Header()
 	bl.HeaderLength = len(bl.Header)
 	bl.RedirectURL = resp.GetHeader("Location")
@@ -53,6 +53,8 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 	bl.Body = resp.Body()
 	bl.BodyLength = len(bl.Body)
+	bl.Header = resp.Header()
+	bl.HeaderLength = len(bl.Header)
 	bl.RedirectURL = string(resp.GetHeader("Location"))
 
 	return bl
@@ -87,7 +89,7 @@ func (bl *Baseline) Collect() {
 	if len(bl.Body) > 0 {
 		bl.Title = parsers.MatchTitle(string(bl.Body))
 	}
-	bl.Hashes = parsers.NewHashes(bl.Raw)
+	bl.Hashes = parsers.NewHashes(bl.Body)
 	// todo extract
 	bl.Extracteds = Extractors.Extract(string(bl.Raw))
 	bl.Frameworks = FingerDetect(string(bl.Raw))
@@ -164,10 +166,10 @@ func (bl *Baseline) Get(key string) string {
 		return strconv.Itoa(bl.Status)
 	case "spend":
 		return strconv.Itoa(bl.Spended)
-	//case "extract":
-	//	return bl.Extracteds
+	case "extract":
+		return bl.Extracteds.String()
 	case "frame", "framework":
-		return bl.Frameworks.ToString()
+		return bl.Frameworks.String()
 	default:
 		return ""
 	}
@@ -240,7 +242,8 @@ func (bl *Baseline) String() string {
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.BodyLength))
 	line.WriteString(bl.Additional("title"))
-	line.WriteString(bl.Frameworks.ToString())
+	line.WriteString(bl.Frameworks.String())
+	line.WriteString(bl.Extracteds.String())
 	if bl.RedirectURL != "" {
 		line.WriteString(" --> ")
 		line.WriteString(bl.RedirectURL)

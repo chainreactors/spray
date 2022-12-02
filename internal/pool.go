@@ -78,6 +78,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		req, err := pool.genReq(unit.path)
 		if err != nil {
 			logs.Log.Error(err.Error())
+			return
 		}
 
 		var bl *pkg.Baseline
@@ -121,11 +122,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.base = bl
 			pool.addFuzzyBaseline(bl)
 			pool.initwg.Done()
-			return
 		case InitIndexSource:
 			pool.index = bl
 			pool.initwg.Done()
-			return
 		case CheckSource:
 			if bl.ErrString != "" {
 				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, pool.BreakThreshold, bl.ErrString)
@@ -228,8 +227,8 @@ type Pool struct {
 
 func (p *Pool) Init() error {
 	p.initwg.Add(2)
-	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	p.pool.Invoke(newUnit("/", InitIndexSource))
+	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	p.initwg.Wait()
 	// todo 分析baseline
 	// 检测基本访问能力
