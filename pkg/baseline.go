@@ -23,7 +23,6 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
 	}
-
 	bl.Body = resp.Body()
 	bl.BodyLength = len(bl.Body)
 	bl.Header = resp.Header()
@@ -177,9 +176,9 @@ func (bl *Baseline) Get(key string) string {
 
 func (bl *Baseline) Additional(key string) string {
 	if v := bl.Get(key); v != "" {
-		return " [" + v + "] "
+		return " [" + v + "]"
 	} else {
-		return " "
+		return ""
 	}
 }
 
@@ -258,10 +257,4 @@ func (bl *Baseline) Jsonify() string {
 		return ""
 	}
 	return string(bs)
-}
-
-func (bl *Baseline) ToMap() map[string]interface{} {
-	return map[string]interface{}{
-		"status": bl.Status,
-	}
 }
