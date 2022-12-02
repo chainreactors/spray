@@ -80,7 +80,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			logs.Log.Error(err.Error())
 			return
 		}
-
+		start := time.Now()
 		resp, reqerr := pool.client.Do(pctx, req)
 		if pool.ClientType == ihttp.FAST {
 			defer fasthttp.ReleaseResponse(resp.FastResponse)
@@ -117,6 +117,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			}
 		}
 
+		bl.Spended = time.Since(start).Milliseconds()
 		switch unit.source {
 		case InitRandomSource:
 			pool.base = bl
@@ -320,6 +321,7 @@ Loop:
 	}
 	p.wg.Wait()
 	p.Statistor.ReqNumber = p.reqCount
+	p.Statistor.EndTime = time.Now().Unix()
 	p.Close()
 }
 

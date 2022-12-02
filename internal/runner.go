@@ -141,6 +141,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 
 			pool.Run(ctx, r.Offset, r.Limit)
+
 			logs.Log.Important(pool.Statistor.String())
 			logs.Log.Important(pool.Statistor.Detail())
 			if r.StatFile != nil {
