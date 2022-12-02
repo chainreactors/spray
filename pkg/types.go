@@ -11,7 +11,7 @@ type Frameworks []*parsers.Framework
 func (fs Frameworks) String() string {
 	frameworkStrs := make([]string, len(fs))
 	for i, f := range fs {
-		frameworkStrs[i] = "[" + f.ToString() + "]"
+		frameworkStrs[i] = " [" + f.ToString() + "]"
 	}
 	return strings.Join(frameworkStrs, " ") + " "
 }

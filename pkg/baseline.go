@@ -72,7 +72,7 @@ type Baseline struct {
 	RedirectURL  string     `json:"redirect_url,omitempty"`
 	FrontURL     string     `json:"front_url,omitempty"`
 	Status       int        `json:"status"`
-	Spended      int        `json:"spended"` // 耗时, 毫秒
+	Spended      int64      `json:"spend"` // 耗时, 毫秒
 	Title        string     `json:"title"`
 	Frameworks   Frameworks `json:"frameworks"`
 	Extracteds   Extracteds `json:"extracts"`
@@ -164,7 +164,7 @@ func (bl *Baseline) Get(key string) string {
 	case "stat", "status":
 		return strconv.Itoa(bl.Status)
 	case "spend":
-		return strconv.Itoa(bl.Spended)
+		return strconv.Itoa(int(bl.Spended))
 	case "extract":
 		return bl.Extracteds.String()
 	case "frame", "framework":
@@ -240,6 +240,8 @@ func (bl *Baseline) String() string {
 	line.WriteString(strconv.Itoa(bl.Status))
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.BodyLength))
+	line.WriteString(" - ")
+	line.WriteString(strconv.Itoa(int(bl.Spended)) + "ms")
 	line.WriteString(bl.Additional("title"))
 	line.WriteString(bl.Frameworks.String())
 	line.WriteString(bl.Extracteds.String())
