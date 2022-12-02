@@ -81,13 +81,13 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			return
 		}
 
-		var bl *pkg.Baseline
 		resp, reqerr := pool.client.Do(pctx, req)
 		if pool.ClientType == ihttp.FAST {
 			defer fasthttp.ReleaseResponse(resp.FastResponse)
 			defer fasthttp.ReleaseRequest(req.FastRequest)
 		}
 
+		var bl *pkg.Baseline
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
 			pool.Statistor.FailedNumber++
@@ -226,20 +226,23 @@ type Pool struct {
 }
 
 func (p *Pool) Init() error {
-	p.initwg.Add(2)
+	p.initwg.Add(1)
 	p.pool.Invoke(newUnit("/", InitIndexSource))
-	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	p.initwg.Wait()
-	// todo 分析baseline
-	// 检测基本访问能力
-
-	if p.base.ErrString != "" {
-		return fmt.Errorf(p.base.String())
-	}
-
 	if p.index.ErrString != "" {
 		return fmt.Errorf(p.index.String())
 	}
+	p.index.Collect()
+	logs.Log.Important("[baseline.index] " + p.index.String())
+	p.initwg.Add(1)
+	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
+	p.initwg.Wait()
+	// 检测基本访问能力
+	if p.base.ErrString != "" {
+		return fmt.Errorf(p.base.String())
+	}
+	p.base.Collect()
+	logs.Log.Important("[baseline.random] " + p.base.String())
 
 	if p.base.RedirectURL != "" {
 		// 自定协议升级
@@ -250,11 +253,6 @@ func (p *Pool) Init() error {
 			p.BaseURL = strings.Replace(p.BaseURL, "http", "https", 1)
 		}
 	}
-	p.base.Collect()
-	p.index.Collect()
-
-	logs.Log.Important("[baseline.random] " + p.base.String())
-	logs.Log.Important("[baseline.index] " + p.index.String())
 
 	if p.base.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
