@@ -19,8 +19,13 @@ func Spray() {
 		}
 		return
 	}
+	var runner *internal.Runner
+	if option.ResumeFrom != "" {
+		runner, err = option.PrepareRunner()
+	} else {
+		runner, err = option.PrepareRunner()
+	}
 
-	runner, err := option.PrepareRunner()
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return

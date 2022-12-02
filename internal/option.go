@@ -25,6 +25,7 @@ type Option struct {
 }
 
 type InputOptions struct {
+	ResumeFrom        string            `short:"r" long:"resume-from"`
 	URL               string            `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
 	URLFile           string            `short:"l" long:"list" description:"File, input filename"`
 	Offset            int               `long:"offset" description:"Int, wordlist offset"`
@@ -76,6 +77,7 @@ type MiscOptions struct {
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
+	NoBar    bool   `long:"no-bar"`
 	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
 	Client   string `short:"c" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
 }
@@ -94,8 +96,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Timeout:        opt.Timeout,
 		Deadline:       opt.Deadline,
 		Offset:         opt.Offset,
-		Limit:          opt.Limit,
-		urlCh:          make(chan string),
+		Total:          opt.Limit,
+		taskCh:         make(chan *Task),
 		OutputCh:       make(chan *pkg.Baseline, 100),
 		FuzzyCh:        make(chan *pkg.Baseline, 100),
 		Fuzzy:          opt.Fuzzy,
@@ -124,13 +126,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.Debug {
 		logs.Log.Level = logs.Debug
 	}
-	if !opt.Quiet {
-		r.Progress.Start()
-		logs.Log.Writer = r.Progress.Bypass()
-	} else {
+	if opt.Quiet {
 		logs.Log.Quiet = true
 	}
-
+	if opt.Quiet || opt.NoBar {
+		r.Progress.Start()
+		logs.Log.Writer = r.Progress.Bypass()
+	}
 	if opt.SimhashDistance != 0 {
 		pkg.Distance = uint8(opt.SimhashDistance)
 	}
@@ -171,34 +173,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			FuzzyStatus = append(FuzzyStatus, si)
 		}
 	}
-
-	// prepare url
-	var urls []string
-	var file *os.File
-	urlfrom := opt.URLFile
-	if opt.URL != "" {
-		urls = append(urls, opt.URL)
-		urlfrom = "cmd"
-	} else if opt.URLFile != "" {
-		file, err = os.Open(opt.URLFile)
-		if err != nil {
-			return nil, err
-		}
-	} else if pkg.HasStdin() {
-		file = os.Stdin
-		urlfrom = "stdin"
-	}
-
-	if file != nil {
-		content, err := ioutil.ReadAll(file)
-		if err != nil {
-			return nil, err
-		}
-		urls = strings.Split(strings.TrimSpace(string(content)), "\n")
-	}
-
-	r.URLList = urls
-	logs.Log.Importantf("Loaded %d urls from %s", len(urls), urlfrom)
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
@@ -244,19 +218,68 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
-	pkg.DefaultStatistor.Total = len(r.Wordlist)
-	pkg.DefaultStatistor.Word = opt.Word
-	pkg.DefaultStatistor.Dictionaries = opt.Dictionaries
+	pkg.DefaultStatistor = pkg.Statistor{
+		Word:         opt.Word,
+		WordCount:    len(r.Wordlist),
+		Dictionaries: opt.Dictionaries,
+		Offset:       opt.Offset,
+	}
 
-	if r.Limit == 0 {
-		if r.CheckOnly {
-			r.Limit = len(r.URLList)
-		} else {
-			r.Limit = len(r.Wordlist)
+	r.Total = len(r.Wordlist)
+	if opt.Limit != 0 {
+		if total := r.Offset + opt.Limit; total < r.Total {
+			r.Total = total
+		}
+	}
+
+	// prepare task
+	var tasks []*Task
+	var taskfrom string
+	if opt.ResumeFrom != "" {
+		stats, err := pkg.ReadStatistors(opt.ResumeFrom)
+		if err != nil {
+			return nil, err
+		}
+		taskfrom = "resume " + opt.ResumeFrom
+		for _, stat := range stats {
+			tasks = append(tasks, &Task{baseUrl: stat.BaseUrl, offset: stat.Offset + stat.ReqNumber, total: r.Total})
 		}
 	} else {
-		r.Limit = r.Offset + opt.Limit
+		var file *os.File
+		var urls []string
+		if opt.URL != "" {
+			urls = append(urls, opt.URL)
+			tasks = append(tasks, &Task{baseUrl: opt.URL, offset: opt.Offset, total: r.Total})
+			taskfrom = "cmd"
+		} else if opt.URLFile != "" {
+			file, err = os.Open(opt.URLFile)
+			if err != nil {
+				return nil, err
+			}
+			taskfrom = opt.URLFile
+		} else if pkg.HasStdin() {
+			file = os.Stdin
+			taskfrom = "stdin"
+		}
+
+		if file != nil {
+			content, err := ioutil.ReadAll(file)
+			if err != nil {
+				return nil, err
+			}
+			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
+			for _, u := range urls {
+				tasks = append(tasks, &Task{baseUrl: strings.TrimSpace(u), offset: opt.Offset, total: r.Total})
+			}
+		}
+		if opt.CheckOnly {
+			r.URLList = urls
+			r.Total = len(r.URLList)
+		}
 	}
+
+	r.Tasks = tasks
+	logs.Log.Importantf("Loaded %d urls from %s", len(tasks), taskfrom)
 
 	if opt.Uppercase {
 		r.Fns = append(r.Fns, strings.ToUpper)
@@ -361,7 +384,7 @@ func loadFileToSlice(filename string) ([]string, error) {
 		return nil, err
 	}
 
-	ss = strings.Split(string(content), "\n")
+	ss = strings.Split(strings.TrimSpace(string(content)), "\n")
 
 	// 统一windows与linux的回车换行差异
 	for i, word := range ss {
@@ -394,4 +417,10 @@ func IntsContains(s []int, e int) bool {
 		}
 	}
 	return false
+}
+
+type Task struct {
+	baseUrl string
+	offset  int
+	total   int
 }
