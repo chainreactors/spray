@@ -21,8 +21,8 @@ github.com/chainreactors/logs v0.6.2/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOA
 github.com/chainreactors/parsers v0.2.6/go.mod h1:Z9weht+lnFCk7UcwqFu6lXpS7u5vttiy0AJYOAyCCLA=
 github.com/chainreactors/parsers v0.2.7 h1:3iEuluL7gSDrElZWyf1KEiTgddgcoZC0IaIHb9KA3pk=
 github.com/chainreactors/parsers v0.2.7/go.mod h1:Z9weht+lnFCk7UcwqFu6lXpS7u5vttiy0AJYOAyCCLA=
-github.com/chainreactors/words v0.2.1 h1:yQvNnLF3VM2QBo611FhXUEr5i+O4cWY3jUvhDfAknIA=
-github.com/chainreactors/words v0.2.1/go.mod h1:jRcFgafTKqdkd1+StzPCTJG1ESrZHluXEO2eERdHBMQ=
+github.com/chainreactors/words v0.3.0 h1:6wC6lARE2MuD0UihW4RTV76cbiAoGVJM3k+HZg+R+hc=
+github.com/chainreactors/words v0.3.0/go.mod h1:jRcFgafTKqdkd1+StzPCTJG1ESrZHluXEO2eERdHBMQ=
 github.com/davecgh/go-spew v0.0.0-20161028175848-04cdfd42973b/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

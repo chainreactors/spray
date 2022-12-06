@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
@@ -8,6 +9,7 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
+	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
 	"io/ioutil"
 	"os"
@@ -25,13 +27,14 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom        string            `short:"r" long:"resume-from"`
+	ResumeFrom        string            `long:"resume-from"`
 	URL               string            `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
 	URLFile           string            `short:"l" long:"list" description:"File, input filename"`
 	Offset            int               `long:"offset" description:"Int, wordlist offset"`
 	Limit             int               `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 	Dictionaries      []string          `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word              string            `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
+	Rules             []string          `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
 	Extensions        string            `short:"e" long:"extension" description:"String, add extensions (separated by commas), e.g.: -e jsp,jspx"`
 	ExcludeExtensions string            `long:"exclude-extension" description:"String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx"`
 	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
@@ -129,7 +132,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.Quiet {
 		logs.Log.Quiet = true
 	}
-	if opt.Quiet || opt.NoBar {
+	if !(opt.Quiet || opt.NoBar) {
 		r.Progress.Start()
 		logs.Log.Writer = r.Progress.Bypass()
 	}
@@ -225,7 +228,25 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Offset:       opt.Offset,
 	}
 
-	r.Total = len(r.Wordlist)
+	if opt.Rules != nil {
+		var rules bytes.Buffer
+		for _, rule := range opt.Rules {
+			content, err := ioutil.ReadFile(rule)
+			if err != nil {
+				return nil, err
+			}
+			rules.Write(content)
+			rules.WriteString("\n")
+		}
+		r.Rules = rule.Compile(rules.String())
+	}
+
+	if len(r.Rules) > 0 {
+		r.Total = len(r.Wordlist) * len(r.Rules)
+	} else {
+		r.Total = len(r.Wordlist)
+	}
+
 	if opt.Limit != 0 {
 		if total := r.Offset + opt.Limit; total < r.Total {
 			r.Total = total
