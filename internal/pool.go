@@ -353,8 +353,6 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 
 func (p *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	if !bl.IsValid {
-		// precompare 确认无效数据直接送入管道
-		p.OutputCh <- bl
 		return false
 	}
 	var status = -1
