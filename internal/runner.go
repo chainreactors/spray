@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
 	"net/http"
@@ -31,6 +32,7 @@ type Runner struct {
 	Tasks          []*Task
 	URLList        []string
 	Wordlist       []string
+	Rules          []rule.Expression
 	Headers        http.Header
 	Fns            []func(string) string
 	FilterExpr     *vm.Program
@@ -65,6 +67,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Headers:        r.Headers,
 		Mod:            pkg.ModMap[r.Mod],
 		Fns:            r.Fns,
+		Rules:          r.Rules,
 		OutputCh:       r.OutputCh,
 		FuzzyCh:        r.FuzzyCh,
 		CheckPeriod:    r.CheckPeriod,

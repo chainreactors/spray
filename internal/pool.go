@@ -42,6 +42,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		failedCount: 1,
 	}
 
+	pool.worder.Rules = pool.Rules
+	pool.worder.RunWithRules()
 	switch config.Mod {
 	case pkg.PathSpray:
 		pool.genReq = func(s string) (*ihttp.Request, error) {
