@@ -67,7 +67,7 @@
 关键字目前还在不断完善中, 欢迎提供需求.
 
 ### 基于规则的字典生成
-实现rule-base的字典生成器同样编写了一门模板语言, 代码在 [ruke](https://github.com/chainreactors/words/tree/master/rule)
+实现rule-base的字典生成器同样编写了一门模板语言, 代码在 [rule](https://github.com/chainreactors/words/tree/master/rule)
 
 规则语法请参考 [hashcat_rule_base](https://hashcat.net/wiki/doku.php?id=rule_based_attack)
 
@@ -79,6 +79,9 @@
 
 接下来将会整理一些特别常用的规则库, 例如403bypass, java权限绕过等.
 
+简单使用
+
+`spray -u http://example.com -d word.txt -r rule.txt -r rule2.txt`
 
 ### 智能过滤
 
