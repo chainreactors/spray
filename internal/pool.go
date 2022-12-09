@@ -229,6 +229,7 @@ type Pool struct {
 }
 
 func (p *Pool) Init() error {
+	// 分成两步是为了避免闭包的线程安全问题
 	p.initwg.Add(1)
 	p.pool.Invoke(newUnit("/", InitIndexSource))
 	p.initwg.Wait()
@@ -237,6 +238,7 @@ func (p *Pool) Init() error {
 	}
 	p.index.Collect()
 	logs.Log.Important("[baseline.index] " + p.index.String())
+
 	p.initwg.Add(1)
 	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	p.initwg.Wait()

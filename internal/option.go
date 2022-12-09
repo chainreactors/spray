@@ -34,6 +34,7 @@ type InputOptions struct {
 	Limit             int               `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 	Dictionaries      []string          `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word              string            `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
+	FilterRule        string            `long:"rule-filter" description:"String, filter rule, e.g.: --rule-filter '>8'"`
 	Rules             []string          `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
 	Extensions        string            `short:"e" long:"extension" description:"String, add extensions (separated by commas), e.g.: -e jsp,jspx"`
 	ExcludeExtensions string            `long:"exclude-extension" description:"String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx"`
@@ -238,7 +239,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			rules.Write(content)
 			rules.WriteString("\n")
 		}
-		r.Rules = rule.Compile(rules.String())
+		r.Rules = rule.Compile(rules.String(), opt.FilterRule)
+	} else if opt.FilterRule != "" {
+		// if filter rule is not empty, set rules to ":", force to open filter mode
+		r.Rules = rule.Compile(":", opt.FilterRule)
 	}
 
 	if len(r.Rules) > 0 {
