@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/parsers"
@@ -98,7 +99,7 @@ func (bl *Baseline) Collect() {
 	if len(bl.Body) > 0 {
 		bl.Title = utils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
 	}
-	bl.Hashes = parsers.NewHashes(bl.Body)
+	bl.Hashes = parsers.NewHashes(bl.Raw)
 	// todo extract
 	bl.Extracteds = Extractors.Extract(string(bl.Raw))
 	bl.Frameworks = FingerDetect(string(bl.Raw))
@@ -116,7 +117,7 @@ func (bl *Baseline) Compare(other *Baseline) int {
 
 	if i := bl.BodyLength - other.BodyLength; i < 16 || i > -16 {
 		// 如果body length相等且md5相等, 则说明是同一个页面
-		if bl.BodyMd5 == parsers.Md5Hash(other.Body) {
+		if bytes.Equal(bl.Body, other.Body) {
 			// 如果length相等, md5也相等, 则判断为全同
 			return 1
 		} else {
