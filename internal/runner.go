@@ -136,7 +136,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				r.Done()
 				return
 			}
-
+			pool.Statistor.Total = r.Total
 			pool.bar = pkg.NewBar(config.BaseURL, t.total-t.offset, r.Progress)
 			err = pool.Init()
 			if err != nil {

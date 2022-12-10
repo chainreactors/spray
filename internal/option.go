@@ -271,7 +271,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 		taskfrom = "resume " + opt.ResumeFrom
 		for _, stat := range stats {
-			tasks = append(tasks, &Task{baseUrl: stat.BaseUrl, offset: stat.Offset + stat.ReqNumber, total: r.Total})
+			tasks = append(tasks, &Task{baseUrl: stat.BaseUrl, offset: stat.Offset + stat.End, total: r.Total})
 		}
 	} else {
 		var file *os.File

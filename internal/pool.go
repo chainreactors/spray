@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,6 +38,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		worder:      words.NewWorder(config.Wordlist, config.Fns),
 		baselines:   make(map[int]*pkg.Baseline),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
+		checkCh:     make(chan *Unit),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		reqCount:    1,
@@ -45,9 +47,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 	pool.worder.Rules = pool.Rules
 	pool.worder.RunWithRules()
-
 	p, _ := ants.NewPoolWithFunc(config.Thread, func(i interface{}) {
-		pool.Statistor.Total++
+		atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 		unit := i.(*Unit)
 		req, err := pool.genReq(unit.path)
 		if err != nil {
@@ -65,7 +66,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		var bl *pkg.Baseline
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
-			pool.Statistor.FailedNumber++
+			atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
 			bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
@@ -313,7 +314,7 @@ Loop:
 				break Loop
 			}
 			pool.Statistor.End++
-			if pool.reqCount < offset {
+			if int(pool.reqCount) < offset {
 				pool.reqCount++
 				continue
 			}
@@ -340,7 +341,6 @@ Loop:
 		}
 	}
 	pool.wg.Wait()
-	pool.Statistor.ReqNumber = pool.reqCount
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.Close()
 }
