@@ -29,6 +29,13 @@
 
 `spray -u http://example.com -r rule.txt -d 1.txt`
 
+批量爆破
+
+`spray -l url.txt -r rule.txt -d 1.txt`
+
+断点续传 (暂未实装)
+
+`spray --resume-from stat.json`
 ### 基于掩码的字典生成
 为了实现这个功能, 编写了一门名为mask的模板语言. 代码位于: [mask](https://github.com/chainreactors/words/tree/master/mask).
 
@@ -182,7 +189,8 @@ spray默认输出到终端的格式是human-like文本, 输出到文件的格式
 
 ## TODO
 
-1. [ ] fuzzyequal
-2. [ ] http2
-3. [ ] auto-tune, 自定调整并发数量
-4. [ ] 递归
+1. [x] fuzzyequal
+2. [ ] 断点续传
+3. [ ] 支持http2
+4. [ ] auto-tune, 自动调整并发数量
+5. [ ] 可自定义的递归配置
