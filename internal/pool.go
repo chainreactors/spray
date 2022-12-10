@@ -133,14 +133,12 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		case CheckSource:
 			if bl.ErrString != "" {
 				logs.Log.Warnf("[check.error] %s maybe ip had banned, break (%d/%d), error: %s", pool.BaseURL, pool.failedCount, pool.BreakThreshold, bl.ErrString)
-				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else if i := pool.random.Compare(bl); i < 1 {
 				if i == 0 {
 					logs.Log.Debug("[check.fuzzy] maybe trigger risk control, " + bl.String())
 				} else {
 					logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
 				}
-
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else {
 				pool.resetFailed() // 如果后续访问正常, 重置错误次数
@@ -459,8 +457,7 @@ func (p *Pool) resetFailed() {
 }
 
 func (p *Pool) recover() {
-	logs.Log.Errorf("failed request exceeds the threshold , task will exit. Breakpoint %d", p.reqCount)
-	logs.Log.Error("collecting failed check")
+	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", p.BaseURL, p.reqCount)
 	for i, bl := range p.failedBaselines {
 		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
 	}
