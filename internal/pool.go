@@ -132,7 +132,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.initwg.Done()
 		case CheckSource:
 			if bl.ErrString != "" {
-				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, pool.BreakThreshold, bl.ErrString)
+				logs.Log.Warnf("[check.error] %s maybe ip had banned, break (%d/%d), error: %s", pool.BaseURL, pool.failedCount, pool.BreakThreshold, bl.ErrString)
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else if i := pool.random.Compare(bl); i < 1 {
 				if i == 0 {

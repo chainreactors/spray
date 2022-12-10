@@ -69,7 +69,7 @@ type ModeOptions struct {
 	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
 	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
-	CheckPeriod     int    `long:"check-period" default:"100" description:"Int, check period when request"`
+	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
 	BlackStatus     string `long:"black-status" default:"404,400,410" description:"Strings (comma split),custom black status, "`

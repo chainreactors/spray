@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"encoding/json"
+	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"net/url"
@@ -95,7 +96,7 @@ func (bl *Baseline) IsDir() bool {
 // Collect 深度收集信息
 func (bl *Baseline) Collect() {
 	if len(bl.Body) > 0 {
-		bl.Title = parsers.MatchTitle(string(bl.Body))
+		bl.Title = utils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
 	}
 	bl.Hashes = parsers.NewHashes(bl.Body)
 	// todo extract
