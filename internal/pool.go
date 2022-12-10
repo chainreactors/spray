@@ -111,9 +111,10 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 						logs.Log.Warn("[check.fuzzy] maybe trigger risk control, " + bl.String())
 					}
 				} else {
+					pool.failedCount++
 					logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
+					pool.failedBaselines = append(pool.failedBaselines, bl)
 				}
-				pool.failedBaselines = append(pool.failedBaselines, bl)
 			} else {
 				pool.resetFailed() // 如果后续访问正常, 重置错误次数
 				logs.Log.Debug("[check.pass] " + bl.String())
