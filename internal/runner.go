@@ -73,6 +73,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Rules:          r.Rules,
 		OutputCh:       r.OutputCh,
 		FuzzyCh:        r.FuzzyCh,
+		Fuzzy:          r.Fuzzy,
 		CheckPeriod:    r.CheckPeriod,
 		ErrPeriod:      r.ErrPeriod,
 		BreakThreshold: r.BreakThreshold,

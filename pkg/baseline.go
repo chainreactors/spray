@@ -100,7 +100,6 @@ func (bl *Baseline) Collect() {
 		bl.Title = utils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
 	}
 	bl.Hashes = parsers.NewHashes(bl.Raw)
-	// todo extract
 	bl.Extracteds = Extractors.Extract(string(bl.Raw))
 	bl.Frameworks = FingerDetect(string(bl.Raw))
 }
@@ -115,7 +114,7 @@ func (bl *Baseline) Compare(other *Baseline) int {
 		return 1
 	}
 
-	if i := bl.BodyLength - other.BodyLength; i < 16 || i > -16 {
+	if bl.BodyLength == other.BodyLength {
 		// 如果body length相等且md5相等, 则说明是同一个页面
 		if bytes.Equal(bl.Body, other.Body) {
 			// 如果length相等, md5也相等, 则判断为全同
@@ -124,11 +123,16 @@ func (bl *Baseline) Compare(other *Baseline) int {
 			// 如果长度相等, 但是md5不相等, 可能是存在csrftoken之类的随机值
 			return 0
 		}
+	} else if i := bl.BodyLength - other.BodyLength; (i < 16 && i > 0) || (i > -16 && i < 0) {
+		// 如果body length绝对值小于16, 则可能是存在csrftoken之类的随机值, 需要模糊判断
+		return 0
 	} else {
+		// 如果body length绝对值大于16, 则认为大概率存在较大差异
 		if strings.Contains(string(other.Body), other.Path) {
 			// 如果包含路径本身, 可能是路径自身的随机值影响结果
 			return 0
 		} else {
+			// 如果不包含路径本身, 则认为是不同页面
 			return -1
 		}
 	}

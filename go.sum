@@ -21,8 +21,6 @@ github.com/chainreactors/logs v0.6.2/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOA
 github.com/chainreactors/parsers v0.2.6/go.mod h1:Z9weht+lnFCk7UcwqFu6lXpS7u5vttiy0AJYOAyCCLA=
 github.com/chainreactors/parsers v0.2.7 h1:3iEuluL7gSDrElZWyf1KEiTgddgcoZC0IaIHb9KA3pk=
 github.com/chainreactors/parsers v0.2.7/go.mod h1:Z9weht+lnFCk7UcwqFu6lXpS7u5vttiy0AJYOAyCCLA=
-github.com/chainreactors/words v0.3.1 h1:Onx+FKOp0cZHCNQj2hB2tHOclbWCvQ8aOcreX8e5SSQ=
-github.com/chainreactors/words v0.3.1/go.mod h1:jRcFgafTKqdkd1+StzPCTJG1ESrZHluXEO2eERdHBMQ=
 github.com/chainreactors/words v0.3.2-0.20221210163218-dc834b0519bc h1:VBKKX6Uc6pJA9ST48m1p6H8V2mm1UIypIboFBaGNbMY=
 github.com/chainreactors/words v0.3.2-0.20221210163218-dc834b0519bc/go.mod h1:jRcFgafTKqdkd1+StzPCTJG1ESrZHluXEO2eERdHBMQ=
 github.com/davecgh/go-spew v0.0.0-20161028175848-04cdfd42973b/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -52,9 +50,8 @@ github.com/mattn/go-isatty v0.0.16 h1:bq3VjFmv/sOjHtdEhmkEV4x1AJtvUvOJ2PFAZ5+peK
 github.com/mattn/go-isatty v0.0.16/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
 github.com/mattn/go-runewidth v0.0.4/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
 github.com/mattn/go-runewidth v0.0.8/go.mod h1:H031xJmbD/WCDINGzjvQ9THkh0rPKHF+m2gUSrubnMI=
+github.com/panjf2000/ants/v2 v2.5.0 h1:1rWGWSnxCsQBga+nQbA4/iY6VMeNoOIAM0ZWh9u3q2Q=
 github.com/panjf2000/ants/v2 v2.5.0/go.mod h1:cU93usDlihJZ5CfRGNDYsiBYvoilLvBF5Qp/BT2GNRE=
-github.com/panjf2000/ants/v2 v2.6.0 h1:xOSpw42m+BMiJ2I33we7h6fYzG4DAlpE1xyI7VS2gxU=
-github.com/panjf2000/ants/v2 v2.6.0/go.mod h1:cU93usDlihJZ5CfRGNDYsiBYvoilLvBF5Qp/BT2GNRE=
 github.com/pmezard/go-difflib v0.0.0-20151028094244-d8ed2627bdf0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
