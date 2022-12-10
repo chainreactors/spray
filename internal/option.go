@@ -19,11 +19,11 @@ import (
 )
 
 type Option struct {
-	InputOptions
-	OutputOptions
-	RequestOptions
-	ModeOptions
-	MiscOptions
+	InputOptions   `group:"Input Options"`
+	OutputOptions  `group:"Output Options"`
+	RequestOptions `group:"Request Options"`
+	ModeOptions    `group:"Modify Options"`
+	MiscOptions    `group:"Miscellaneous Options"`
 }
 
 type InputOptions struct {
@@ -47,9 +47,9 @@ type InputOptions struct {
 }
 
 type OutputOptions struct {
-	Match       string   `long:"match" description:"String, "`
-	Filter      string   `long:"filter" description:"String, "`
-	Extracts    []string `long:"extract" description:"String, "`
+	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200"`
+	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'"`
+	Extracts    []string `long:"extract" description:"String, extract response, e.g.: --extract js --extract ip --extract version:(.*?)"`
 	OutputFile  string   `short:"f" description:"String, output filename"`
 	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename"`
 	Fuzzy       bool     `long:"fuzzy" description:"String, open fuzzy output"`
@@ -57,21 +57,25 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Headers         []string `long:"header"`
-	Method          string   `long:"method"`
-	Cookie          string   `long:"cookie"`
-	SimhashDistance int      `long:"distance" default:"5"`
+	Headers []string `long:"header" description:"String, custom headers, e.g.: --headers 'Auth: example_auth'"`
+	//UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom"`
+	//RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
+	//Method          string   `long:"method" default:"GET" description:"String, custom method"`
+	//Cookie          string   `long:"cookie" description:"String, custom cookie"`
 }
 
 type ModeOptions struct {
-	Force          bool   `long:"force"`
-	CheckOnly      bool   `long:"check-only"`
-	CheckPeriod    int    `long:"check-period" default:"100"`
-	ErrPeriod      int    `long:"error-period" default:"10"`
-	BreakThreshold int    `long:"error-threshold" default:"20"`
-	BlackStatus    string `long:"black-status" default:"404,400,410"`
-	WhiteStatus    string `long:"white-status" default:"200"`
-	FuzzyStatus    string `long:"fuzzy-status" default:"403,500,501,502,503"`
+	Force           bool   `long:"force" description:"Bool, skip error break"`
+	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
+	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
+	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
+	CheckPeriod     int    `long:"check-period" default:"100" description:"Int, check period when request"`
+	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
+	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
+	BlackStatus     string `long:"black-status" default:"404,400,410" description:"Strings (comma split),custom black status, "`
+	WhiteStatus     string `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
+	FuzzyStatus     string `long:"fuzzy-status" default:"403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
+	SimhashDistance int    `long:"distance" default:"5"`
 }
 
 type MiscOptions struct {
@@ -81,7 +85,7 @@ type MiscOptions struct {
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
-	NoBar    bool   `long:"no-bar"`
+	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`
 	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
 	Client   string `short:"c" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
 }
@@ -358,6 +362,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 		r.FilterExpr = exp
 	}
+
+	exp, err := expr.Compile(opt.Recursive)
+	if err != nil {
+		return nil, err
+	}
+	r.RecursiveExpr = exp
 
 	// prepare header
 	for _, h := range opt.Headers {
