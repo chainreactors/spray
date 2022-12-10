@@ -23,26 +23,27 @@ func NewStatistor(url string) *Statistor {
 type Statistor struct {
 	BaseUrl        string      `json:"url"`
 	Counts         map[int]int `json:"counts"`
-	ReqNumber      int         `json:"req"`
-	FailedNumber   int         `json:"failed"`
+	FailedNumber   int32       `json:"failed"`
+	ReqTotal       int32       `json:"req_total"`
 	CheckNumber    int         `json:"check"`
 	FoundNumber    int         `json:"found"`
 	FilteredNumber int         `json:"filtered"`
 	FuzzyNumber    int         `json:"fuzzy"`
 	WafedNumber    int         `json:"wafed"`
-	End            int         `json:"end"`
-	Offset         int         `json:"offset"`
-	Total          int         `json:"total"`
-	StartTime      int64       `json:"start_time"`
-	EndTime        int64       `json:"end_time"`
-	WordCount      int         `json:"word_count"`
-	Word           string      `json:"word"`
-	Dictionaries   []string    `json:"dictionaries"`
+
+	End          int      `json:"end"`
+	Offset       int      `json:"offset"`
+	Total        int      `json:"total"`
+	StartTime    int64    `json:"start_time"`
+	EndTime      int64    `json:"end_time"`
+	WordCount    int      `json:"word_count"`
+	Word         string   `json:"word"`
+	Dictionaries []string `json:"dictionaries"`
 }
 
 func (stat *Statistor) String() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %d, found: %d, check: %d, failed: %d", stat.BaseUrl, stat.EndTime-stat.StartTime, stat.ReqNumber, stat.FoundNumber, stat.CheckNumber, stat.FailedNumber))
+	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %d, finish: %d/%d, found: %d, check: %d, failed: %d", stat.BaseUrl, stat.EndTime-stat.StartTime, stat.ReqTotal, stat.End, stat.Total, stat.FoundNumber, stat.CheckNumber, stat.FailedNumber))
 
 	if stat.FuzzyNumber != 0 {
 		s.WriteString(", fuzzy: " + strconv.Itoa(stat.FuzzyNumber))
