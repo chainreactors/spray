@@ -39,4 +39,5 @@ type Config struct {
 	RecuExpr       *vm.Program
 	OutputCh       chan *Baseline
 	FuzzyCh        chan *Baseline
+	Fuzzy          bool
 }

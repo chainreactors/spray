@@ -17,7 +17,7 @@ require (
 	github.com/go-dedup/simhash v0.0.0-20170904020510-9ecaca7b509c
 	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0
-	github.com/panjf2000/ants/v2 v2.6.0
+	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/valyala/fasthttp v1.43.0
 )
 
