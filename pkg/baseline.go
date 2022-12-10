@@ -80,7 +80,16 @@ type Baseline struct {
 	Reason       string     `json:"reason"`
 	IsValid      bool       `json:"valid"`
 	IsFuzzy      bool       `json:"fuzzy"`
+	RecuDepth    int        `json:"-"`
+	Recu         bool       `json:"-"`
 	*parsers.Hashes
+}
+
+func (bl *Baseline) IsDir() bool {
+	if strings.HasSuffix(bl.Path, "/") {
+		return true
+	}
+	return false
 }
 
 // Collect 深度收集信息

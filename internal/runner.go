@@ -37,9 +37,12 @@ type Runner struct {
 	Fns            []func(string) string
 	FilterExpr     *vm.Program
 	MatchExpr      *vm.Program
+	RecursiveExpr  *vm.Program
+	RecuDepth      int
 	Threads        int
 	PoolSize       int
 	Pools          *ants.PoolWithFunc
+	PoolName       map[string]bool
 	Timeout        int
 	Mod            string
 	Probes         []string
@@ -75,6 +78,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		BreakThreshold: r.BreakThreshold,
 		MatchExpr:      r.MatchExpr,
 		FilterExpr:     r.FilterExpr,
+		RecuExpr:       r.RecursiveExpr,
 	}
 	if config.Mod == pkg.PathSpray {
 		config.ClientType = ihttp.FAST
@@ -163,6 +167,16 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	return nil
 }
 
+func (r *Runner) AddPool(task *Task) {
+	if _, ok := r.PoolName[task.baseUrl]; ok {
+		logs.Log.Importantf("already added pool, skip %s", task.baseUrl)
+		return
+	}
+	task.depth++
+	r.poolwg.Add(1)
+	r.Pools.Invoke(task)
+}
+
 func (r *Runner) Run(ctx context.Context) {
 Loop:
 	for {
@@ -174,8 +188,7 @@ Loop:
 			if !ok {
 				break Loop
 			}
-			r.poolwg.Add(1)
-			r.Pools.Invoke(t)
+			r.AddPool(t)
 		}
 	}
 
@@ -267,6 +280,9 @@ func (r *Runner) Outputting() {
 
 				if bl.IsValid {
 					saveFunc(bl)
+					if bl.Recu {
+						r.AddPool(&Task{bl.UrlString, 0, r.Total, bl.RecuDepth + 1})
+					}
 				} else {
 					logs.Log.Debug(bl.String())
 				}

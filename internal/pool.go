@@ -24,6 +24,7 @@ var (
 
 var max = 2147483647
 var maxRedirect = 3
+var maxRecuDepth = 0
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
@@ -89,6 +90,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			defer fasthttp.ReleaseRequest(req.FastRequest)
 		}
 
+		// compare与各种错误处理
 		var bl *pkg.Baseline
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
@@ -122,7 +124,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		bl.Spended = time.Since(start).Milliseconds()
 		switch unit.source {
 		case InitRandomSource:
-			pool.base = bl
+			pool.random = bl
 			pool.addFuzzyBaseline(bl)
 			pool.initwg.Done()
 		case InitIndexSource:
@@ -132,7 +134,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			if bl.ErrString != "" {
 				logs.Log.Warnf("[check.error] maybe ip had banned by waf, break (%d/%d), error: %s", pool.failedCount, pool.BreakThreshold, bl.ErrString)
 				pool.failedBaselines = append(pool.failedBaselines, bl)
-			} else if i := pool.base.Compare(bl); i < 1 {
+			} else if i := pool.random.Compare(bl); i < 1 {
 				if i == 0 {
 					logs.Log.Debug("[check.fuzzy] maybe trigger risk control, " + bl.String())
 				} else {
@@ -167,6 +169,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	})
 
 	pool.pool = p
+	// 挂起一个异步的处理结果线程, 不干扰主线程的请求并发
 	go func() {
 		for bl := range pool.tempCh {
 			if _, ok := pool.Statistor.Counts[bl.Status]; ok {
@@ -174,9 +177,22 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			} else {
 				pool.Statistor.Counts[bl.Status] = 1
 			}
+			params := map[string]interface{}{
+				"index":   pool.index,
+				"random":  pool.random,
+				"current": bl,
+			}
+			for _, status := range FuzzyStatus {
+				if bl, ok := pool.baselines[status]; ok {
+					params["bl"+strconv.Itoa(status)] = bl
+				} else {
+					params["bl"+strconv.Itoa(status)] = &pkg.Baseline{}
+				}
+			}
+
 			var status bool
 			if pool.MatchExpr != nil {
-				if pool.CompareWithExpr(pool.MatchExpr, bl) {
+				if CompareWithExpr(pool.MatchExpr, params) {
 					status = true
 				}
 			} else {
@@ -187,13 +203,20 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 			if status {
 				pool.Statistor.FoundNumber++
-				if pool.FilterExpr != nil && pool.CompareWithExpr(pool.FilterExpr, bl) {
+				if pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
 					pool.Statistor.FilteredNumber++
 					bl.Reason = ErrCustomFilter.Error()
 					bl.IsValid = false
 				}
 			} else {
 				bl.IsValid = false
+			}
+
+			// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
+			if bl.IsValid && pool.Mod == pkg.PathSpray && bl.RecuDepth < maxRecuDepth {
+				if CompareWithExpr(pool.RecuExpr, params) {
+					bl.Recu = true
+				}
 			}
 			pool.OutputCh <- bl
 			pool.wg.Done()
@@ -216,14 +239,14 @@ type Pool struct {
 	reqCount        int
 	failedCount     int
 	failedBaselines []*pkg.Baseline
-	base            *pkg.Baseline
+	random          *pkg.Baseline
 	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
-	locker          sync.Mutex
 	analyzeDone     bool
 	genReq          func(s string) (*ihttp.Request, error)
 	check           func()
 	worder          *words.Worder
+	locker          sync.Mutex
 	wg              sync.WaitGroup
 	initwg          sync.WaitGroup // 初始化用, 之后改成锁
 }
@@ -243,25 +266,25 @@ func (p *Pool) Init() error {
 	p.pool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	p.initwg.Wait()
 	// 检测基本访问能力
-	if p.base.ErrString != "" {
-		return fmt.Errorf(p.base.String())
+	if p.random.ErrString != "" {
+		return fmt.Errorf(p.random.String())
 	}
-	p.base.Collect()
-	logs.Log.Important("[baseline.random] " + p.base.String())
+	p.random.Collect()
+	logs.Log.Important("[baseline.random] " + p.random.String())
 
-	if p.base.RedirectURL != "" {
+	if p.random.RedirectURL != "" {
 		// 自定协议升级
 		// 某些网站http会重定向到https, 如果发现随机目录出现这种情况, 则自定将baseurl升级为https
-		rurl, err := url.Parse(p.base.RedirectURL)
-		if err == nil && rurl.Hostname() == p.base.Url.Hostname() && p.base.Url.Scheme == "http" && rurl.Scheme == "https" {
+		rurl, err := url.Parse(p.random.RedirectURL)
+		if err == nil && rurl.Hostname() == p.random.Url.Hostname() && p.random.Url.Scheme == "http" && rurl.Scheme == "https" {
 			logs.Log.Importantf("baseurl %s upgrade http to https", p.BaseURL)
 			p.BaseURL = strings.Replace(p.BaseURL, "http", "https", 1)
 		}
 	}
 
-	if p.base.RedirectURL != "" {
+	if p.random.RedirectURL != "" {
 		CheckRedirect = func(redirectURL string) bool {
-			if redirectURL == p.base.RedirectURL {
+			if redirectURL == p.random.RedirectURL {
 				// 相同的RedirectURL将被认为是无效数据
 				return false
 			} else {
@@ -334,7 +357,7 @@ func (p *Pool) PreCompare(resp *ihttp.Response) error {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
-	if p.base != nil && p.base.Status != 200 && p.base.Status == status {
+	if p.random != nil && p.random.Status != 200 && p.random.Status == status {
 		return ErrSameStatus
 	}
 
@@ -360,10 +383,10 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	var status = -1
 	base, ok := p.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
 	if !ok {
-		if p.base.Status == bl.Status {
+		if p.random.Status == bl.Status {
 			// 当other的状态码与base相同时, 会使用base
 			ok = true
-			base = p.base
+			base = p.random
 		} else if p.index.Status == bl.Status {
 			// 当other的状态码与index相同时, 会使用index
 			ok = true
@@ -397,20 +420,7 @@ func (p *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	return true
 }
 
-func (p *Pool) CompareWithExpr(exp *vm.Program, other *pkg.Baseline) bool {
-	params := map[string]interface{}{
-		"index":   p.index,
-		"base":    p.base,
-		"current": other,
-	}
-	for _, status := range FuzzyStatus {
-		if bl, ok := p.baselines[status]; ok {
-			params["bl"+strconv.Itoa(status)] = bl
-		} else {
-			params["bl"+strconv.Itoa(status)] = &pkg.Baseline{}
-		}
-	}
-
+func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
 	res, err := expr.Run(exp, params)
 	if err != nil {
 		logs.Log.Warn(err.Error())
