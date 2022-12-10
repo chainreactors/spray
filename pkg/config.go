@@ -36,7 +36,7 @@ type Config struct {
 	Rules          []rule.Expression
 	MatchExpr      *vm.Program
 	FilterExpr     *vm.Program
-
-	OutputCh chan *Baseline
-	FuzzyCh  chan *Baseline
+	RecuExpr       *vm.Program
+	OutputCh       chan *Baseline
+	FuzzyCh        chan *Baseline
 }

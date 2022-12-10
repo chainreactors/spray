@@ -458,4 +458,5 @@ type Task struct {
 	baseUrl string
 	offset  int
 	total   int
+	depth   int
 }
