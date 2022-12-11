@@ -51,6 +51,7 @@ type Runner struct {
 	Fuzzy          bool
 	OutputFile     *files.File
 	FuzzyFile      *files.File
+	DumpFile       *files.File
 	StatFile       *files.File
 	Force          bool
 	Progress       *uiprogress.Progress
@@ -278,7 +279,10 @@ func (r *Runner) Outputting() {
 				if !ok {
 					return
 				}
-
+				if r.DumpFile != nil {
+					r.DumpFile.SafeWrite(bl.Jsonify() + "\n")
+					r.DumpFile.SafeSync()
+				}
 				if bl.IsValid {
 					saveFunc(bl)
 					if bl.Recu {

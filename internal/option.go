@@ -47,13 +47,16 @@ type InputOptions struct {
 }
 
 type OutputOptions struct {
-	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200"`
-	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'"`
-	Extracts    []string `long:"extract" description:"String, extract response, e.g.: --extract js --extract ip --extract version:(.*?)"`
-	OutputFile  string   `short:"f" description:"String, output filename"`
-	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename"`
-	Fuzzy       bool     `long:"fuzzy" description:"String, open fuzzy output"`
-	OutputProbe string   `long:"probe" description:"String, output format"`
+	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
+	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
+	Extracts    []string `long:"extract" description:"String, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
+	OutputFile  string   `short:"f" description:"String, output filename" json:"output_file,omitempty"`
+	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
+	DumpFile    string   `long:"dump-file" description:"String, dump all request, and write to filename"`
+	Dump        bool     `long:"dump" description:"Bool, dump all request"`
+	AutoFile    bool     `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" `
+	Fuzzy       bool     `long:"fuzzy" description:"String, open fuzzy output" json:"fuzzy,omitempty"`
+	OutputProbe string   `long:"probe" description:"String, output format" json:"output_probe,omitempty"`
 }
 
 type RequestOptions struct {
@@ -388,6 +391,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if opt.AutoFile {
+		r.OutputFile, err = files.NewFile("result.json", true, false, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if opt.FuzzyFile != "" {
@@ -395,8 +403,24 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if opt.AutoFile {
+		r.FuzzyFile, err = files.NewFile("fuzzy.json", true, false, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	if opt.DumpFile != "" {
+		r.DumpFile, err = files.NewFile(opt.DumpFile, false, false, true)
+		if err != nil {
+			return nil, err
+		}
+	} else if opt.Dump {
+		r.DumpFile, err = files.NewFile("dump.json", true, false, true)
+		if err != nil {
+			return nil, err
+		}
+	}
 	r.StatFile, err = files.NewFile("stat.json", false, false, true)
 	if err != nil {
 		return nil, err
@@ -459,4 +483,6 @@ type Task struct {
 	offset  int
 	total   int
 	depth   int
+	//wordlist []string
+	//rule   []rule.Expression
 }
