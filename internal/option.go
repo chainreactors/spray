@@ -12,6 +12,7 @@ import (
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -19,27 +20,31 @@ import (
 )
 
 type Option struct {
-	InputOptions   `group:"Input Options"`
-	OutputOptions  `group:"Output Options"`
-	RequestOptions `group:"Request Options"`
-	ModeOptions    `group:"Modify Options"`
-	MiscOptions    `group:"Miscellaneous Options"`
+	InputOptions    `group:"Input Options"`
+	FunctionOptions `group:"Function Options"`
+	OutputOptions   `group:"Output Options"`
+	RequestOptions  `group:"Request Options"`
+	ModeOptions     `group:"Modify Options"`
+	MiscOptions     `group:"Miscellaneous Options"`
 }
 
 type InputOptions struct {
-	ResumeFrom        string            `long:"resume-from"`
-	URL               string            `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
-	URLFile           string            `short:"l" long:"list" description:"File, input filename"`
-	Offset            int               `long:"offset" description:"Int, wordlist offset"`
-	Limit             int               `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
-	Dictionaries      []string          `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
-	Word              string            `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
-	FilterRule        string            `long:"rule-filter" description:"String, filter rule, e.g.: --rule-filter '>8'"`
-	Rules             []string          `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
+	ResumeFrom   string   `long:"resume-from"`
+	URL          string   `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
+	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
+	Offset       int      `long:"offset" description:"Int, wordlist offset"`
+	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	Dictionaries []string `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
+	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
+	FilterRule   string   `long:"rule-filter" description:"String, filter rule, e.g.: --rule-filter '>8'"`
+	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
+}
+
+type FunctionOptions struct {
 	Extensions        string            `short:"e" long:"extension" description:"String, add extensions (separated by commas), e.g.: -e jsp,jspx"`
 	ExcludeExtensions string            `long:"exclude-extension" description:"String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx"`
 	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
-	Uppercase         bool              `short:"U" long:"uppercase" description:"Bool, upper wordlist, e.g.: --uppercase"`
+	Uppercase         bool              `short:"U" long:"uppercase" desvcription:"Bool, upper wordlist, e.g.: --uppercase"`
 	Lowercase         bool              `short:"L" long:"lowercase" description:"Bool, lower wordlist, e.g.: --lowercase"`
 	Prefixes          []string          `long:"prefix" description:"Strings, add prefix, e.g.: --prefix aaa --prefix bbb"`
 	Suffixes          []string          `long:"suffix" description:"Strings, add suffix, e.g.: --suffix aaa --suffix bbb"`
@@ -189,6 +194,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	dicts := make([][]string, len(opt.Dictionaries))
 	for i, f := range opt.Dictionaries {
 		dicts[i], err = loadFileToSlice(f)
+		if opt.ResumeFrom != "" {
+			dictCache[f] = dicts[i]
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -223,17 +231,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.Word += "{@ext}"
 	}
 
-	mask.CustomWords = dicts
-	r.Wordlist, err = mask.Run(opt.Word)
+	r.Wordlist, err = mask.Run(opt.Word, dicts)
 	if err != nil {
 		return nil, err
 	}
-	logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
-	pkg.DefaultStatistor = pkg.Statistor{
-		Word:         opt.Word,
-		WordCount:    len(r.Wordlist),
-		Dictionaries: opt.Dictionaries,
-		Offset:       opt.Offset,
+	if len(r.Wordlist) > 0 {
+		logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
 	}
 
 	if opt.Rules != nil {
@@ -257,14 +260,24 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	} else {
 		r.Total = len(r.Wordlist)
 	}
-
-	if opt.Limit != 0 {
-		if total := r.Offset + opt.Limit; total < r.Total {
-			r.Total = total
-		}
+	pkg.DefaultStatistor = pkg.Statistor{
+		Word:         opt.Word,
+		WordCount:    len(r.Wordlist),
+		Dictionaries: opt.Dictionaries,
+		Offset:       opt.Offset,
+		RuleFiles:    opt.Rules,
+		RuleFilter:   opt.FilterRule,
+		Total:        r.Total,
 	}
 
 	// prepare task
+	var u *url.URL
+	if opt.URL != "" {
+		u, err = url.Parse(opt.URL)
+		if err != nil {
+			u, _ = url.Parse("http://" + opt.URL)
+		}
+	}
 	var tasks []*Task
 	var taskfrom string
 	if opt.ResumeFrom != "" {
@@ -274,14 +287,15 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 		taskfrom = "resume " + opt.ResumeFrom
 		for _, stat := range stats {
-			tasks = append(tasks, &Task{baseUrl: stat.BaseUrl, offset: stat.Offset + stat.End, total: r.Total})
+			task := &Task{baseUrl: stat.BaseUrl, origin: stat}
+			tasks = append(tasks, task)
 		}
 	} else {
 		var file *os.File
 		var urls []string
-		if opt.URL != "" {
-			urls = append(urls, opt.URL)
-			tasks = append(tasks, &Task{baseUrl: opt.URL, offset: opt.Offset, total: r.Total})
+		if u != nil {
+			urls = append(urls, u.String())
+			tasks = append(tasks, &Task{baseUrl: opt.URL})
 			taskfrom = "cmd"
 		} else if opt.URLFile != "" {
 			file, err = os.Open(opt.URLFile)
@@ -301,7 +315,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			}
 			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
 			for _, u := range urls {
-				tasks = append(tasks, &Task{baseUrl: strings.TrimSpace(u), offset: opt.Offset, total: r.Total})
+				tasks = append(tasks, &Task{baseUrl: strings.TrimSpace(u)})
 			}
 		}
 		if opt.CheckOnly {
@@ -421,7 +435,20 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			return nil, err
 		}
 	}
-	r.StatFile, err = files.NewFile("stat.json", false, false, true)
+	if opt.ResumeFrom != "" {
+		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
+	} else if opt.URLFile != "" {
+		r.StatFile, err = files.NewFile(opt.URLFile+".stat", false, true, true)
+	} else if taskfrom == "stdin" {
+		r.StatFile, err = files.NewFile("stdin.stat", false, true, true)
+	} else if u != nil {
+		r.StatFile, err = files.NewFile(u.Host, false, true, true)
+	}
+	if err != nil {
+		return nil, err
+	}
+	r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
+	err = r.StatFile.Init()
 	if err != nil {
 		return nil, err
 	}
@@ -433,56 +460,17 @@ func (opt *Option) Validate() bool {
 		logs.Log.Error("Cannot set -U and -L at the same time")
 		return false
 	}
+
+	if (opt.Offset != 0 || opt.Limit != 0) && opt.Depth > 0 {
+		// 偏移和上限与递归同时使用时也会造成混淆.
+		logs.Log.Error("--offset and --limit cannot be used with --depth at the same time")
+		return false
+	}
+
+	if opt.Depth > 0 && opt.ResumeFrom != "" {
+		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
+		logs.Log.Error("--resume-from and --depth cannot be used at the same time")
+		return false
+	}
 	return true
-}
-
-func loadFileToSlice(filename string) ([]string, error) {
-	var ss []string
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	ss = strings.Split(strings.TrimSpace(string(content)), "\n")
-
-	// 统一windows与linux的回车换行差异
-	for i, word := range ss {
-		ss[i] = strings.TrimSpace(word)
-	}
-
-	return ss, nil
-}
-
-func parseExtension(s string) string {
-	if i := strings.Index(s, "."); i != -1 {
-		return s[i+1:]
-	}
-	return ""
-}
-
-func StringsContains(s []string, e string) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
-
-func IntsContains(s []int, e int) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
-
-type Task struct {
-	baseUrl string
-	offset  int
-	total   int
-	depth   int
-	//wordlist []string
-	//rule   []rule.Expression
 }

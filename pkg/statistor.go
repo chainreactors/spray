@@ -20,6 +20,19 @@ func NewStatistor(url string) *Statistor {
 	return &stat
 }
 
+func NewStatistorFromStat(origin *Statistor) *Statistor {
+	return &Statistor{
+		BaseUrl:      origin.BaseUrl,
+		Word:         origin.Word,
+		Dictionaries: origin.Dictionaries,
+		Offset:       origin.End,
+		RuleFiles:    origin.RuleFiles,
+		RuleFilter:   origin.RuleFilter,
+		Counts:       make(map[int]int),
+		StartTime:    time.Now().Unix(),
+	}
+}
+
 type Statistor struct {
 	BaseUrl        string      `json:"url"`
 	Counts         map[int]int `json:"counts"`
@@ -39,6 +52,8 @@ type Statistor struct {
 	WordCount    int      `json:"word_count"`
 	Word         string   `json:"word"`
 	Dictionaries []string `json:"dictionaries"`
+	RuleFiles    []string `json:"rule_files"`
+	RuleFilter   string   `json:"rule_filter"`
 }
 
 func (stat *Statistor) String() string {
@@ -84,15 +99,15 @@ func ReadStatistors(filename string) (Statistors, error) {
 		return nil, err
 	}
 	var stats Statistors
-	for _, line := range bytes.Split(content, []byte("\n")) {
+	for _, line := range bytes.Split(bytes.TrimSpace(content), []byte("\n")) {
 		var stat Statistor
 		err := json.Unmarshal(line, &stat)
 		if err != nil {
 			return nil, err
 		}
-		stats = append(stats, stat)
+		stats = append(stats, &stat)
 	}
 	return stats, nil
 }
 
-type Statistors []Statistor
+type Statistors []*Statistor

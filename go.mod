@@ -3,13 +3,13 @@ module github.com/chainreactors/spray
 go 1.17
 
 require (
-	github.com/chainreactors/files v0.2.4
+	github.com/chainreactors/files v0.2.5-0.20221212083256-16ee4c1ae47e
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 	github.com/chainreactors/gogo/v2 v2.9.5-0.20221110124606-bb8c89742d4d
 	github.com/chainreactors/ipcs v0.0.13
 	github.com/chainreactors/logs v0.6.2
 	github.com/chainreactors/parsers v0.2.7
-	github.com/chainreactors/words v0.3.2-0.20221210163218-dc834b0519bc
+	github.com/chainreactors/words v0.3.2-0.20221212045930-0c976fe39aea
 )
 
 require (

@@ -31,11 +31,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
 		Config:      config,
-		Statistor:   pkg.NewStatistor(config.BaseURL),
 		ctx:         pctx,
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
-		worder:      words.NewWorder(config.Wordlist, config.Fns),
 		baselines:   make(map[int]*pkg.Baseline),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan *Unit),
@@ -45,8 +43,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		failedCount: 1,
 	}
 
-	pool.worder.Rules = pool.Rules
-	pool.worder.RunWithRules()
 	p, _ := ants.NewPoolWithFunc(config.Thread, func(i interface{}) {
 		atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 		unit := i.(*Unit)
@@ -307,6 +303,7 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 	return nil, fmt.Errorf("unknown mod")
 }
 func (pool *Pool) Run(ctx context.Context, offset, limit int) {
+	pool.worder.RunWithRules()
 Loop:
 	for {
 		select {
@@ -324,9 +321,6 @@ Loop:
 				break Loop
 			}
 
-			for _, fn := range pool.Fns {
-				u = fn(u)
-			}
 			if u == "" {
 				continue
 			}

@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
@@ -21,6 +22,12 @@ var (
 	BlackStatus = []int{400, 404, 410}
 	FuzzyStatus = []int{403, 500, 501, 502, 503}
 	WAFStatus   = []int{493, 418}
+)
+
+var (
+	dictCache     = make(map[string][]string)
+	wordlistCache = make(map[string][]string)
+	ruleCache     = make(map[string][]rule.Expression)
 )
 
 type Runner struct {
@@ -56,6 +63,7 @@ type Runner struct {
 	Force          bool
 	Progress       *uiprogress.Progress
 	Offset         int
+	Limit          int
 	Total          int
 	Deadline       int
 	CheckPeriod    int
@@ -70,8 +78,6 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Timeout:        r.Timeout,
 		Headers:        r.Headers,
 		Mod:            pkg.ModMap[r.Mod],
-		Fns:            r.Fns,
-		Rules:          r.Rules,
 		OutputCh:       r.OutputCh,
 		FuzzyCh:        r.FuzzyCh,
 		Fuzzy:          r.Fuzzy,
@@ -96,7 +102,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		// 仅check, 类似httpx
 		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
 			config := r.PrepareConfig()
-			config.Wordlist = r.URLList
+
 			pool, err := NewCheckPool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
@@ -104,6 +110,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				r.poolwg.Done()
 				return
 			}
+			pool.worder = words.NewWorderWithFns(r.URLList, r.Fns)
 			pool.bar = pkg.NewBar("check", r.Total-r.Offset, r.Progress)
 			pool.Run(ctx, r.Offset, r.Total)
 			r.poolwg.Done()
@@ -127,9 +134,14 @@ func (r *Runner) Prepare(ctx context.Context) error {
 
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 			t := i.(*Task)
+			if t.origin.End == t.origin.Total {
+				r.StatFile.SafeWrite(t.origin.Json())
+				r.Done()
+				return
+			}
 			config := r.PrepareConfig()
 			config.BaseURL = t.baseUrl
-			config.Wordlist = r.Wordlist
+
 			pool, err := NewPool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
@@ -137,8 +149,41 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				r.Done()
 				return
 			}
-			pool.Statistor.Total = r.Total
-			pool.bar = pkg.NewBar(config.BaseURL, t.total-t.offset, r.Progress)
+			if t.origin != nil && len(r.Wordlist) == 0 {
+				// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
+				pool.Statistor = pkg.NewStatistorFromStat(t.origin)
+				wl, err := loadWordlist(t.origin.Word, t.origin.Dictionaries)
+				if err != nil {
+					logs.Log.Error(err.Error())
+					r.Done()
+					return
+				}
+				pool.worder = words.NewWorderWithFns(wl, r.Fns)
+				rules, err := loadRuleWithFiles(t.origin.RuleFiles, t.origin.RuleFilter)
+				if err != nil {
+					logs.Log.Error(err.Error())
+					r.Done()
+					return
+				}
+				pool.worder.Rules = rules
+				if len(rules) > 0 {
+					pool.Statistor.Total = len(rules) * len(wl)
+				} else {
+					pool.Statistor.Total = len(wl)
+				}
+			} else {
+				pool.Statistor = pkg.NewStatistor(t.baseUrl)
+				pool.worder = words.NewWorderWithFns(r.Wordlist, r.Fns)
+				pool.worder.Rules = r.Rules
+			}
+
+			var limit int
+			if pool.Statistor.Total > r.Limit && r.Limit != 0 {
+				limit = r.Limit
+			} else {
+				limit = pool.Statistor.Total
+			}
+			pool.bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
 			err = pool.Init()
 			if err != nil {
 				logs.Log.Error(err.Error())
@@ -150,7 +195,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			pool.Run(ctx, t.offset, t.total)
+			pool.Run(ctx, pool.Statistor.Offset, limit)
 			logs.Log.Important(pool.Statistor.String())
 			logs.Log.Important(pool.Statistor.Detail())
 			if r.StatFile != nil {
@@ -184,7 +229,11 @@ Loop:
 	for {
 		select {
 		case <-ctx.Done():
-			logs.Log.Error("cancel with deadline")
+			for t := range r.taskCh {
+				stat := pkg.NewStatistor(t.baseUrl)
+				r.StatFile.SafeWrite(stat.Json())
+			}
+			logs.Log.Importantf("save all stat to %s", r.StatFile.Filename)
 			break Loop
 		case t, ok := <-r.taskCh:
 			if !ok {
@@ -286,7 +335,7 @@ func (r *Runner) Outputting() {
 				if bl.IsValid {
 					saveFunc(bl)
 					if bl.Recu {
-						r.AddPool(&Task{bl.UrlString, 0, r.Total, bl.RecuDepth + 1})
+						r.AddPool(&Task{baseUrl: bl.UrlString, depth: bl.RecuDepth + 1})
 					}
 				} else {
 					logs.Log.Debug(bl.String())
@@ -300,7 +349,6 @@ func (r *Runner) Outputting() {
 		if r.FuzzyFile != nil {
 			fuzzySaveFunc = func(bl *pkg.Baseline) {
 				r.FuzzyFile.SafeWrite(bl.Jsonify() + "\n")
-				r.FuzzyFile.SafeSync()
 			}
 		} else {
 			fuzzySaveFunc = func(bl *pkg.Baseline) {

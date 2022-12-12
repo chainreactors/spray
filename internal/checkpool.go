@@ -18,7 +18,6 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 		ctx:         pctx,
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
-		worder:      words.NewWorder(config.Wordlist, config.Fns),
 		wg:          sync.WaitGroup{},
 		reqCount:    1,
 		failedCount: 1,
@@ -86,6 +85,7 @@ func (p *CheckPool) Close() {
 }
 
 func (p *CheckPool) Run(ctx context.Context, offset, limit int) {
+	p.worder.Run()
 Loop:
 	for {
 		select {
