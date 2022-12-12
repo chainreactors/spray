@@ -37,4 +37,5 @@ type Config struct {
 	OutputCh       chan *Baseline
 	FuzzyCh        chan *Baseline
 	Fuzzy          bool
+	IgnoreWaf      bool
 }
