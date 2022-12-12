@@ -392,7 +392,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 
 	bl.Collect()
 	for _, f := range bl.Frameworks {
-		if f.Tag == "waf" || f.Tag == "cdn" {
+		if f.HasTag("waf") || f.HasTag("cdn") {
 			pool.Statistor.WafedNumber++
 			bl.Reason = ErrWaf.Error()
 			return false
