@@ -134,7 +134,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 			t := i.(*Task)
-			if t.origin.End == t.origin.Total {
+			if t.origin != nil && t.origin.End == t.origin.Total {
 				r.StatFile.SafeWrite(t.origin.Json())
 				r.Done()
 				return
