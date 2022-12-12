@@ -35,7 +35,7 @@
 
 `spray -l url.txt -r rule.txt -d 1.txt`
 
-断点续传 (暂未实装)
+断点续传
 
 `spray --resume-from stat.json`
 ### 基于掩码的字典生成
@@ -228,8 +228,8 @@ spray默认输出到终端的格式是human-like文本, 输出到文件的格式
 ## TODO
 
 1. [x] fuzzyequal
-2. [ ] 断点续传
+2. [x] 断点续传
 3. [ ] 简易爬虫
 4. [ ] 支持http2
 5. [ ] auto-tune, 自动调整并发数量
-6. [ ] 可自定义的递归配置
+6. [x] 可自定义的递归配置
