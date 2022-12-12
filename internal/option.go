@@ -442,7 +442,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	} else if taskfrom == "stdin" {
 		r.StatFile, err = files.NewFile("stdin.stat", false, true, true)
 	} else if u != nil {
-		r.StatFile, err = files.NewFile(u.Host, false, true, true)
+		r.StatFile, err = files.NewFile(u.Host+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
