@@ -391,13 +391,16 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	}
 
 	bl.Collect()
-	for _, f := range bl.Frameworks {
-		if f.HasTag("waf") || f.HasTag("cdn") {
-			pool.Statistor.WafedNumber++
-			bl.Reason = ErrWaf.Error()
-			return false
-		}
-	}
+	//if !pool.IgnoreWaf {
+	//	// 部分情况下waf的特征可能是全局, 指定了--ignore-waf则不会进行waf的指纹检测
+	//	for _, f := range bl.Frameworks {
+	//		if f.HasTag("waf") {
+	//			pool.Statistor.WafedNumber++
+	//			bl.Reason = ErrWaf.Error()
+	//			return false
+	//		}
+	//	}
+	//}
 
 	if ok && status == 0 && base.FuzzyCompare(bl) {
 		pool.Statistor.FuzzyNumber++

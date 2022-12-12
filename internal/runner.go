@@ -60,7 +60,6 @@ type Runner struct {
 	FuzzyFile      *files.File
 	DumpFile       *files.File
 	StatFile       *files.File
-	Force          bool
 	Progress       *uiprogress.Progress
 	Offset         int
 	Limit          int
@@ -70,6 +69,8 @@ type Runner struct {
 	ErrPeriod      int
 	BreakThreshold int
 	CheckOnly      bool
+	Force          bool
+	IgnoreWaf      bool
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
@@ -87,6 +88,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		MatchExpr:      r.MatchExpr,
 		FilterExpr:     r.FilterExpr,
 		RecuExpr:       r.RecursiveExpr,
+		IgnoreWaf:      r.IgnoreWaf,
 	}
 	if config.Mod == pkg.PathSpray {
 		config.ClientType = ihttp.FAST
