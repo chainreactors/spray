@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"github.com/antonmedv/expr/vm"
-	"github.com/chainreactors/words/rule"
 	"net/http"
 )
 
@@ -22,8 +21,8 @@ var ModMap = map[string]SprayMod{
 
 type Config struct {
 	BaseURL        string
-	Wordlist       []string
 	Thread         int
+	Wordlist       []string
 	Timeout        int
 	CheckPeriod    int
 	ErrPeriod      int
@@ -32,8 +31,6 @@ type Config struct {
 	Mod            SprayMod
 	Headers        http.Header
 	ClientType     int
-	Fns            []func(string) string
-	Rules          []rule.Expression
 	MatchExpr      *vm.Program
 	FilterExpr     *vm.Program
 	RecuExpr       *vm.Program

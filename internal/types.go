@@ -1,5 +1,10 @@
 package internal
 
+import (
+	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/words/rule"
+)
+
 type ErrorType uint
 
 const (
@@ -59,4 +64,11 @@ type Unit struct {
 	source   sourceType
 	frontUrl string
 	reCount  int
+}
+
+type Task struct {
+	baseUrl string
+	depth   int
+	rule    []rule.Expression
+	origin  *pkg.Statistor
 }
