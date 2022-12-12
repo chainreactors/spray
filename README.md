@@ -178,15 +178,19 @@ WAFStatus   = []int{493, 418}
 
 智能过滤可能不能满足所有的场景, 某些情况可能非常离谱, 比如404页面返回200, 并且每次body相似度都不高. 这种情况下, 就可以使用自定义过滤功能.
 
-spray中内置了一门脚本语言 [expr](https://github.com/antonmedv/expr), 应该是市面上公开的性能最强的脚本语言了.
+spray中使用了 [expr](https://github.com/antonmedv/expr) 作为表达式语言, 应该是市面上公开的性能最强的脚本语言了.
+
+expr的语法介绍: https://github.com/antonmedv/expr/blob/master/docs/Language-Definition.md
+
+expr语法和xray/github action中差不多, spray中绝大多数情况也用不到高级功能. 只需要了解最简单的等于/包含之类判断即可.
 
 我们可以使用--match 定义我们需要的过滤规则, --match自定义的过滤函数将会替换掉默认的智能过滤. 也就是说, 开启了--match, 智能过滤就自动关闭了, 如果不想关闭智能过滤, 也提供了其他解决办法.
 
-下面是一个简单的例子, 过滤掉所有的带"公益"字样的状态码为200的页面:
+下面是一个简单的例子, 假设某个网站所有的404页面都指向公益页面, 我们想去掉所有的带"公益"字样的页面:
 
-`spray -u http://example.com -d word1.txt --match 'current.Status == 200 && current.Body not contains "公益"'`
+`spray -u http://example.com -d word1.txt --match 'current.Body not contains "公益"'`
 
-这里的current表示当前的请求.
+这里的current关键字表示当前的请求.
 
 spray获取的baseline也会被注册到将本语言中. index表示index_baseline, random表示random_baseline, 403bl表示如果第一个获取的状态码为403的请求. 如果之前没有403, 则所有字段为空.
 
