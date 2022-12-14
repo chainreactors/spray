@@ -9,7 +9,7 @@ require (
 	github.com/chainreactors/ipcs v0.0.13
 	github.com/chainreactors/logs v0.6.2
 	github.com/chainreactors/parsers v0.2.9-0.20221210155102-cc0814762410
-	github.com/chainreactors/words v0.3.2-0.20221212161820-bae5f18558db
+	github.com/chainreactors/words v0.3.2-0.20221214061028-a7cf9f9f8ddb
 )
 
 require (
@@ -19,6 +19,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/valyala/fasthttp v1.43.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -33,5 +34,4 @@ require (
 	golang.org/x/sys v0.2.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
