@@ -92,6 +92,7 @@ type MiscOptions struct {
 	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
+	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
 	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`
 	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
@@ -139,11 +140,19 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 	}
 	// 一些全局变量初始化
+	if !opt.NoColor {
+		logs.Log.Color = true
+		logs.DefaultColorMap[logs.Info] = logs.PurpleBold
+		logs.DefaultColorMap[logs.Important] = logs.Green
+		r.Color = true
+	}
 	if opt.Debug {
 		logs.Log.Level = logs.Debug
 	}
 	if opt.Quiet {
 		logs.Log.Quiet = true
+		logs.Log.Color = false
+		r.Color = false
 	}
 	if !(opt.Quiet || opt.NoBar) {
 		r.Progress.Start()

@@ -68,6 +68,7 @@ type Runner struct {
 	CheckPeriod    int
 	ErrPeriod      int
 	BreakThreshold int
+	Color          bool
 	CheckOnly      bool
 	Force          bool
 	IgnoreWaf      bool
@@ -198,8 +199,14 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 
 			pool.Run(ctx, pool.Statistor.Offset, limit)
-			logs.Log.Important(pool.Statistor.String())
-			logs.Log.Important(pool.Statistor.Detail())
+			if r.Color {
+				logs.Log.Important(pool.Statistor.ColorString())
+				logs.Log.Important(pool.Statistor.ColorDetail())
+			} else {
+				logs.Log.Important(pool.Statistor.String())
+				logs.Log.Important(pool.Statistor.Detail())
+			}
+
 			if r.StatFile != nil {
 				r.StatFile.SafeWrite(pool.Statistor.Json())
 				r.StatFile.SafeSync()
@@ -314,13 +321,26 @@ func (r *Runner) Outputting() {
 
 		} else {
 			if len(r.Probes) > 0 {
-				saveFunc = func(bl *pkg.Baseline) {
-					logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
+				if r.Color {
+					saveFunc = func(bl *pkg.Baseline) {
+						logs.Log.Console(logs.GreenBold("[+] " + bl.Format(r.Probes) + "\n"))
+					}
+				} else {
+					saveFunc = func(bl *pkg.Baseline) {
+						logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
+					}
 				}
 			} else {
-				saveFunc = func(bl *pkg.Baseline) {
-					logs.Log.Console("[+] " + bl.String() + "\n")
+				if r.Color {
+					saveFunc = func(bl *pkg.Baseline) {
+						logs.Log.Console(logs.GreenBold("[+] " + bl.ColorString() + "\n"))
+					}
+				} else {
+					saveFunc = func(bl *pkg.Baseline) {
+						logs.Log.Console("[+] " + bl.String() + "\n")
+					}
 				}
+
 			}
 		}
 
@@ -340,7 +360,12 @@ func (r *Runner) Outputting() {
 						r.AddPool(&Task{baseUrl: bl.UrlString, depth: bl.RecuDepth + 1})
 					}
 				} else {
-					logs.Log.Debug(bl.String())
+					if r.Color {
+						logs.Log.Debug(bl.ColorString())
+					} else {
+						logs.Log.Debug(bl.String())
+					}
+
 				}
 			}
 		}
@@ -353,9 +378,13 @@ func (r *Runner) Outputting() {
 				r.FuzzyFile.SafeWrite(bl.Jsonify() + "\n")
 			}
 		} else {
-			fuzzySaveFunc = func(bl *pkg.Baseline) {
-				if r.Fuzzy {
-					logs.Log.Console("[baseline.fuzzy] " + bl.String() + "\n")
+			if r.Color {
+				fuzzySaveFunc = func(bl *pkg.Baseline) {
+					logs.Log.Console(logs.GreenBold("[fuzzy] " + bl.ColorString() + "\n"))
+				}
+			} else {
+				fuzzySaveFunc = func(bl *pkg.Baseline) {
+					logs.Log.Console("[fuzzy] " + bl.String() + "\n")
 				}
 			}
 		}
