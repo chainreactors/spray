@@ -128,6 +128,47 @@ rule阶段的函数
 
 --> 函数装饰器 
 
+### Baseline
+
+baseline既是spray的输出的结构体, 也是实现各种过滤策略与高级功能的基石.
+
+baseline的定义如下:
+```
+type Baseline struct {
+	Url          *url.URL   `json:"-"`
+	UrlString    string     `json:"url"`
+	Path         string     `json:"path"`
+	Host         string     `json:"host"`
+	Body         []byte     `json:"-"`
+	BodyLength   int        `json:"body_length"`
+	Header       []byte     `json:"-"`
+	Raw          []byte     `json:"-"`
+	HeaderLength int        `json:"header_length"`
+	RedirectURL  string     `json:"redirect_url,omitempty"`
+	FrontURL     string     `json:"front_url,omitempty"`
+	Status       int        `json:"status"`
+	Spended      int64      `json:"spend"` // 耗时, 毫秒
+	Title        string     `json:"title"`
+	Frameworks   Frameworks `json:"frameworks"`
+	Extracteds   Extracteds `json:"extracts"`
+	ErrString    string     `json:"error"`
+	Reason       string     `json:"reason"`
+	IsValid      bool       `json:"valid"`
+	IsFuzzy      bool       `json:"fuzzy"`
+	RecuDepth    int        `json:"-"`
+	Recu         bool       `json:"-"`
+	*parsers.Hashes
+}
+```
+
+(结构体中的hashes,frameworks,extracteds的结构与gogo中的一致, 作为高级用法使用, 可以直接翻代码, 或者后续将会在高级使用的文档中介绍)
+
+每接收到一个目标, 创建任务并初始化, 在初始化阶段, 实际上会做两件事. 首先访问index页面, 查看连通性以及获取index的baseline.
+
+然后再生成一个随机目录, 获取随机目录的baseline.
+
+初始化完成之后, 将会保存这两个baseline, 这两个baseline就是后续一切智能过滤与高级过滤的基石.
+
 ### 智能过滤
 
 智能过滤较为复杂, 我只能简单描述一下逻辑, 具体的请看代码.
@@ -190,36 +231,11 @@ expr语法和xray/github action中差不多, spray中绝大多数情况也用不
 
 `spray -u http://example.com -d word1.txt --match 'current.Body not contains "公益"'`
 
-这里的current关键字表示当前的请求.
+这里的current关键字表示当前的请求的baseline. `current.Body`即为baseline结构体中的Body字段, baseline结构体可以见上文.
 
 spray获取的baseline也会被注册到将本语言中. index表示index_baseline, random表示random_baseline, 403bl表示如果第一个获取的状态码为403的请求. 如果之前没有403, 则所有字段为空.
 
 按照expr的规则, 可以直接通过`.`访问各种属性, 如果是嵌套的属性, 再加一个`.` 即可. 下面是Baseline的定义.
-```
-type Baseline struct {
-	Url          *url.URL   
-	UrlString    string     
-	Path         string     
-	Host         string     
-	Body         []byte     
-	BodyLength   int        
-	Header       []byte     
-	Raw          []byte     
-	HeaderLength int        
-	RedirectURL  string     
-	FrontURL     string     
-	Status       int        
-	Spended      int64      
-	Title        string     
-	Frameworks   Frameworks 
-	Extracteds   Extracteds 
-	ErrString    string     
-	Reason       string     
-	IsValid      bool       
-	IsFuzzy      bool       
-	*parsers.Hashes
-}
-```
 
 如果匹配的结果依旧不满意, 可以加上`--filter` 对match的结果进行二次过滤, `--filter`的规则与 `--match` 一致. 
 
