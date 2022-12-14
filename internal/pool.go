@@ -144,16 +144,20 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			} else {
 				pool.Statistor.Counts[bl.Status] = 1
 			}
-			params := map[string]interface{}{
-				"index":   pool.index,
-				"random":  pool.random,
-				"current": bl,
-			}
-			for _, status := range FuzzyStatus {
-				if bl, ok := pool.baselines[status]; ok {
-					params["bl"+strconv.Itoa(status)] = bl
-				} else {
-					params["bl"+strconv.Itoa(status)] = &pkg.Baseline{}
+
+			var params map[string]interface{}
+			if pool.MatchExpr != nil || pool.FilterExpr != nil || pool.RecuExpr != nil {
+				params = map[string]interface{}{
+					"index":   pool.index,
+					"random":  pool.random,
+					"current": bl,
+				}
+				for _, status := range FuzzyStatus {
+					if bl, ok := pool.baselines[status]; ok {
+						params["bl"+strconv.Itoa(status)] = bl
+					} else {
+						params["bl"+strconv.Itoa(status)] = &pkg.Baseline{}
+					}
 				}
 			}
 
