@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
+	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"net/url"
@@ -224,6 +225,47 @@ func (bl *Baseline) Format(probes []string) string {
 		line.WriteString(bl.Additional(p))
 	}
 
+	return line.String()
+}
+
+func (bl *Baseline) ColorString() string {
+	var line strings.Builder
+	if bl.FrontURL != "" {
+		line.WriteString("\t")
+		line.WriteString(logs.CyanLine(bl.FrontURL))
+		line.WriteString(" --> ")
+	}
+	line.WriteString(logs.GreenLine(bl.UrlString))
+	if bl.Host != "" {
+		line.WriteString(" (" + bl.Host + ")")
+	}
+
+	if bl.Reason != "" {
+		line.WriteString(" [reason: ")
+		line.WriteString(logs.YellowBold(bl.Reason))
+		line.WriteString("]")
+	}
+	if bl.ErrString != "" {
+		line.WriteString(" [err: ")
+		line.WriteString(logs.RedBold(bl.ErrString))
+		line.WriteString("]")
+		return line.String()
+	}
+
+	line.WriteString(" - ")
+	line.WriteString(logs.GreenBold(strconv.Itoa(bl.Status)))
+	line.WriteString(" - ")
+	line.WriteString(logs.Blue(strconv.Itoa(bl.BodyLength)))
+	line.WriteString(" - ")
+	line.WriteString(logs.Blue(strconv.Itoa(int(bl.Spended)) + "ms"))
+	line.WriteString(logs.GreenLine(bl.Additional("title")))
+	line.WriteString(logs.Blue(bl.Frameworks.String()))
+	line.WriteString(logs.Blue(bl.Extracteds.String()))
+	if bl.RedirectURL != "" {
+		line.WriteString(" --> ")
+		line.WriteString(logs.CyanLine(bl.RedirectURL))
+		line.WriteString(" ")
+	}
 	return line.String()
 }
 

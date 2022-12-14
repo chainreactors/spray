@@ -230,7 +230,7 @@ func (pool *Pool) Init() error {
 		return fmt.Errorf(pool.index.String())
 	}
 	pool.index.Collect()
-	logs.Log.Important("[baseline.index] " + pool.index.String())
+	logs.Log.Info("[baseline.index] " + pool.index.String())
 
 	pool.initwg.Add(1)
 	pool.reqPool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
@@ -240,14 +240,14 @@ func (pool *Pool) Init() error {
 		return fmt.Errorf(pool.random.String())
 	}
 	pool.random.Collect()
-	logs.Log.Important("[baseline.random] " + pool.random.String())
+	logs.Log.Info("[baseline.random] " + pool.random.String())
 
 	if pool.random.RedirectURL != "" {
 		// 自定协议升级
 		// 某些网站http会重定向到https, 如果发现随机目录出现这种情况, 则自定将baseurl升级为https
 		rurl, err := url.Parse(pool.random.RedirectURL)
 		if err == nil && rurl.Hostname() == pool.random.Url.Hostname() && pool.random.Url.Scheme == "http" && rurl.Scheme == "https" {
-			logs.Log.Importantf("baseurl %s upgrade http to https", pool.BaseURL)
+			logs.Log.Infof("baseurl %s upgrade http to https", pool.BaseURL)
 			pool.BaseURL = strings.Replace(pool.BaseURL, "http", "https", 1)
 		}
 	}
@@ -435,7 +435,7 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 		pool.locker.Lock()
 		pool.baselines[bl.Status] = bl
 		pool.locker.Unlock()
-		logs.Log.Importantf("[baseline.%dinit] %s", bl.Status, bl.String())
+		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.String())
 	}
 }
 

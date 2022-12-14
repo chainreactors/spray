@@ -19,6 +19,14 @@ github.com/chainreactors/ipcs v0.0.13/go.mod h1:E9M3Ohyq0TYQLlV4i2dbM9ThBZB1Nnd7
 github.com/chainreactors/logs v0.6.1/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOAnOhEphzRHA=
 github.com/chainreactors/logs v0.6.2 h1:Yz5oayjwxO6KkjfjnmtT5WKbWjTaBdttFcneaFTpBe0=
 github.com/chainreactors/logs v0.6.2/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOAnOhEphzRHA=
+github.com/chainreactors/logs v0.7.1-0.20221214130332-9bc5319887fe h1:FRMBKyuuh6EoHefqprP+pSblHrUxTaSp9GPJahYa+Fc=
+github.com/chainreactors/logs v0.7.1-0.20221214130332-9bc5319887fe/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOAnOhEphzRHA=
+github.com/chainreactors/logs v0.7.1-0.20221214130646-2e08f98a1f71 h1:SpyPYjRihGyBiqoMUggXzCc4t9A0tmAvYdjghDG8s+M=
+github.com/chainreactors/logs v0.7.1-0.20221214130646-2e08f98a1f71/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOAnOhEphzRHA=
+github.com/chainreactors/logs v0.7.1-0.20221214152543-60422cf64610 h1:ErODIlY9NmlrwEi6np3bm7HmuRZSaH3+ID2fJ2ViUpM=
+github.com/chainreactors/logs v0.7.1-0.20221214152543-60422cf64610/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOAnOhEphzRHA=
+github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580 h1:28gbL1t+Mm4AoP1MeKM9oeSHoPcUwIrzrLtmdusHMIo=
+github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580/go.mod h1:Y0EtAnoF0kiASIJUnXN0pcOt420iRpHOAnOhEphzRHA=
 github.com/chainreactors/parsers v0.2.9-0.20221210155102-cc0814762410 h1:K7EV0wtUuN6Rvh/MgqaBXyElD3guPsgNR5kF8nrV7iw=
 github.com/chainreactors/parsers v0.2.9-0.20221210155102-cc0814762410/go.mod h1:Z9weht+lnFCk7UcwqFu6lXpS7u5vttiy0AJYOAyCCLA=
 github.com/chainreactors/words v0.3.2-0.20221212161820-bae5f18558db h1:Rv6mcLAKXRXoZuifCwGTlXnuDbDpbDKC0JsTI1op/OA=
@@ -27,6 +35,8 @@ github.com/chainreactors/words v0.3.2-0.20221214061028-a7cf9f9f8ddb h1:9AV8SH+Sv
 github.com/chainreactors/words v0.3.2-0.20221214061028-a7cf9f9f8ddb/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/chainreactors/words v0.3.2-0.20221214062855-48dff09b01ad h1:uL3TIQgvFY7dLoX0tAzIIXilCPIcNeLz/124gs+SA/Q=
 github.com/chainreactors/words v0.3.2-0.20221214062855-48dff09b01ad/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
+github.com/chainreactors/words v0.3.2-0.20221214154622-381fc37abdf9 h1:IUNopSuorfINmn4pOuSwZtxJbg8zsRIZ67a33SiYoQ0=
+github.com/chainreactors/words v0.3.2-0.20221214154622-381fc37abdf9/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/davecgh/go-spew v0.0.0-20161028175848-04cdfd42973b/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/chainreactors/logs"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -56,6 +57,21 @@ type Statistor struct {
 	RuleFilter   string   `json:"rule_filter"`
 }
 
+func (stat *Statistor) ColorString() string {
+	var s strings.Builder
+	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %s, finish: %s/%s, found: %s, check: %s, failed: %s", logs.GreenLine(stat.BaseUrl), stat.EndTime-stat.StartTime, logs.YellowBold(strconv.Itoa(int(stat.ReqTotal))), logs.YellowBold(strconv.Itoa(stat.End)), logs.YellowBold(strconv.Itoa(stat.Total)), logs.YellowBold(strconv.Itoa(stat.FoundNumber)), logs.YellowBold(strconv.Itoa(stat.CheckNumber)), logs.YellowBold(strconv.Itoa(int(stat.FailedNumber)))))
+
+	if stat.FuzzyNumber != 0 {
+		s.WriteString(", fuzzy: " + logs.Yellow(strconv.Itoa(stat.FuzzyNumber)))
+	}
+	if stat.FilteredNumber != 0 {
+		s.WriteString(", filtered: " + logs.Yellow(strconv.Itoa(stat.FilteredNumber)))
+	}
+	if stat.WafedNumber != 0 {
+		s.WriteString(", wafed: " + logs.Yellow(strconv.Itoa(stat.WafedNumber)))
+	}
+	return s.String()
+}
 func (stat *Statistor) String() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %d, finish: %d/%d, found: %d, check: %d, failed: %d", stat.BaseUrl, stat.EndTime-stat.StartTime, stat.ReqTotal, stat.End, stat.Total, stat.FoundNumber, stat.CheckNumber, stat.FailedNumber))
@@ -81,6 +97,19 @@ func (stat *Statistor) Detail() string {
 			continue
 		}
 		s.WriteString(fmt.Sprintf(" %d: %d,", k, v))
+	}
+	return s.String()
+}
+
+func (stat *Statistor) ColorDetail() string {
+	var s strings.Builder
+	s.WriteString("[stat] ")
+	s.WriteString(stat.BaseUrl)
+	for k, v := range stat.Counts {
+		if k == 0 {
+			continue
+		}
+		s.WriteString(fmt.Sprintf(" %s: %s,", logs.YellowBold(strconv.Itoa(k)), logs.YellowBold(strconv.Itoa(v))))
 	}
 	return s.String()
 }

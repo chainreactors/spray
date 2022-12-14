@@ -7,9 +7,9 @@ require (
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 	github.com/chainreactors/gogo/v2 v2.10.1
 	github.com/chainreactors/ipcs v0.0.13
-	github.com/chainreactors/logs v0.6.2
+	github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580
 	github.com/chainreactors/parsers v0.2.9-0.20221210155102-cc0814762410
-	github.com/chainreactors/words v0.3.2-0.20221214062855-48dff09b01ad
+	github.com/chainreactors/words v0.3.2-0.20221214154622-381fc37abdf9
 )
 
 require (
