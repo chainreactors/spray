@@ -25,6 +25,8 @@ github.com/chainreactors/words v0.3.2-0.20221212161820-bae5f18558db h1:Rv6mcLAKX
 github.com/chainreactors/words v0.3.2-0.20221212161820-bae5f18558db/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/chainreactors/words v0.3.2-0.20221214061028-a7cf9f9f8ddb h1:9AV8SH+SvEqmcylzZMeWei5NYIhl/0hMR7Y269M0Eqw=
 github.com/chainreactors/words v0.3.2-0.20221214061028-a7cf9f9f8ddb/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
+github.com/chainreactors/words v0.3.2-0.20221214062855-48dff09b01ad h1:uL3TIQgvFY7dLoX0tAzIIXilCPIcNeLz/124gs+SA/Q=
+github.com/chainreactors/words v0.3.2-0.20221214062855-48dff09b01ad/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/davecgh/go-spew v0.0.0-20161028175848-04cdfd42973b/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

@@ -380,11 +380,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.FilterExpr = exp
 	}
 
-	exp, err := expr.Compile(opt.Recursive)
-	if err != nil {
-		return nil, err
+	if opt.Depth > 0 {
+		exp, err := expr.Compile(opt.Recursive)
+		if err != nil {
+			return nil, err
+		}
+		r.RecursiveExpr = exp
 	}
-	r.RecursiveExpr = exp
 
 	// prepare header
 	for _, h := range opt.Headers {
