@@ -59,11 +59,16 @@ func newUnit(path string, source sourceType) *Unit {
 	return &Unit{path: path, source: source}
 }
 
+func newUnitWithNumber(path string, source sourceType, number int) *Unit {
+	return &Unit{number: number, path: path, source: source}
+}
+
 type Unit struct {
+	number   int
 	path     string
 	source   sourceType
 	frontUrl string
-	reCount  int
+	reCount  int // redirect number
 }
 
 type Task struct {

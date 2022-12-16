@@ -199,6 +199,11 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 
 			pool.Run(ctx, pool.Statistor.Offset, limit)
+
+			if pool.isFailed && len(pool.failedBaselines) > 0 {
+				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
+				pool.Statistor.End = pool.failedBaselines[0].Number
+			}
 			if r.Color {
 				logs.Log.Important(pool.Statistor.ColorString())
 				logs.Log.Important(pool.Statistor.ColorDetail())
