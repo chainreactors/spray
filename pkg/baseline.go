@@ -63,6 +63,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 }
 
 type Baseline struct {
+	Number       int        `json:"number"`
 	Url          *url.URL   `json:"-"`
 	UrlString    string     `json:"url"`
 	Path         string     `json:"path"`

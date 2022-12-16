@@ -36,7 +36,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		baselines:   make(map[int]*pkg.Baseline),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
-		checkCh:     make(chan *Unit),
+		checkCh:     make(chan sourceType),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		reqCount:    1,
@@ -107,7 +107,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 						logs.Log.Warn("[check.fuzzy] maybe trigger risk control, " + bl.String())
 					}
 				} else {
-					pool.failedCount++
+					pool.failedCount += 2
 					logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
 					pool.failedBaselines = append(pool.failedBaselines, bl)
 				}
@@ -207,9 +207,10 @@ type Pool struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	tempCh          chan *pkg.Baseline // 待处理的baseline
-	checkCh         chan *Unit
+	checkCh         chan sourceType
 	reqCount        int
 	failedCount     int
+	isFailed        bool
 	failedBaselines []*pkg.Baseline
 	random          *pkg.Baseline
 	index           *pkg.Baseline
@@ -275,6 +276,7 @@ func (pool *Pool) addRedirect(bl *pkg.Baseline, reCount int) {
 	if uu, err := url.Parse(bl.RedirectURL); err == nil && uu.Hostname() == pool.index.Url.Hostname() {
 		pool.wg.Add(1)
 		_ = pool.reqPool.Invoke(&Unit{
+			number:   bl.Number,
 			path:     uu.Path,
 			source:   RedirectSource,
 			frontUrl: bl.UrlString,
@@ -288,13 +290,14 @@ func (pool *Pool) check() {
 		// 当报错次数超过上限是, 结束任务
 		pool.recover()
 		pool.cancel()
+		pool.isFailed = true
 		return
 	}
 
 	if pool.Mod == pkg.HostSpray {
-		pool.checkCh <- newUnit(pkg.RandHost(), CheckSource)
+		pool.checkCh <- CheckSource
 	} else if pool.Mod == pkg.PathSpray {
-		pool.checkCh <- newUnit(pkg.RandPath(), CheckSource)
+		pool.checkCh <- CheckSource
 	}
 }
 
@@ -329,10 +332,15 @@ Loop:
 				continue
 			}
 			pool.wg.Add(1)
-			_ = pool.reqPool.Invoke(newUnit(u, WordSource))
-		case unit := <-pool.checkCh:
+			_ = pool.reqPool.Invoke(newUnitWithNumber(u, WordSource, pool.Statistor.End))
+		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
-			pool.reqPool.Invoke(unit)
+			if pool.Mod == pkg.HostSpray {
+				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), source, pool.Statistor.End))
+			} else if pool.Mod == pkg.PathSpray {
+				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandPath(), source, pool.Statistor.End))
+			}
+
 		case <-ctx.Done():
 			break Loop
 		case <-pool.ctx.Done():
