@@ -67,12 +67,11 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Headers []string `long:"header" description:"String, custom headers, e.g.: --headers 'Auth: example_auth'"`
-	//UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom"`
-	//RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
-	//Method          string   `long:"method" default:"GET" description:"String, custom method"`
-	//Cookie          string   `long:"cookie" description:"String, custom cookie"`
-	MaxBodyLength int `long:"max-length" default:"100" description:"Int, max response body length, default 100k, e.g. -max-length 1000"`
+	Headers         []string `long:"header" description:"String, custom headers, e.g.: --headers 'Auth: example_auth'"`
+	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom"`
+	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
+	Cookie          []string `long:"cookie" description:"String, custom cookie"`
+	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000"`
 }
 
 type ModeOptions struct {
@@ -97,7 +96,7 @@ type MiscOptions struct {
 	Deadline int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
 	Timeout  int    `long:"timeout" default:"2" description:"Int, timeout with request (seconds)"`
 	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
-	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool (seconds)"`
+	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
 	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
@@ -119,6 +118,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Mod:            opt.Mod,
 		Timeout:        opt.Timeout,
 		Deadline:       opt.Deadline,
+		Headers:        make(map[string]string),
 		Offset:         opt.Offset,
 		Total:          opt.Limit,
 		taskCh:         make(chan *Task),
@@ -414,8 +414,15 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if i == -1 {
 			logs.Log.Warn("invalid header")
 		} else {
-			r.Headers.Add(h[:i], h[i+2:])
+			r.Headers[h[:i]] = h[i+2:]
 		}
+	}
+
+	if opt.UserAgent != "" {
+		r.Headers["User-Agent"] = opt.UserAgent
+	}
+	if opt.Cookie != nil {
+		r.Headers["Cookie"] = strings.Join(opt.Cookie, "; ")
 	}
 
 	if opt.OutputProbe != "" {

@@ -35,7 +35,7 @@ type Request struct {
 	ClientType      int
 }
 
-func (r *Request) SetHeader(header map[string]string) {
+func (r *Request) SetHeaders(header map[string]string) {
 	if r.StandardRequest != nil {
 		for k, v := range header {
 			r.StandardRequest.Header.Set(k, v)
@@ -44,6 +44,14 @@ func (r *Request) SetHeader(header map[string]string) {
 		for k, v := range header {
 			r.FastRequest.Header.Set(k, v)
 		}
+	}
+}
+
+func (r *Request) SetHeader(key, value string) {
+	if r.StandardRequest != nil {
+		r.StandardRequest.Header.Set(key, value)
+	} else if r.FastRequest != nil {
+		r.FastRequest.Header.Set(key, value)
 	}
 }
 

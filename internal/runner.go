@@ -12,7 +12,6 @@ import (
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -40,7 +39,7 @@ type Runner struct {
 	URLList        []string
 	Wordlist       []string
 	Rules          []rule.Expression
-	Headers        http.Header
+	Headers        map[string]string
 	Fns            []func(string) string
 	FilterExpr     *vm.Program
 	MatchExpr      *vm.Program

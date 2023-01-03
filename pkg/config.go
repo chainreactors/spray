@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"github.com/antonmedv/expr/vm"
-	"net/http"
 )
 
 type SprayMod int
@@ -29,7 +28,7 @@ type Config struct {
 	BreakThreshold int
 	Method         string
 	Mod            SprayMod
-	Headers        http.Header
+	Headers        map[string]string
 	ClientType     int
 	MatchExpr      *vm.Program
 	FilterExpr     *vm.Program
