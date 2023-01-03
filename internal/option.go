@@ -74,6 +74,7 @@ type RequestOptions struct {
 }
 
 type ModeOptions struct {
+	Advance         bool   `short:"a" long:"advance" description:"Bool, enable crawl and active"`
 	Force           bool   `long:"force" description:"Bool, skip error break"`
 	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
 	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
@@ -130,7 +131,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Crawl:          opt.Crawl,
 		Active:         opt.Active,
 	}
-
+	if opt.Advance {
+		r.Crawl = true
+		r.Active = true
+	}
 	err = pkg.LoadTemplates()
 	if err != nil {
 		return nil, err
