@@ -52,6 +52,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			logs.Log.Error(err.Error())
 			return
 		}
+		req.SetHeaders(pool.Headers)
+
 		start := time.Now()
 		resp, reqerr := pool.client.Do(pctx, req)
 		if pool.ClientType == ihttp.FAST {
