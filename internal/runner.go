@@ -72,6 +72,7 @@ type Runner struct {
 	CheckOnly      bool
 	Force          bool
 	IgnoreWaf      bool
+	Crawl          bool
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
@@ -90,6 +91,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		FilterExpr:     r.FilterExpr,
 		RecuExpr:       r.RecursiveExpr,
 		IgnoreWaf:      r.IgnoreWaf,
+		Crawl:          r.Crawl,
 	}
 	if config.Mod == pkg.PathSpray {
 		config.ClientType = ihttp.FAST

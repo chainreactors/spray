@@ -51,6 +51,7 @@ const (
 	InitRandomSource
 	InitIndexSource
 	RedirectSource
+	CrawlSource
 	WordSource
 	WafSource
 )
@@ -60,15 +61,14 @@ func newUnit(path string, source sourceType) *Unit {
 }
 
 func newUnitWithNumber(path string, source sourceType, number int) *Unit {
-	return &Unit{number: number, path: path, source: source}
+	return &Unit{path: path, source: source}
 }
 
 type Unit struct {
-	number   int
 	path     string
 	source   sourceType
 	frontUrl string
-	reCount  int // redirect number
+	depth    int // redirect depth
 }
 
 type Task struct {

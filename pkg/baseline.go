@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -84,7 +85,9 @@ type Baseline struct {
 	Reason       string     `json:"reason"`
 	IsValid      bool       `json:"valid"`
 	IsFuzzy      bool       `json:"fuzzy"`
+	URLs         []string   `json:"urls"`
 	RecuDepth    int        `json:"-"`
+	ReqDepth     int        `json:"depth"`
 	Recu         bool       `json:"-"`
 	*parsers.Hashes
 }
@@ -104,6 +107,64 @@ func (bl *Baseline) Collect() {
 	bl.Hashes = parsers.NewHashes(bl.Raw)
 	bl.Extracteds = Extractors.Extract(string(bl.Raw))
 	bl.Frameworks = FingerDetect(string(bl.Raw))
+}
+
+func (bl *Baseline) CollectURL() {
+	if len(bl.Body) == 0 {
+		return
+	}
+	for _, reg := range JSRegexps {
+		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
+		for _, u := range urls {
+			var filter bool
+			parsed, err := url.Parse(u[1])
+			if err != nil {
+				filter = true
+			} else {
+				for _, scoop := range BadScoop {
+					if scoop == parsed.Host {
+						filter = true
+						break
+					}
+				}
+			}
+
+			if filter {
+				continue
+			}
+			bl.URLs = append(bl.URLs, u[1])
+		}
+	}
+
+	for _, reg := range URLRegexps {
+		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
+		for _, u := range urls {
+			var filter bool
+			parsed, err := url.Parse(u[1])
+			if err != nil {
+				filter = true
+			} else {
+				ext := path.Ext(parsed.Path)
+				for _, e := range BadExt {
+					if e == ext {
+						filter = true
+						break
+					}
+				}
+				for _, scoop := range BadScoop {
+					if scoop == parsed.Host {
+						filter = true
+						break
+					}
+				}
+			}
+
+			if filter {
+				continue
+			}
+			bl.URLs = append(bl.URLs, u[1])
+		}
+	}
 }
 
 // Compare
@@ -186,6 +247,8 @@ func (bl *Baseline) Get(key string) string {
 		return bl.Extracteds.String()
 	case "frame", "framework":
 		return bl.Frameworks.String()
+	case "full":
+		return bl.String()
 	default:
 		return ""
 	}
@@ -256,9 +319,9 @@ func (bl *Baseline) ColorString() string {
 	line.WriteString(" - ")
 	line.WriteString(logs.GreenBold(strconv.Itoa(bl.Status)))
 	line.WriteString(" - ")
-	line.WriteString(logs.Blue(strconv.Itoa(bl.BodyLength)))
+	line.WriteString(logs.YellowBold(strconv.Itoa(bl.BodyLength)))
 	line.WriteString(" - ")
-	line.WriteString(logs.Blue(strconv.Itoa(int(bl.Spended)) + "ms"))
+	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
 	line.WriteString(logs.Blue(bl.Frameworks.String()))
 	line.WriteString(logs.Blue(bl.Extracteds.String()))
@@ -266,6 +329,12 @@ func (bl *Baseline) ColorString() string {
 		line.WriteString(" --> ")
 		line.WriteString(logs.CyanLine(bl.RedirectURL))
 		line.WriteString(" ")
+	}
+	if len(bl.URLs) > 0 {
+		line.WriteString("\n")
+	}
+	for _, u := range bl.URLs {
+		line.WriteString("\t" + u + "\n")
 	}
 	return line.String()
 }
@@ -307,6 +376,12 @@ func (bl *Baseline) String() string {
 		line.WriteString(" --> ")
 		line.WriteString(bl.RedirectURL)
 		line.WriteString(" ")
+	}
+	if len(bl.URLs) > 0 {
+		line.WriteString("\n")
+	}
+	for _, u := range bl.URLs {
+		line.WriteString("\t" + u + "\n")
 	}
 	return line.String()
 }

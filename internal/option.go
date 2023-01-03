@@ -32,6 +32,7 @@ type InputOptions struct {
 	ResumeFrom   string   `long:"resume-from"`
 	URL          string   `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
+	Raw          string   `long:"raw" description:"File, input raw request filename"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
@@ -77,6 +78,8 @@ type ModeOptions struct {
 	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
 	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
+	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
+	CrawlDepth      int    `long:"spider-depth" default:"3" description:"Int, crawl depth"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
@@ -123,6 +126,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		CheckPeriod:    opt.CheckPeriod,
 		ErrPeriod:      opt.ErrPeriod,
 		BreakThreshold: opt.BreakThreshold,
+		Crawl:          opt.Crawl,
 	}
 
 	err = pkg.LoadTemplates()
