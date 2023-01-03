@@ -30,7 +30,7 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom   string   `long:"resume-from"`
+	ResumeFrom   string   `long:"resume"`
 	URL          string   `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	Raw          string   `long:"raw" description:"File, input raw request filename"`
@@ -82,7 +82,7 @@ type ModeOptions struct {
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
 	Active          bool   `long:"active" description:"Bool, enable active finger detect"`
 	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
-	CrawlDepth      int    `long:"spider-depth" default:"3" description:"Int, crawl depth"`
+	CrawlDepth      int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
@@ -400,12 +400,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.FilterExpr = exp
 	}
 
-	if opt.Depth > 0 {
+	if opt.Recursive != "current.IsDir()" {
+		maxRecursion = 1
 		exp, err := expr.Compile(opt.Recursive)
 		if err != nil {
 			return nil, err
 		}
 		r.RecursiveExpr = exp
+	}
+	if opt.Depth != 0 {
+		maxRecursion = opt.Depth
 	}
 
 	// prepare header
