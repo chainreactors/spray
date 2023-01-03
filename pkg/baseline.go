@@ -8,7 +8,6 @@ import (
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"net/url"
-	"path"
 	"strconv"
 	"strings"
 )
@@ -116,53 +115,18 @@ func (bl *Baseline) CollectURL() {
 	for _, reg := range JSRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			var filter bool
-			parsed, err := url.Parse(u[1])
-			if err != nil {
-				filter = true
-			} else {
-				for _, scoop := range BadScoop {
-					if scoop == parsed.Host {
-						filter = true
-						break
-					}
-				}
+			if !filterJs(u[1]) {
+				bl.URLs = append(bl.URLs, u[1])
 			}
-
-			if filter {
-				continue
-			}
-			bl.URLs = append(bl.URLs, u[1])
 		}
 	}
 
 	for _, reg := range URLRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			var filter bool
-			parsed, err := url.Parse(u[1])
-			if err != nil {
-				filter = true
-			} else {
-				ext := path.Ext(parsed.Path)
-				for _, e := range BadExt {
-					if e == ext {
-						filter = true
-						break
-					}
-				}
-				for _, scoop := range BadScoop {
-					if scoop == parsed.Host {
-						filter = true
-						break
-					}
-				}
+			if !filterUrl(u[1]) {
+				bl.URLs = append(bl.URLs, u[1])
 			}
-
-			if filter {
-				continue
-			}
-			bl.URLs = append(bl.URLs, u[1])
 		}
 	}
 }
@@ -334,7 +298,7 @@ func (bl *Baseline) ColorString() string {
 		line.WriteString("\n")
 	}
 	for _, u := range bl.URLs {
-		line.WriteString("\t" + u + "\n")
+		line.WriteString("\t" + logs.PurpleLine(u) + "\n")
 	}
 	return line.String()
 }
