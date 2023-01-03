@@ -85,6 +85,7 @@ type Baseline struct {
 	IsValid      bool       `json:"valid"`
 	IsFuzzy      bool       `json:"fuzzy"`
 	URLs         []string   `json:"urls"`
+	Source       int        `json:"source"`
 	RecuDepth    int        `json:"-"`
 	ReqDepth     int        `json:"depth"`
 	Recu         bool       `json:"-"`
