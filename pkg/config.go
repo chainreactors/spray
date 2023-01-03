@@ -38,4 +38,5 @@ type Config struct {
 	FuzzyCh        chan *Baseline
 	Fuzzy          bool
 	IgnoreWaf      bool
+	Crawl          bool
 }

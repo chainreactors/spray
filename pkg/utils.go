@@ -1,15 +1,33 @@
 package pkg
 
 import (
-	"fmt"
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/ipcs"
-	"github.com/go-dedup/simhash"
 	"math/rand"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 	"unsafe"
+)
+
+var (
+	Md5Fingers  map[string]string = make(map[string]string)
+	Mmh3Fingers map[string]string = make(map[string]string)
+	ActivePath  []string
+	Fingers     fingers.Fingers
+	JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
+		regexp.MustCompile(".(https{0,1}:[^\\s,^',^’,^\",^”,^>,^<,^;,^(,^),^|,^*,^\\[]{2,250}?[^=,^*,^\\s,^',^’,^\",^”,^>,^<,^:,^;,^*,^|,^(,^),^\\[]{3}[.]js)"),
+		regexp.MustCompile("[\",',‘,“]\\s{0,6}(/{0,1}[^\\s,^',^’,^\",^”,^|,^>,^<,^:,^;,^*,^(,^\\),^\\[]{2,250}?[^=,^*,^\\s,^',^’,^|,^\",^”,^>,^<,^:,^;,^*,^(,^),^\\[]{3}[.]js)"),
+		regexp.MustCompile("=\\s{0,6}[\",',’,”]{0,1}\\s{0,6}(/{0,1}[^\\s,^',^’,^\",^”,^|,^>,^<,^;,^*,^(,^),^\\[]{2,250}?[^=,^*,^\\s,^',^’,^\",^”,^>,^|,^<,^:,^;,^*,^(,^),^\\[]{3}[.]js)"),
+	}
+	URLRegexps []*regexp.Regexp = []*regexp.Regexp{
+		regexp.MustCompile("[\",',‘,“]\\s{0,6}(https{0,1}:[^\\s,^',^’,^\",^”,^>,^<,^),^(]{2,250}?)\\s{0,6}[\",',‘,“]"),
+		regexp.MustCompile("=\\s{0,6}(https{0,1}:[^\\s,^',^’,^\",^”,^>,^<,^),^(]{2,250})"),
+		regexp.MustCompile("[\",',‘,“]\\s{0,6}([#,.]{0,2}/[^\\s,^',^’,^\",^”,^>,^<,^:,^),^(]{2,250}?)\\s{0,6}[\",',‘,“]"),
+		regexp.MustCompile("href\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})|action\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})"),
+	}
 )
 
 func HasStdin() bool {
@@ -22,11 +40,6 @@ func HasStdin() bool {
 	isPipedFromFIFO := (stat.Mode() & os.ModeNamedPipe) != 0
 
 	return isPipedFromChrDev || isPipedFromFIFO
-}
-
-func Simhash(raw []byte) string {
-	sh := simhash.NewSimhash()
-	return fmt.Sprintf("%x", sh.GetSimhash(sh.NewWordFeatureSet(raw)))
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -80,12 +93,6 @@ func RandHost() string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-var (
-	Md5Fingers  map[string]string = make(map[string]string)
-	Mmh3Fingers map[string]string = make(map[string]string)
-	Fingers     fingers.Fingers
-)
-
 func LoadTemplates() error {
 	var err error
 	Fingers, err = fingers.LoadFingers(LoadConfig("http"))
@@ -102,6 +109,9 @@ func LoadTemplates() error {
 
 	for _, f := range Fingers {
 		for _, rule := range f.Rules {
+			if rule.SendDataStr != "" {
+				ActivePath = append(ActivePath, rule.SendDataStr)
+			}
 			if rule.Favicon != nil {
 				for _, mmh3 := range rule.Favicon.Mmh3 {
 					Mmh3Fingers[mmh3] = f.Name
@@ -126,4 +136,22 @@ func FingerDetect(content string) Frameworks {
 		}
 	}
 	return frames
+}
+
+var (
+	BadExt = []string{".js", ".css", ".scss", ",", ".jpeg", ".jpg", ".png", ".gif", ".ico", ".svg", ".vue", ".ts"}
+	//BadURL   = []string{".js?", ".css?", ".jpeg?", ".jpg?", ".png?", ".gif?", "github.com", "www.w3.org", "example.com", "<", ">", "{", "}", "[", "]", "|", "^", ";", "/js/", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*", "\\n"}
+	BadScoop = []string{"www.w3.org", "example.com"}
+)
+
+func URLJoin(base, uri string) string {
+	baseSlash := strings.HasSuffix(base, "/")
+	uriSlash := strings.HasPrefix(uri, "/")
+	if (baseSlash && !uriSlash) || (!baseSlash && uriSlash) {
+		return base + uri
+	} else if baseSlash && uriSlash {
+		return base + uri[1:]
+	} else {
+		return base + "/" + uri
+	}
 }

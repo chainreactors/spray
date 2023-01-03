@@ -20,12 +20,11 @@ import (
 )
 
 var (
-	CheckRedirect func(string) bool
+	max          = 2147483647
+	maxRedirect  = 3
+	maxCrawl     = 3
+	maxRecursion = 0
 )
-
-var max = 2147483647
-var maxRedirect = 3
-var maxRecuDepth = 0
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
@@ -35,8 +34,10 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		baselines:   make(map[int]*pkg.Baseline),
+		urls:        make(map[string]int),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan sourceType),
+		additionCh:  make(chan *Unit, 100),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		reqCount:    1,
@@ -80,7 +81,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 							bl.RedirectURL = "/" + strings.TrimLeft(bl.RedirectURL, "/")
 							bl.RedirectURL = pool.BaseURL + bl.RedirectURL
 						}
-						pool.addRedirect(bl, unit.reCount)
+						pool.doRedirect(bl, unit.depth)
 					}
 					pool.addFuzzyBaseline(bl)
 				} else {
@@ -89,14 +90,17 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			}
 		}
 
+		bl.ReqDepth = unit.depth
 		bl.Spended = time.Since(start).Milliseconds()
 		switch unit.source {
 		case InitRandomSource:
 			pool.random = bl
 			pool.addFuzzyBaseline(bl)
+			pool.doCrawl(bl)
 			pool.initwg.Done()
 		case InitIndexSource:
 			pool.index = bl
+			pool.doCrawl(bl)
 			pool.initwg.Done()
 		case CheckSource:
 			if bl.ErrString != "" {
@@ -122,14 +126,16 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.reqCount++
 			if pool.reqCount%pool.CheckPeriod == 0 {
 				pool.reqCount++
-				pool.check()
+				pool.doCheck()
 			} else if pool.failedCount%pool.ErrPeriod == 0 {
 				pool.failedCount++
-				pool.check()
+				pool.doCheck()
 			}
 			pool.bar.Done()
 		case RedirectSource:
 			bl.FrontURL = unit.frontUrl
+			pool.tempCh <- bl
+		case CrawlSource:
 			pool.tempCh <- bl
 		}
 
@@ -184,9 +190,12 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			}
 
 			// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
-			if bl.IsValid && pool.Mod == pkg.PathSpray && bl.RecuDepth < maxRecuDepth {
-				if CompareWithExpr(pool.RecuExpr, params) {
-					bl.Recu = true
+			if bl.IsValid {
+				pool.doCrawl(bl)
+				if bl.RecuDepth < maxRecursion {
+					if CompareWithExpr(pool.RecuExpr, params) {
+						bl.Recu = true
+					}
 				}
 			}
 			pool.OutputCh <- bl
@@ -207,7 +216,8 @@ type Pool struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	tempCh          chan *pkg.Baseline // 待处理的baseline
-	checkCh         chan sourceType
+	checkCh         chan sourceType    // 独立的check管道， 防止与redirect/crawl冲突
+	additionCh      chan *Unit
 	reqCount        int
 	failedCount     int
 	isFailed        bool
@@ -215,6 +225,7 @@ type Pool struct {
 	random          *pkg.Baseline
 	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
+	urls            map[string]int
 	analyzeDone     bool
 	worder          *words.Worder
 	locker          sync.Mutex
@@ -253,51 +264,16 @@ func (pool *Pool) Init() error {
 		}
 	}
 
-	if pool.random.RedirectURL != "" {
-		CheckRedirect = func(redirectURL string) bool {
-			if redirectURL == pool.random.RedirectURL {
-				// 相同的RedirectURL将被认为是无效数据
-				return false
-			} else {
-				// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
-				return true
-			}
-		}
-	}
-
 	return nil
 }
 
-func (pool *Pool) addRedirect(bl *pkg.Baseline, reCount int) {
-	if reCount >= maxRedirect {
-		return
-	}
-
-	if uu, err := url.Parse(bl.RedirectURL); err == nil && uu.Hostname() == pool.index.Url.Hostname() {
-		pool.wg.Add(1)
-		_ = pool.reqPool.Invoke(&Unit{
-			number:   bl.Number,
-			path:     uu.Path,
-			source:   RedirectSource,
-			frontUrl: bl.UrlString,
-			reCount:  reCount + 1,
-		})
-	}
-}
-
-func (pool *Pool) check() {
-	if pool.failedCount > pool.BreakThreshold {
-		// 当报错次数超过上限是, 结束任务
-		pool.recover()
-		pool.cancel()
-		pool.isFailed = true
-		return
-	}
-
-	if pool.Mod == pkg.HostSpray {
-		pool.checkCh <- CheckSource
-	} else if pool.Mod == pkg.PathSpray {
-		pool.checkCh <- CheckSource
+func (pool *Pool) checkRedirect(redirectURL string) bool {
+	if redirectURL == pool.random.RedirectURL {
+		// 相同的RedirectURL将被认为是无效数据
+		return false
+	} else {
+		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
+		return true
 	}
 }
 
@@ -311,6 +287,11 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 }
 func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	pool.worder.RunWithRules()
+	go func() {
+		for unit := range pool.additionCh {
+			pool.reqPool.Invoke(unit)
+		}
+	}()
 Loop:
 	for {
 		select {
@@ -340,12 +321,15 @@ Loop:
 			} else if pool.Mod == pkg.PathSpray {
 				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandPath(), source, pool.Statistor.End))
 			}
-
 		case <-ctx.Done():
 			break Loop
 		case <-pool.ctx.Done():
 			break Loop
 		}
+	}
+
+	for len(pool.additionCh) > 0 {
+		time.Sleep(time.Second)
 	}
 	pool.wg.Wait()
 	pool.Statistor.EndTime = time.Now().Unix()
@@ -370,7 +354,7 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 		return ErrWaf
 	}
 
-	if CheckRedirect != nil && !CheckRedirect(resp.GetHeader("Location")) {
+	if !pool.checkRedirect(resp.GetHeader("Location")) {
 		return ErrRedirect
 	}
 
@@ -417,7 +401,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	if ok && status == 0 && base.FuzzyCompare(bl) {
 		pool.Statistor.FuzzyNumber++
 		bl.Reason = ErrFuzzyCompareFailed.Error()
-		pool.PutToFuzzy(bl)
+		pool.putToFuzzy(bl)
 		return false
 	}
 
@@ -437,6 +421,77 @@ func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
 	}
 }
 
+func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
+	if depth >= maxRedirect {
+		return
+	}
+
+	if uu, err := url.Parse(bl.RedirectURL); err == nil && uu.Hostname() == pool.index.Url.Hostname() {
+		pool.wg.Add(1)
+		pool.additionCh <- &Unit{
+			path:     uu.Path,
+			source:   RedirectSource,
+			frontUrl: bl.UrlString,
+			depth:    depth + 1,
+		}
+	}
+}
+
+func (pool *Pool) doCrawl(bl *pkg.Baseline) {
+	bl.CollectURL()
+	for _, u := range bl.URLs {
+		if strings.HasPrefix(u, "//") {
+			u = bl.Url.Scheme + u
+		} else if strings.HasPrefix(u, "/") {
+			// 绝对目录拼接
+			u = pkg.URLJoin(pool.BaseURL, u)
+		} else if !strings.HasPrefix(u, "http") {
+			// 相对目录拼接
+			u = pkg.URLJoin(pool.BaseURL, u)
+		}
+
+		if _, ok := pool.urls[u]; ok {
+			pool.urls[u]++
+		} else {
+			// 通过map去重,  只有新的url才会进入到该逻辑
+			pool.urls[u] = 1
+			if bl.ReqDepth < maxCrawl {
+				parsed, err := url.Parse(u)
+				if err != nil {
+					continue
+				}
+				if parsed.Host != bl.Url.Host {
+					// 自动限定scoop, 防止爬到其他网站
+					continue
+				}
+				pool.wg.Add(1)
+				pool.additionCh <- &Unit{
+					path:     parsed.Path,
+					source:   CrawlSource,
+					frontUrl: bl.UrlString,
+					depth:    bl.ReqDepth + 1,
+				}
+			}
+		}
+	}
+}
+
+func (pool *Pool) doCheck() {
+	if pool.failedCount > pool.BreakThreshold {
+		// 当报错次数超过上限是, 结束任务
+		pool.recover()
+		pool.cancel()
+		pool.isFailed = true
+		return
+	}
+
+	if pool.Mod == pkg.HostSpray {
+		pool.checkCh <- CheckSource
+	} else if pool.Mod == pkg.PathSpray {
+		pool.checkCh <- CheckSource
+	}
+}
+
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
@@ -447,12 +502,12 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	}
 }
 
-func (pool *Pool) PutToInvalid(bl *pkg.Baseline, reason string) {
+func (pool *Pool) putToInvalid(bl *pkg.Baseline, reason string) {
 	bl.IsValid = false
 	pool.OutputCh <- bl
 }
 
-func (pool *Pool) PutToFuzzy(bl *pkg.Baseline) {
+func (pool *Pool) putToFuzzy(bl *pkg.Baseline) {
 	bl.IsFuzzy = true
 	pool.FuzzyCh <- bl
 }
@@ -474,5 +529,6 @@ func (pool *Pool) Close() {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 	close(pool.tempCh)
+	close(pool.additionCh)
 	pool.bar.Close()
 }
