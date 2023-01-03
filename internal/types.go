@@ -52,6 +52,7 @@ const (
 	InitIndexSource
 	RedirectSource
 	CrawlSource
+	ActiveSource
 	WordSource
 	WafSource
 )

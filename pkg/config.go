@@ -39,4 +39,5 @@ type Config struct {
 	Fuzzy          bool
 	IgnoreWaf      bool
 	Crawl          bool
+	Active         bool
 }

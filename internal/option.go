@@ -78,6 +78,7 @@ type ModeOptions struct {
 	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
 	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
+	Active          bool   `long:"active" description:"Bool, enable active finger detect"`
 	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
 	CrawlDepth      int    `long:"spider-depth" default:"3" description:"Int, crawl depth"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
@@ -127,6 +128,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		ErrPeriod:      opt.ErrPeriod,
 		BreakThreshold: opt.BreakThreshold,
 		Crawl:          opt.Crawl,
+		Active:         opt.Active,
 	}
 
 	err = pkg.LoadTemplates()
