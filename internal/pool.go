@@ -90,6 +90,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			}
 		}
 
+		bl.Source = int(unit.source)
 		bl.ReqDepth = unit.depth
 		bl.Spended = time.Since(start).Milliseconds()
 		switch unit.source {
