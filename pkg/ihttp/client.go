@@ -31,7 +31,7 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
 				ReadTimeout:                   time.Duration(timeout) * time.Second,
 				WriteTimeout:                  time.Duration(timeout) * time.Second,
-				ReadBufferSize:                8192,
+				ReadBufferSize:                16384,
 				MaxResponseBodySize:           DefaultMaxBodySize,
 				NoDefaultUserAgentHeader:      true,
 				DisablePathNormalizing:        true,
