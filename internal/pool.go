@@ -135,7 +135,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		case RedirectSource:
 			bl.FrontURL = unit.frontUrl
 			pool.tempCh <- bl
-		case CrawlSource:
+		case CrawlSource, ActiveSource:
 			pool.tempCh <- bl
 		}
 
@@ -292,6 +292,10 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 			pool.reqPool.Invoke(unit)
 		}
 	}()
+	if pool.Active {
+		go pool.doActive()
+	}
+
 Loop:
 	for {
 		select {
@@ -466,12 +470,21 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 				}
 				pool.wg.Add(1)
 				pool.additionCh <- &Unit{
-					path:     parsed.Path,
-					source:   CrawlSource,
-					frontUrl: bl.UrlString,
-					depth:    bl.ReqDepth + 1,
+					path:   parsed.Path,
+					source: CrawlSource,
+					depth:  bl.ReqDepth + 1,
 				}
 			}
+		}
+	}
+}
+
+func (pool *Pool) doActive() {
+	for _, u := range pkg.ActivePath {
+		pool.wg.Add(1)
+		pool.additionCh <- &Unit{
+			path:   u,
+			source: ActiveSource,
 		}
 	}
 }
