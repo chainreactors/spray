@@ -5,7 +5,9 @@ import (
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/ipcs"
 	"math/rand"
+	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -144,6 +146,34 @@ var (
 	BadScoop = []string{"www.w3.org", "example.com"}
 )
 
+func filterJs(u string) bool {
+	for _, scoop := range BadScoop {
+		if strings.Contains(u, scoop) {
+			return true
+		}
+	}
+	return false
+}
+
+func filterUrl(u string) bool {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return true
+	} else {
+		ext := path.Ext(parsed.Path)
+		for _, e := range BadExt {
+			if e == ext {
+				return true
+			}
+		}
+	}
+	for _, scoop := range BadScoop {
+		if strings.Contains(u, scoop) {
+			return true
+		}
+	}
+	return false
+}
 func URLJoin(base, uri string) string {
 	baseSlash := strings.HasSuffix(base, "/")
 	uriSlash := strings.HasPrefix(uri, "/")
