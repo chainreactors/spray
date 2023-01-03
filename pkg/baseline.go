@@ -323,8 +323,8 @@ func (bl *Baseline) ColorString() string {
 	line.WriteString(" - ")
 	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
-	line.WriteString(logs.Blue(bl.Frameworks.String()))
-	line.WriteString(logs.Blue(bl.Extracteds.String()))
+	line.WriteString(logs.Cyan(bl.Frameworks.String()))
+	line.WriteString(logs.Cyan(bl.Extracteds.String()))
 	if bl.RedirectURL != "" {
 		line.WriteString(" --> ")
 		line.WriteString(logs.CyanLine(bl.RedirectURL))

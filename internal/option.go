@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
@@ -71,6 +72,7 @@ type RequestOptions struct {
 	//RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
 	//Method          string   `long:"method" default:"GET" description:"String, custom method"`
 	//Cookie          string   `long:"cookie" description:"String, custom cookie"`
+	MaxBodyLength int `long:"max-length" default:"100" description:"Int, max response body length, default 100k, e.g. -max-length 1000"`
 }
 
 type ModeOptions struct {
@@ -168,9 +170,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Progress.Start()
 		logs.Log.Writer = r.Progress.Bypass()
 	}
-	if opt.SimhashDistance != 0 {
-		pkg.Distance = uint8(opt.SimhashDistance)
-	}
+	pkg.Distance = uint8(opt.SimhashDistance)
+	ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
 
 	if opt.Force {
 		// 如果开启了force模式, 将关闭check机制, err积累到一定数量自动退出机制
