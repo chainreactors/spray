@@ -22,6 +22,11 @@ func Spray() {
 		}
 		return
 	}
+
+	if option.Format != "" {
+		internal.Format(option.Format)
+		os.Exit(0)
+	}
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {
 		runner, err = option.PrepareRunner()
