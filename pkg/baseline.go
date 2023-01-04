@@ -13,6 +13,29 @@ import (
 	"strings"
 )
 
+func GetSourceName(s int) string {
+	switch s {
+	case 1:
+		return "check"
+	case 2:
+		return "index"
+	case 3:
+		return "random"
+	case 4:
+		return "redirect"
+	case 5:
+		return "crawl"
+	case 6:
+		return "active"
+	case 7:
+		return "word"
+	case 8:
+		return "waf"
+	default:
+		return "unknown"
+	}
+}
+
 func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl := &Baseline{
 		UrlString: u,
@@ -216,6 +239,8 @@ func (bl *Baseline) Get(key string) string {
 		return strconv.Itoa(bl.Status)
 	case "spend":
 		return strconv.Itoa(int(bl.Spended))
+	case "source":
+		return GetSourceName(bl.Source)
 	case "extract":
 		return bl.Extracteds.String()
 	case "frame", "framework":
