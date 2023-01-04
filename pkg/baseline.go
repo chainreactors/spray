@@ -28,7 +28,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		bl.Host = host
 	}
 	bl.Body = resp.Body()
-	bl.BodyLength = len(bl.Body)
+	bl.BodyLength = resp.ContentLength()
 	bl.Header = resp.Header()
 	bl.HeaderLength = len(bl.Header)
 	bl.RedirectURL = resp.GetHeader("Location")
@@ -55,7 +55,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 	}
 
 	bl.Body = resp.Body()
-	bl.BodyLength = len(bl.Body)
+	bl.BodyLength = resp.ContentLength()
 	bl.Header = resp.Header()
 	bl.HeaderLength = len(bl.Header)
 	bl.RedirectURL = string(resp.GetHeader("Location"))
@@ -64,33 +64,34 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 }
 
 type Baseline struct {
-	Number       int        `json:"number"`
-	Url          *url.URL   `json:"-"`
-	UrlString    string     `json:"url"`
-	Path         string     `json:"path"`
-	Host         string     `json:"host"`
-	Body         []byte     `json:"-"`
-	BodyLength   int        `json:"body_length"`
-	Header       []byte     `json:"-"`
-	Raw          []byte     `json:"-"`
-	HeaderLength int        `json:"header_length"`
-	RedirectURL  string     `json:"redirect_url,omitempty"`
-	FrontURL     string     `json:"front_url,omitempty"`
-	Status       int        `json:"status"`
-	Spended      int64      `json:"spend"` // 耗时, 毫秒
-	Title        string     `json:"title"`
-	Frameworks   Frameworks `json:"frameworks"`
-	Extracteds   Extracteds `json:"extracts"`
-	ErrString    string     `json:"error"`
-	Reason       string     `json:"reason"`
-	IsValid      bool       `json:"valid"`
-	IsFuzzy      bool       `json:"fuzzy"`
-	URLs         []string   `json:"-"`
-	Source       int        `json:"source"`
-	RecuDepth    int        `json:"-"`
-	ReqDepth     int        `json:"depth"`
-	Recu         bool       `json:"-"`
-	*parsers.Hashes
+	Number          int        `json:"number"`
+	Url             *url.URL   `json:"-"`
+	UrlString       string     `json:"url"`
+	Path            string     `json:"path"`
+	Host            string     `json:"host"`
+	Body            []byte     `json:"-"`
+	BodyLength      int        `json:"body_length"`
+	ExceedLength    bool       `json:"-"`
+	Header          []byte     `json:"-"`
+	Raw             []byte     `json:"-"`
+	HeaderLength    int        `json:"header_length"`
+	RedirectURL     string     `json:"redirect_url,omitempty"`
+	FrontURL        string     `json:"front_url,omitempty"`
+	Status          int        `json:"status"`
+	Spended         int64      `json:"spend"` // 耗时, 毫秒
+	Title           string     `json:"title"`
+	Frameworks      Frameworks `json:"frameworks"`
+	Extracteds      Extracteds `json:"extracts"`
+	ErrString       string     `json:"error"`
+	Reason          string     `json:"reason"`
+	IsValid         bool       `json:"valid"`
+	IsFuzzy         bool       `json:"fuzzy"`
+	Source          int        `json:"source"`
+	ReqDepth        int        `json:"depth"`
+	Recu            bool       `json:"-"`
+	RecuDepth       int        `json:"-"`
+	URLs            []string   `json:"-"`
+	*parsers.Hashes `json:"hashes"`
 }
 
 func (bl *Baseline) IsDir() bool {
@@ -292,6 +293,9 @@ func (bl *Baseline) ColorString() string {
 	line.WriteString(logs.GreenBold(strconv.Itoa(bl.Status)))
 	line.WriteString(" - ")
 	line.WriteString(logs.YellowBold(strconv.Itoa(bl.BodyLength)))
+	if bl.ExceedLength {
+		line.WriteString(logs.Red("(exceed)"))
+	}
 	line.WriteString(" - ")
 	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
@@ -339,6 +343,9 @@ func (bl *Baseline) String() string {
 	line.WriteString(strconv.Itoa(bl.Status))
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(bl.BodyLength))
+	if bl.ExceedLength {
+		line.WriteString("(exceed)")
+	}
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(int(bl.Spended)) + "ms")
 	line.WriteString(bl.Additional("title"))
