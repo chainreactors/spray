@@ -3,6 +3,7 @@ package pkg
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -84,7 +85,7 @@ type Baseline struct {
 	Reason       string     `json:"reason"`
 	IsValid      bool       `json:"valid"`
 	IsFuzzy      bool       `json:"fuzzy"`
-	URLs         []string   `json:"urls"`
+	URLs         []string   `json:"-"`
 	Source       int        `json:"source"`
 	RecuDepth    int        `json:"-"`
 	ReqDepth     int        `json:"depth"`
@@ -129,6 +130,12 @@ func (bl *Baseline) CollectURL() {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
+	}
+	if bl.URLs != nil {
+		bl.Extracteds = append(bl.Extracteds, &fingers.Extracted{
+			Name:          "crawl",
+			ExtractResult: bl.URLs,
+		})
 	}
 }
 
@@ -295,15 +302,9 @@ func (bl *Baseline) ColorString() string {
 		line.WriteString(logs.CyanLine(bl.RedirectURL))
 		line.WriteString(" ")
 	}
-	if len(bl.URLs) > 0 {
-		line.WriteString("\n  crawl: \n")
-	}
-	for _, u := range bl.URLs {
-		line.WriteString("\t" + logs.GreenLine(u) + "\n")
-	}
 	if len(bl.Extracteds) > 0 {
 		for _, e := range bl.Extracteds {
-			line.WriteString("  " + e.Name + ": \n\t")
+			line.WriteString("\n  " + e.Name + ": \n\t")
 			line.WriteString(logs.GreenLine(strings.Join(e.ExtractResult, "\n\t")))
 		}
 	}
@@ -348,15 +349,9 @@ func (bl *Baseline) String() string {
 		line.WriteString(bl.RedirectURL)
 		line.WriteString(" ")
 	}
-	if len(bl.URLs) > 0 {
-		line.WriteString("\n  crawl: \n")
-	}
-	for _, u := range bl.URLs {
-		line.WriteString("\t" + u + "\n")
-	}
 	if len(bl.Extracteds) > 0 {
 		for _, e := range bl.Extracteds {
-			line.WriteString("  " + e.Name + ": \n\t")
+			line.WriteString("\n  " + e.Name + ": \n\t")
 			line.WriteString(strings.Join(e.ExtractResult, "\n\t"))
 		}
 	}
