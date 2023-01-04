@@ -99,7 +99,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		case InitRandomSource:
 			pool.random = bl
 			pool.addFuzzyBaseline(bl)
-			pool.doCrawl(bl)
 			pool.initwg.Done()
 		case InitIndexSource:
 			pool.index = bl
@@ -246,6 +245,9 @@ func (pool *Pool) Init() error {
 	}
 	pool.index.Collect()
 	logs.Log.Info("[baseline.index] " + pool.index.String())
+	if pool.index.Status == 200 || (pool.index.Status/100) == 3 {
+		pool.OutputCh <- pool.index
+	}
 
 	pool.initwg.Add(1)
 	pool.reqPool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
@@ -512,6 +514,7 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
 		pool.locker.Lock()
+		pool.doCrawl(bl)
 		pool.baselines[bl.Status] = bl
 		pool.locker.Unlock()
 		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.String())
