@@ -503,7 +503,7 @@ func (opt *Option) Validate() bool {
 
 	if opt.Depth > 0 && opt.ResumeFrom != "" {
 		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
-		logs.Log.Error("--resume-from and --depth cannot be used at the same time")
+		logs.Log.Error("--resume and --depth cannot be used at the same time")
 		return false
 	}
 	return true
