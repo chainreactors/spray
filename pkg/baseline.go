@@ -296,10 +296,16 @@ func (bl *Baseline) ColorString() string {
 		line.WriteString(" ")
 	}
 	if len(bl.URLs) > 0 {
-		line.WriteString("\n")
+		line.WriteString("\n  crawl: \n")
 	}
 	for _, u := range bl.URLs {
-		line.WriteString("\t" + logs.PurpleLine(u) + "\n")
+		line.WriteString("\t" + logs.GreenLine(u) + "\n")
+	}
+	if len(bl.Extracteds) > 0 {
+		for _, e := range bl.Extracteds {
+			line.WriteString("  " + e.Name + ": \n\t")
+			line.WriteString(logs.GreenLine(strings.Join(e.ExtractResult, "\n\t")))
+		}
 	}
 	return line.String()
 }
@@ -343,10 +349,16 @@ func (bl *Baseline) String() string {
 		line.WriteString(" ")
 	}
 	if len(bl.URLs) > 0 {
-		line.WriteString("\n")
+		line.WriteString("\n  crawl: \n")
 	}
 	for _, u := range bl.URLs {
 		line.WriteString("\t" + u + "\n")
+	}
+	if len(bl.Extracteds) > 0 {
+		for _, e := range bl.Extracteds {
+			line.WriteString("  " + e.Name + ": \n\t")
+			line.WriteString(strings.Join(e.ExtractResult, "\n\t"))
+		}
 	}
 	return line.String()
 }
