@@ -4,7 +4,9 @@
 针对path的反向代理, host的反向代理, cdn等中间件编写的高性能目录爆破工具. 
 
 复活了一些hashcat中的字典生成算法, 因此戏称为"上一代"目录爆破工具.
+
 ## Features
+
 * 超强的性能, 在本地测试极限性能的场景下, 能超过ffuf与feroxbruster的性能50%以上. 实际情况受到网络的影响, 感受没有这么明确. 但在多目标下可以感受到明显的区别.
 * 基于掩码的字典生成
 * 基于规则的字典生成
@@ -17,7 +19,7 @@
 * 多角度的自动被ban,被waf判断
 * 断点续传
 
-## Usage
+## QuickStart
 
 基本使用, 从字典中读取目录进行爆破
 
@@ -40,6 +42,8 @@
 `spray --resume stat.json`
 
 ## Wiki
+
+详细用法请见[wiki](https://chainreactors.github.io/wiki/spray/)
 
 https://chainreactors.github.io/wiki/spray/
 
