@@ -58,12 +58,13 @@ type OutputOptions struct {
 	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
 	Extracts    []string `long:"extract" description:"String, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
 	OutputFile  string   `short:"f" description:"String, output filename" json:"output_file,omitempty"`
+	Format      string   `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
 	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
 	DumpFile    string   `long:"dump-file" description:"String, dump all request, and write to filename"`
 	Dump        bool     `long:"dump" description:"Bool, dump all request"`
 	AutoFile    bool     `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" `
 	Fuzzy       bool     `long:"fuzzy" description:"String, open fuzzy output" json:"fuzzy,omitempty"`
-	OutputProbe string   `long:"probe" description:"String, output format" json:"output_probe,omitempty"`
+	OutputProbe string   `short:"o" long:"probe" description:"String, output format" json:"output_probe,omitempty"`
 }
 
 type RequestOptions struct {
@@ -98,8 +99,8 @@ type MiscOptions struct {
 	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
-	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
+	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`
 	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
 	Client   string `short:"c" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
