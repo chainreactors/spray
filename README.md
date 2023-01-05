@@ -21,7 +21,7 @@
 
 ## QuickStart
 
-[**Document**](https://chainreactors.github.io/wiki/spray)
+[**Document**](https://chainreactors.github.io/wiki/spray/start)
 
 基本使用, 从字典中读取目录进行爆破
 
