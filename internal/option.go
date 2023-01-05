@@ -38,8 +38,9 @@ type InputOptions struct {
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
-	FilterRule   string   `long:"rule-filter" description:"String, filter rule, e.g.: --rule-filter '>8'"`
 	Rules        []string `short:"r" long:"rules" description:"Files, Multi, rule files, e.g.: -r rule1.txt -r rule2.txt"`
+	AppendRule   string   `long:"append-rule" description:"File, when found valid path , use append rule generator new word with current path"`
+	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'"`
 }
 
 type FunctionOptions struct {
@@ -274,13 +275,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	} else if opt.FilterRule != "" {
 		// if filter rule is not empty, set rules to ":", force to open filter mode
 		r.Rules = rule.Compile(":", opt.FilterRule)
+	} else {
+		r.Rules = new(rule.Program)
 	}
 
-	if len(r.Rules) > 0 {
-		r.Total = len(r.Wordlist) * len(r.Rules)
+	if len(r.Rules.Expressions) > 0 {
+		r.Total = len(r.Wordlist) * len(r.Rules.Expressions)
 	} else {
 		r.Total = len(r.Wordlist)
 	}
+
 	pkg.DefaultStatistor = pkg.Statistor{
 		Word:         opt.Word,
 		WordCount:    len(r.Wordlist),
@@ -291,6 +295,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Total:        r.Total,
 	}
 
+	if opt.AppendRule != "" {
+		content, err := ioutil.ReadFile(opt.AppendRule)
+		if err != nil {
+			return nil, err
+		}
+		r.AppendRules = rule.Compile(string(content), "")
+	}
 	// prepare task
 	var tasks []*Task
 	var taskfrom string

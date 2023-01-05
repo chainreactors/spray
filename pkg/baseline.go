@@ -47,6 +47,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		bl.Path = uu.Path
 		bl.Url = uu
 	}
+	bl.Dir = bl.IsDir()
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
 	}
@@ -72,6 +73,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 		bl.Path = uu.Path
 		bl.Url = uu
 	}
+	bl.Dir = bl.IsDir()
 
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
@@ -91,6 +93,7 @@ type Baseline struct {
 	Url             *url.URL   `json:"-"`
 	UrlString       string     `json:"url"`
 	Path            string     `json:"path"`
+	Dir             bool       `json:"isdir"`
 	Host            string     `json:"host"`
 	Body            []byte     `json:"-"`
 	BodyLength      int        `json:"body_length"`

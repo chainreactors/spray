@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"github.com/antonmedv/expr/vm"
+	"github.com/chainreactors/words/rule"
 )
 
 type SprayMod int
@@ -33,6 +34,7 @@ type Config struct {
 	MatchExpr      *vm.Program
 	FilterExpr     *vm.Program
 	RecuExpr       *vm.Program
+	AppendRule     *rule.Program
 	OutputCh       chan *Baseline
 	FuzzyCh        chan *Baseline
 	Fuzzy          bool

@@ -38,7 +38,8 @@ type Runner struct {
 	Tasks          []*Task
 	URLList        []string
 	Wordlist       []string
-	Rules          []rule.Expression
+	Rules          *rule.Program
+	AppendRules    *rule.Program
 	Headers        map[string]string
 	Fns            []func(string) string
 	FilterExpr     *vm.Program
@@ -90,6 +91,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		MatchExpr:      r.MatchExpr,
 		FilterExpr:     r.FilterExpr,
 		RecuExpr:       r.RecursiveExpr,
+		AppendRule:     r.AppendRules,
 		IgnoreWaf:      r.IgnoreWaf,
 		Crawl:          r.Crawl,
 		Active:         r.Active,
@@ -180,7 +182,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			} else {
 				pool.Statistor = pkg.NewStatistor(t.baseUrl)
 				pool.worder = words.NewWorderWithFns(r.Wordlist, r.Fns)
-				pool.worder.Rules = r.Rules
+				pool.worder.Rules = r.Rules.Expressions
 			}
 
 			var limit int

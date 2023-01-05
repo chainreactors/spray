@@ -103,5 +103,5 @@ func loadRuleWithFiles(ruleFiles []string, filter string) ([]rule.Expression, er
 		rules.Write(content)
 		rules.WriteString("\n")
 	}
-	return rule.Compile(rules.String(), filter), nil
+	return rule.Compile(rules.String(), filter).Expressions, nil
 }
