@@ -31,15 +31,15 @@ type Option struct {
 
 type InputOptions struct {
 	ResumeFrom   string   `long:"resume"`
-	URL          []string `short:"u" long:"url" description:"String, input baseurl, e.g.: http://google.com"`
+	URL          []string `short:"u" long:"url" description:"String, Multi, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	Raw          string   `long:"raw" description:"File, input raw request filename"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
-	Dictionaries []string `short:"d" long:"dict" description:"Files, dict files, e.g.: -d 1.txt -d 2.txt"`
+	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
 	FilterRule   string   `long:"rule-filter" description:"String, filter rule, e.g.: --rule-filter '>8'"`
-	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
+	Rules        []string `short:"r" long:"rules" description:"Files, Multi, rule files, e.g.: -r rule1.txt -r rule2.txt"`
 }
 
 type FunctionOptions struct {
@@ -48,15 +48,15 @@ type FunctionOptions struct {
 	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
 	Uppercase         bool              `short:"U" long:"uppercase" desvcription:"Bool, upper wordlist, e.g.: --uppercase"`
 	Lowercase         bool              `short:"L" long:"lowercase" description:"Bool, lower wordlist, e.g.: --lowercase"`
-	Prefixes          []string          `long:"prefix" description:"Strings, add prefix, e.g.: --prefix aaa --prefix bbb"`
-	Suffixes          []string          `long:"suffix" description:"Strings, add suffix, e.g.: --suffix aaa --suffix bbb"`
-	Replaces          map[string]string `long:"replace" description:"Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd"`
+	Prefixes          []string          `long:"prefix" description:"Strings, Multi, add prefix, e.g.: --prefix aaa --prefix bbb"`
+	Suffixes          []string          `long:"suffix" description:"Strings, Multi, add suffix, e.g.: --suffix aaa --suffix bbb"`
+	Replaces          map[string]string `long:"replace" description:"Strings, Multi, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd"`
 }
 
 type OutputOptions struct {
 	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
 	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
-	Extracts    []string `long:"extract" description:"String, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
+	Extracts    []string `long:"extract" description:"String, Multi, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
 	OutputFile  string   `short:"f" description:"String, output filename" json:"output_file,omitempty"`
 	Format      string   `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
 	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
@@ -68,10 +68,10 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Headers         []string `long:"header" description:"String, custom headers, e.g.: --headers 'Auth: example_auth'"`
+	Headers         []string `long:"header" description:"String, Multi, custom headers, e.g.: --headers 'Auth: example_auth'"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
-	Cookie          []string `long:"cookie" description:"String, custom cookie"`
+	Cookie          []string `long:"cookie" description:"String, Multi, custom cookie"`
 	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000"`
 }
 
