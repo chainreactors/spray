@@ -26,7 +26,7 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 					Renegotiation:      tls.RenegotiateOnceAsClient,
 					InsecureSkipVerify: true,
 				},
-				MaxConnsPerHost:               thread * 2,
+				MaxConnsPerHost:               thread * 3 / 2,
 				MaxIdleConnDuration:           time.Duration(timeout) * time.Second,
 				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
 				ReadTimeout:                   time.Duration(timeout) * time.Second,
