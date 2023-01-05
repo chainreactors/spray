@@ -57,7 +57,7 @@ type OutputOptions struct {
 	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
 	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
 	Extracts    []string `long:"extract" description:"String, Multi, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
-	OutputFile  string   `short:"f" description:"String, output filename" json:"output_file,omitempty"`
+	OutputFile  string   `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty"`
 	Format      string   `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
 	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
 	DumpFile    string   `long:"dump-file" description:"String, dump all request, and write to filename"`

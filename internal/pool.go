@@ -293,6 +293,7 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
+
 func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	pool.worder.RunWithRules()
 	go func() {
