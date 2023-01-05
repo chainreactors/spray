@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
@@ -48,6 +50,16 @@ func Spray() {
 		internal.Format(option.Format)
 		os.Exit(0)
 	}
+
+	err = pkg.LoadTemplates()
+	if err != nil {
+		utils.Fatal(err.Error())
+	}
+	err = pkg.LoadRules()
+	if err != nil {
+		utils.Fatal(err.Error())
+	}
+
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {
 		runner, err = option.PrepareRunner()

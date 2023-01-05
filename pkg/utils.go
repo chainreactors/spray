@@ -1,8 +1,8 @@
 package pkg
 
 import (
+	"encoding/json"
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
-	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/ipcs"
 	"math/rand"
 	"net/url"
@@ -17,6 +17,7 @@ import (
 var (
 	Md5Fingers  map[string]string = make(map[string]string)
 	Mmh3Fingers map[string]string = make(map[string]string)
+	Rules       map[string]string = make(map[string]string)
 	ActivePath  []string
 	Fingers     fingers.Fingers
 	JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
@@ -99,7 +100,7 @@ func LoadTemplates() error {
 	var err error
 	Fingers, err = fingers.LoadFingers(LoadConfig("http"))
 	if err != nil {
-		utils.Fatal(err.Error())
+		return err
 	}
 
 	for _, finger := range Fingers {
@@ -125,6 +126,18 @@ func LoadTemplates() error {
 		}
 	}
 
+	return nil
+}
+
+func LoadRules() error {
+	var data map[string]interface{}
+	err := json.Unmarshal(LoadConfig("rule"), &data)
+	if err != nil {
+		return err
+	}
+	for k, v := range data {
+		Rules[k] = v.(string)
+	}
 	return nil
 }
 
@@ -174,6 +187,7 @@ func filterUrl(u string) bool {
 	}
 	return false
 }
+
 func URLJoin(base, uri string) string {
 	baseSlash := strings.HasSuffix(base, "/")
 	uriSlash := strings.HasPrefix(uri, "/")
