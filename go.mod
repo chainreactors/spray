@@ -9,7 +9,7 @@ require (
 	github.com/chainreactors/ipcs v0.0.13
 	github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580
 	github.com/chainreactors/parsers v0.2.9-0.20221210155102-cc0814762410
-	github.com/chainreactors/words v0.3.2-0.20221214154622-381fc37abdf9
+	github.com/chainreactors/words v0.3.2-0.20230105095023-67f7d4e9186a
 )
 
 require (

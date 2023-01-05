@@ -9,9 +9,11 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
+	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,7 +38,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		baselines:   make(map[int]*pkg.Baseline),
 		urls:        make(map[string]int),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
-		checkCh:     make(chan sourceType),
+		checkCh:     make(chan int),
 		additionCh:  make(chan *Unit, 100),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
@@ -83,6 +85,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 							bl.RedirectURL = "/" + strings.TrimLeft(bl.RedirectURL, "/")
 							bl.RedirectURL = pool.BaseURL + bl.RedirectURL
 						}
+						pool.wg.Add(1)
 						pool.doRedirect(bl, unit.depth)
 					}
 					pool.addFuzzyBaseline(bl)
@@ -105,6 +108,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			pool.initwg.Done()
 		case InitIndexSource:
 			pool.index = bl
+			pool.wg.Add(1)
 			pool.doCrawl(bl)
 			pool.initwg.Done()
 		case CheckSource:
@@ -140,7 +144,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		case RedirectSource:
 			bl.FrontURL = unit.frontUrl
 			pool.tempCh <- bl
-		case CrawlSource, ActiveSource:
+		case CrawlSource, ActiveSource, RuleSource:
 			pool.tempCh <- bl
 		}
 
@@ -196,7 +200,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 			// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 			if bl.IsValid {
-				pool.doCrawl(bl)
+				pool.wg.Add(2)
+				go pool.doCrawl(bl)
+				go pool.doRule(bl)
 				if bl.RecuDepth < maxRecursion {
 					if CompareWithExpr(pool.RecuExpr, params) {
 						bl.Recu = true
@@ -221,7 +227,7 @@ type Pool struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	tempCh          chan *pkg.Baseline // 待处理的baseline
-	checkCh         chan sourceType    // 独立的check管道， 防止与redirect/crawl冲突
+	checkCh         chan int           // 独立的check管道， 防止与redirect/crawl冲突
 	additionCh      chan *Unit
 	reqCount        int
 	failedCount     int
@@ -302,6 +308,7 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 		}
 	}()
 	if pool.Active {
+		pool.wg.Add(1)
 		go pool.doActive()
 	}
 
@@ -341,10 +348,12 @@ Loop:
 		}
 	}
 
-	for len(pool.additionCh) > 0 {
-		time.Sleep(time.Second)
+	for pool.analyzeDone {
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
+
 	pool.wg.Wait()
+
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.Close()
 }
@@ -435,6 +444,7 @@ func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
 }
 
 func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
+	defer pool.wg.Done()
 	if depth >= maxRedirect {
 		return
 	}
@@ -451,6 +461,10 @@ func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 }
 
 func (pool *Pool) doCrawl(bl *pkg.Baseline) {
+	defer pool.wg.Done()
+	if !pool.Crawl {
+		return
+	}
 	bl.CollectURL()
 	for _, u := range bl.URLs {
 		if strings.HasPrefix(u, "//") {
@@ -467,7 +481,9 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 			pool.urls[u]++
 		} else {
 			// 通过map去重,  只有新的url才会进入到该逻辑
+			pool.locker.Lock()
 			pool.urls[u] = 1
+			pool.locker.Unlock()
 			if bl.ReqDepth < maxCrawl {
 				parsed, err := url.Parse(u)
 				if err != nil {
@@ -489,6 +505,7 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 }
 
 func (pool *Pool) doActive() {
+	defer pool.wg.Done()
 	for _, u := range pkg.ActivePath {
 		pool.wg.Add(1)
 		pool.additionCh <- &Unit{
@@ -514,10 +531,30 @@ func (pool *Pool) doCheck() {
 	}
 }
 
+func (pool *Pool) doRule(bl *pkg.Baseline) {
+	defer pool.wg.Done()
+	if pool.AppendRule == nil {
+		return
+	}
+	if bl.Source == int(RuleSource) || bl.Dir {
+		return
+	}
+
+	for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
+		pool.wg.Add(1)
+		pool.additionCh <- &Unit{
+			path:   path.Join(path.Dir(bl.Path), u),
+			source: RuleSource,
+			depth:  1,
+		}
+	}
+}
+
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
 		pool.locker.Lock()
+		pool.wg.Add(1)
 		pool.doCrawl(bl)
 		pool.baselines[bl.Status] = bl
 		pool.locker.Unlock()

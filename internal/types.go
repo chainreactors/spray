@@ -44,10 +44,8 @@ func (e ErrorType) Error() string {
 	}
 }
 
-type sourceType int
-
 const (
-	CheckSource sourceType = iota + 1
+	CheckSource = iota + 1
 	InitRandomSource
 	InitIndexSource
 	RedirectSource
@@ -55,19 +53,20 @@ const (
 	ActiveSource
 	WordSource
 	WafSource
+	RuleSource
 )
 
-func newUnit(path string, source sourceType) *Unit {
+func newUnit(path string, source int) *Unit {
 	return &Unit{path: path, source: source}
 }
 
-func newUnitWithNumber(path string, source sourceType, number int) *Unit {
+func newUnitWithNumber(path string, source int, number int) *Unit {
 	return &Unit{path: path, source: source}
 }
 
 type Unit struct {
 	path     string
-	source   sourceType
+	source   int
 	frontUrl string
 	depth    int // redirect depth
 }
