@@ -31,6 +31,10 @@ func GetSourceName(s int) string {
 		return "word"
 	case 8:
 		return "waf"
+	case 9:
+		return "rule"
+	case 10:
+		return "bak"
 	default:
 		return "unknown"
 	}
@@ -158,6 +162,7 @@ func (bl *Baseline) CollectURL() {
 			}
 		}
 	}
+
 	if bl.URLs != nil {
 		bl.Extracteds = append(bl.Extracteds, &fingers.Extracted{
 			Name:          "crawl",
@@ -241,7 +246,9 @@ func (bl *Baseline) Get(key string) string {
 	case "stat", "status":
 		return strconv.Itoa(bl.Status)
 	case "spend":
-		return strconv.Itoa(int(bl.Spended))
+		return strconv.Itoa(int(bl.Spended)) + "ms"
+	case "length":
+		return strconv.Itoa(bl.BodyLength)
 	case "source":
 		return GetSourceName(bl.Source)
 	case "extract":
@@ -256,7 +263,9 @@ func (bl *Baseline) Get(key string) string {
 }
 
 func (bl *Baseline) Additional(key string) string {
-	if v := bl.Get(key); v != "" {
+	if key == "frame" || key == "extract" {
+		return bl.Get(key)
+	} else if v := bl.Get(key); v != "" {
 		return " [" + v + "]"
 	} else {
 		return ""
@@ -327,6 +336,7 @@ func (bl *Baseline) ColorString() string {
 	line.WriteString(" - ")
 	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
+	line.WriteString(logs.GreenLine(bl.Additional("source")))
 	line.WriteString(logs.Cyan(bl.Frameworks.String()))
 	line.WriteString(logs.Cyan(bl.Extracteds.String()))
 	if bl.RedirectURL != "" {

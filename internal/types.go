@@ -61,10 +61,6 @@ func newUnit(path string, source int) *Unit {
 	return &Unit{path: path, source: source}
 }
 
-func newUnitWithNumber(path string, source int, number int) *Unit {
-	return &Unit{path: path, source: source}
-}
-
 type Unit struct {
 	path     string
 	source   int

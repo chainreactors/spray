@@ -40,6 +40,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan int),
 		additionCh:  make(chan *Unit, 100),
+		closeCh:     make(chan struct{}),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		reqCount:    1,
@@ -71,7 +72,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 			pool.failedBaselines = append(pool.failedBaselines, bl)
 		} else {
-			if unit.source != WordSource && unit.source != RedirectSource {
+			if unit.source <= 3 || unit.source == CrawlSource {
 				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 			} else {
 				if pool.MatchExpr != nil {
@@ -103,10 +104,12 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		bl.Spended = time.Since(start).Milliseconds()
 		switch unit.source {
 		case InitRandomSource:
+			bl.Collect()
 			pool.random = bl
 			pool.addFuzzyBaseline(bl)
 			pool.initwg.Done()
 		case InitIndexSource:
+			bl.Collect()
 			pool.index = bl
 			pool.wg.Add(1)
 			pool.doCrawl(bl)
@@ -201,8 +204,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 			// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 			if bl.IsValid {
 				pool.wg.Add(2)
-				go pool.doCrawl(bl)
-				go pool.doRule(bl)
+				pool.doCrawl(bl)
+				pool.doRule(bl)
 				if bl.RecuDepth < maxRecursion {
 					if CompareWithExpr(pool.RecuExpr, params) {
 						bl.Recu = true
@@ -229,6 +232,7 @@ type Pool struct {
 	tempCh          chan *pkg.Baseline // 待处理的baseline
 	checkCh         chan int           // 独立的check管道， 防止与redirect/crawl冲突
 	additionCh      chan *Unit
+	closeCh         chan struct{}
 	reqCount        int
 	failedCount     int
 	isFailed        bool
@@ -252,8 +256,7 @@ func (pool *Pool) Init() error {
 	if pool.index.ErrString != "" {
 		return fmt.Errorf(pool.index.String())
 	}
-	pool.index.Collect()
-	logs.Log.Info("[baseline.index] " + pool.index.String())
+	logs.Log.Info("[baseline.index] " + pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	if pool.index.Status == 200 || (pool.index.Status/100) == 3 {
 		pool.OutputCh <- pool.index
 	}
@@ -265,8 +268,7 @@ func (pool *Pool) Init() error {
 	if pool.random.ErrString != "" {
 		return fmt.Errorf(pool.random.String())
 	}
-	pool.random.Collect()
-	logs.Log.Info("[baseline.random] " + pool.random.String())
+	logs.Log.Info("[baseline.random] " + pool.random.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 
 	if pool.random.RedirectURL != "" {
 		// 自定协议升级
@@ -302,11 +304,6 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 
 func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	pool.worder.RunWithRules()
-	go func() {
-		for unit := range pool.additionCh {
-			pool.reqPool.Invoke(unit)
-		}
-	}()
 	if pool.Active {
 		pool.wg.Add(1)
 		go pool.doActive()
@@ -316,13 +313,19 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 		pool.wg.Add(1)
 		go pool.doBak()
 	}
+	go func() {
+		for {
+			pool.wg.Wait()
+			pool.closeCh <- struct{}{}
+		}
+	}()
 
 Loop:
 	for {
 		select {
 		case u, ok := <-pool.worder.C:
 			if !ok {
-				break Loop
+				continue
 			}
 			pool.Statistor.End++
 			if int(pool.reqCount) < offset {
@@ -331,21 +334,28 @@ Loop:
 			}
 
 			if pool.Statistor.End > limit {
-				break Loop
+				continue
 			}
 
 			if u == "" {
 				continue
 			}
 			pool.wg.Add(1)
-			_ = pool.reqPool.Invoke(newUnitWithNumber(u, WordSource, pool.Statistor.End))
+			pool.reqPool.Invoke(newUnit(u, WordSource))
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
 			if pool.Mod == pkg.HostSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), source, pool.Statistor.End))
+				pool.reqPool.Invoke(newUnit(pkg.RandHost(), source))
 			} else if pool.Mod == pkg.PathSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandPath(), source, pool.Statistor.End))
+				pool.reqPool.Invoke(newUnit(pkg.RandPath(), source))
 			}
+		case unit, ok := <-pool.additionCh:
+			if !ok {
+				continue
+			}
+			pool.reqPool.Invoke(unit)
+		case <-pool.closeCh:
+			break Loop
 		case <-ctx.Done():
 			break Loop
 		case <-pool.ctx.Done():
@@ -356,9 +366,6 @@ Loop:
 	for pool.analyzeDone {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
-
-	pool.wg.Wait()
-
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.Close()
 }
@@ -499,11 +506,11 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 					continue
 				}
 				pool.wg.Add(1)
-				pool.additionCh <- &Unit{
+				go pool.addAddition(&Unit{
 					path:   parsed.Path,
 					source: CrawlSource,
 					depth:  bl.ReqDepth + 1,
-				}
+				})
 			}
 		}
 	}
@@ -520,11 +527,10 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 
 	for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
 		pool.wg.Add(1)
-		pool.additionCh <- &Unit{
+		go pool.addAddition(&Unit{
 			path:   path.Join(path.Dir(bl.Path), u),
 			source: RuleSource,
-			depth:  1,
-		}
+		})
 	}
 }
 
@@ -532,10 +538,10 @@ func (pool *Pool) doActive() {
 	defer pool.wg.Done()
 	for _, u := range pkg.ActivePath {
 		pool.wg.Add(1)
-		pool.additionCh <- &Unit{
+		pool.addAddition(&Unit{
 			path:   safePath(pool.BaseURL, u),
 			source: ActiveSource,
-		}
+		})
 	}
 }
 
@@ -552,10 +558,10 @@ func (pool *Pool) doBak() {
 	worder.Run()
 	for w := range worder.C {
 		pool.wg.Add(1)
-		pool.additionCh <- &Unit{
+		pool.addAddition(&Unit{
 			path:   safePath(pool.BaseURL, w),
 			source: BakSource,
-		}
+		})
 	}
 }
 
@@ -575,6 +581,10 @@ func (pool *Pool) doCheck() {
 	}
 }
 
+func (pool *Pool) addAddition(u *Unit) {
+	pool.additionCh <- u
+}
+
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
@@ -583,7 +593,7 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 		pool.doCrawl(bl)
 		pool.baselines[bl.Status] = bl
 		pool.locker.Unlock()
-		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.String())
+		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	}
 }
 

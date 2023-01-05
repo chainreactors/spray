@@ -18,8 +18,8 @@ import (
 
 var (
 	WhiteStatus = []int{200}
-	BlackStatus = []int{400, 404, 410}
-	FuzzyStatus = []int{403, 500, 501, 502, 503}
+	BlackStatus = []int{400, 410}
+	FuzzyStatus = []int{403, 404, 500, 501, 502, 503}
 	WAFStatus   = []int{493, 418}
 )
 
@@ -333,7 +333,6 @@ func (r *Runner) Outputting() {
 				r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
 				r.OutputFile.SafeSync()
 			}
-
 		} else {
 			if len(r.Probes) > 0 {
 				if r.Color {
