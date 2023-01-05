@@ -101,7 +101,7 @@ func loadWordlist(word string, dictNames []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	wl, err := mask.Run(word, dicts)
+	wl, err := mask.Run(word, dicts, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -41,4 +41,5 @@ type Config struct {
 	IgnoreWaf      bool
 	Crawl          bool
 	Active         bool
+	Bak            bool
 }

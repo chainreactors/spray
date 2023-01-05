@@ -55,10 +55,6 @@ func Spray() {
 	if err != nil {
 		utils.Fatal(err.Error())
 	}
-	err = pkg.LoadRules()
-	if err != nil {
-		utils.Fatal(err.Error())
-	}
 
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {

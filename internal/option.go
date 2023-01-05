@@ -83,6 +83,7 @@ type ModeOptions struct {
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
 	Active          bool   `long:"active" description:"Bool, enable active finger detect"`
 	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
+	Bak             bool   `long:"bak" description:"Bool, enable bak found"`
 	FileBak         bool   `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
 	CrawlDepth      int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
@@ -134,6 +135,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		BreakThreshold: opt.BreakThreshold,
 		Crawl:          opt.Crawl,
 		Active:         opt.Active,
+		Bak:            opt.Bak,
 	}
 
 	if opt.Extracts != nil {
@@ -254,7 +256,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.Word += "{@ext}"
 	}
 
-	r.Wordlist, err = mask.Run(opt.Word, dicts)
+	r.Wordlist, err = mask.Run(opt.Word, dicts, nil)
 	if err != nil {
 		return nil, err
 	}

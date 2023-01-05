@@ -1,4 +1,4 @@
-//go:generate go run templates/templates_gen.go -t templates -o pkg/templates.go -need http,rule
+//go:generate go run templates/templates_gen.go -t templates -o pkg/templates.go -need http,rule,mask
 package main
 
 import "github.com/chainreactors/spray/cmd"

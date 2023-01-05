@@ -3,7 +3,9 @@ package pkg
 import (
 	"encoding/json"
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
+	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/ipcs"
+	"github.com/chainreactors/words/mask"
 	"math/rand"
 	"net/url"
 	"os"
@@ -32,6 +34,24 @@ var (
 		regexp.MustCompile("href\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})|action\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})"),
 	}
 )
+
+func StringsContains(s []string, e string) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
+}
+
+func IntsContains(s []int, e int) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
+}
 
 func HasStdin() bool {
 	stat, err := os.Stdin.Stat()
@@ -98,6 +118,7 @@ func RandHost() string {
 
 func LoadTemplates() error {
 	var err error
+	// load fingers
 	Fingers, err = fingers.LoadFingers(LoadConfig("http"))
 	if err != nil {
 		return err
@@ -126,17 +147,29 @@ func LoadTemplates() error {
 		}
 	}
 
-	return nil
-}
-
-func LoadRules() error {
+	// load rule
 	var data map[string]interface{}
-	err := json.Unmarshal(LoadConfig("rule"), &data)
+	err = json.Unmarshal(LoadConfig("rule"), &data)
 	if err != nil {
 		return err
 	}
 	for k, v := range data {
 		Rules[k] = v.(string)
+	}
+
+	// load mask
+	var keywords map[string]interface{}
+	err = json.Unmarshal(LoadConfig("mask"), &keywords)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range keywords {
+		t := make([]string, len(v.([]interface{})))
+		for i, vv := range v.([]interface{}) {
+			t[i] = utils.ToString(vv)
+		}
+		mask.SpecialWords[k] = t
 	}
 	return nil
 }
@@ -198,4 +231,17 @@ func URLJoin(base, uri string) string {
 	} else {
 		return base + "/" + uri
 	}
+}
+
+func BakGenerator(domain string) []string {
+	var possibilities []string
+	for first, _ := range domain {
+		for last, _ := range domain[first:] {
+			p := domain[first : first+last+1]
+			if !StringsContains(possibilities, p) {
+				possibilities = append(possibilities, p)
+			}
+		}
+	}
+	return possibilities
 }

@@ -39,6 +39,12 @@ github.com/chainreactors/words v0.3.2-0.20221214154622-381fc37abdf9 h1:IUNopSuor
 github.com/chainreactors/words v0.3.2-0.20221214154622-381fc37abdf9/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/chainreactors/words v0.3.2-0.20230105095023-67f7d4e9186a h1:NoFfxJfPXiS2fzdmRIzWj4K+V7BRC2BAXlxQfckTeN0=
 github.com/chainreactors/words v0.3.2-0.20230105095023-67f7d4e9186a/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
+github.com/chainreactors/words v0.3.2-0.20230105160347-858217c41ce5 h1:uTiOYpgf4jz+/uwp+kAliLrOkVXjsC51pNmd4xH0uB4=
+github.com/chainreactors/words v0.3.2-0.20230105160347-858217c41ce5/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
+github.com/chainreactors/words v0.3.2-0.20230105161438-ec98bdc6906d h1:vWZwr3IaoEGEGE/IB0Im4gDqrOHpGK3szKOFDG4GFrc=
+github.com/chainreactors/words v0.3.2-0.20230105161438-ec98bdc6906d/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
+github.com/chainreactors/words v0.3.2-0.20230105161651-7c1fc4c9605a h1:vRAMDJ6UQV73uyiRBQnuE/+S7Q7JTpfubSpyRlooZ2U=
+github.com/chainreactors/words v0.3.2-0.20230105161651-7c1fc4c9605a/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/davecgh/go-spew v0.0.0-20161028175848-04cdfd42973b/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
