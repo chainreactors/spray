@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"io/ioutil"
@@ -48,6 +49,24 @@ func loadFileToSlice(filename string) ([]string, error) {
 	}
 
 	return ss, nil
+}
+
+func loadFileAndCombine(filename []string) (string, error) {
+	var bs bytes.Buffer
+	for _, f := range filename {
+		if data, ok := pkg.Rules[f]; ok {
+			bs.WriteString(strings.TrimSpace(data))
+			bs.WriteString("\n")
+		} else {
+			content, err := ioutil.ReadFile(f)
+			if err != nil {
+				return "", err
+			}
+			bs.Write(bytes.TrimSpace(content))
+			bs.WriteString("\n")
+		}
+	}
+	return bs.String(), nil
 }
 
 func loadFileWithCache(filename string) ([]string, error) {

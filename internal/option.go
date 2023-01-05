@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
@@ -39,7 +38,7 @@ type InputOptions struct {
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
 	Rules        []string `short:"r" long:"rules" description:"Files, Multi, rule files, e.g.: -r rule1.txt -r rule2.txt"`
-	AppendRule   string   `long:"append-rule" description:"File, when found valid path , use append rule generator new word with current path"`
+	AppendRule   []string `long:"append-rule" description:"File, when found valid path , use append rule generator new word with current path"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'"`
 }
 
@@ -84,6 +83,7 @@ type ModeOptions struct {
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
 	Active          bool   `long:"active" description:"Bool, enable active finger detect"`
 	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
+	FileBak         bool   `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
 	CrawlDepth      int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
@@ -135,14 +135,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Crawl:          opt.Crawl,
 		Active:         opt.Active,
 	}
-	if opt.Advance {
-		r.Crawl = true
-		r.Active = true
-	}
-	err = pkg.LoadTemplates()
-	if err != nil {
-		return nil, err
-	}
 
 	if opt.Extracts != nil {
 		for _, e := range opt.Extracts {
@@ -175,11 +167,20 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	pkg.Distance = uint8(opt.SimhashDistance)
 	ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
 
+	// configuration
 	if opt.Force {
 		// 如果开启了force模式, 将关闭check机制, err积累到一定数量自动退出机制
 		r.BreakThreshold = max
 		r.CheckPeriod = max
 		r.ErrPeriod = max
+	}
+
+	if opt.Advance {
+		r.Crawl = true
+		r.Active = true
+		opt.AppendRule = append(opt.AppendRule, "filebak")
+	} else if opt.FileBak {
+		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
 
 	if opt.BlackStatus != "" {
@@ -262,16 +263,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Rules != nil {
-		var rules bytes.Buffer
-		for _, rule := range opt.Rules {
-			content, err := ioutil.ReadFile(rule)
-			if err != nil {
-				return nil, err
-			}
-			rules.Write(content)
-			rules.WriteString("\n")
+		rules, err := loadFileAndCombine(opt.Rules)
+		if err != nil {
+			return nil, err
 		}
-		r.Rules = rule.Compile(rules.String(), opt.FilterRule)
+		r.Rules = rule.Compile(rules, opt.FilterRule)
 	} else if opt.FilterRule != "" {
 		// if filter rule is not empty, set rules to ":", force to open filter mode
 		r.Rules = rule.Compile(":", opt.FilterRule)
@@ -295,8 +291,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Total:        r.Total,
 	}
 
-	if opt.AppendRule != "" {
-		content, err := ioutil.ReadFile(opt.AppendRule)
+	if opt.AppendRule != nil {
+		content, err := loadFileAndCombine(opt.AppendRule)
 		if err != nil {
 			return nil, err
 		}
