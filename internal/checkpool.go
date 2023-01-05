@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
@@ -9,6 +10,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
 	"sync"
+	"time"
 )
 
 func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
@@ -23,17 +25,6 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 		failedCount: 1,
 	}
 
-	switch config.Mod {
-	case pkg.PathSpray:
-		pool.genReq = func(s string) (*ihttp.Request, error) {
-			return ihttp.BuildPathRequest(pool.ClientType, s, "")
-		}
-	case pkg.HostSpray:
-		pool.genReq = func(s string) (*ihttp.Request, error) {
-			return ihttp.BuildHostRequest(pool.ClientType, s, "")
-		}
-	}
-
 	p, _ := ants.NewPoolWithFunc(config.Thread, func(i interface{}) {
 		unit := i.(*Unit)
 		req, err := pool.genReq(unit.path)
@@ -41,6 +32,7 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 			logs.Log.Error(err.Error())
 		}
 
+		start := time.Now()
 		var bl *pkg.Baseline
 		resp, reqerr := pool.client.Do(pctx, req)
 		if pool.ClientType == ihttp.FAST {
@@ -56,6 +48,7 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 			bl.Collect()
 		}
 
+		bl.Spended = time.Since(start).Milliseconds()
 		pool.OutputCh <- bl
 		pool.reqCount++
 		pool.wg.Done()
@@ -75,13 +68,21 @@ type CheckPool struct {
 	cancel      context.CancelFunc
 	reqCount    int
 	failedCount int
-	genReq      func(s string) (*ihttp.Request, error)
 	worder      *words.Worder
 	wg          sync.WaitGroup
 }
 
 func (p *CheckPool) Close() {
 	p.bar.Close()
+}
+
+func (p *CheckPool) genReq(s string) (*ihttp.Request, error) {
+	if p.Mod == pkg.HostSpray {
+		return ihttp.BuildHostRequest(p.ClientType, p.BaseURL, s)
+	} else if p.Mod == pkg.PathSpray {
+		return ihttp.BuildPathRequest(p.ClientType, p.BaseURL, s)
+	}
+	return nil, fmt.Errorf("unknown mod")
 }
 
 func (p *CheckPool) Run(ctx context.Context, offset, limit int) {
