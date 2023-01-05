@@ -15,6 +15,27 @@ import (
 func Spray() {
 	var option internal.Option
 	parser := flags.NewParser(&option, flags.Default)
+	parser.Usage = `
+
+  WIKI: https://chainreactors.github.io/wiki/spray
+  
+  QUICKSTART:
+    simple example:
+      spray -u http://example.com -d wordlist1.txt -d wordlist2.txt
+
+    mask-base wordlist:
+      spray -u http://example.com -w "/aaa/bbb{?l#4}/ccc"
+
+    rule-base wordlist:
+      spray -u http://example.com -r rule.txt -d 1.txt
+
+    list input spray:
+      spray -l url.txt -r rule.txt -d 1.txt
+
+    resume:
+      spray --resume stat.json
+`
+
 	_, err := parser.Parse()
 	if err != nil {
 		if err.(*flags.Error).Type != flags.ErrHelp {
