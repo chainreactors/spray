@@ -180,6 +180,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.Advance {
 		r.Crawl = true
 		r.Active = true
+		r.Bak = true
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	} else if opt.FileBak {
 		opt.AppendRule = append(opt.AppendRule, "filebak")

@@ -533,7 +533,7 @@ func (pool *Pool) doActive() {
 	for _, u := range pkg.ActivePath {
 		pool.wg.Add(1)
 		pool.additionCh <- &Unit{
-			path:   u,
+			path:   safePath(pool.BaseURL, u),
 			source: ActiveSource,
 		}
 	}
@@ -553,7 +553,7 @@ func (pool *Pool) doBak() {
 	for w := range worder.C {
 		pool.wg.Add(1)
 		pool.additionCh <- &Unit{
-			path:   w,
+			path:   safePath(pool.BaseURL, w),
 			source: BakSource,
 		}
 	}
