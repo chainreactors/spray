@@ -124,3 +124,15 @@ func loadRuleWithFiles(ruleFiles []string, filter string) ([]rule.Expression, er
 	}
 	return rule.Compile(rules.String(), filter).Expressions, nil
 }
+
+func safePath(url, path string) string {
+	urlSlash := strings.HasSuffix(url, "/")
+	pathSlash := strings.HasPrefix(path, "/")
+	if !urlSlash && !pathSlash {
+		return "/" + path
+	} else if urlSlash && pathSlash {
+		return path[1:]
+	} else {
+		return path
+	}
+}
