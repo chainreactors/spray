@@ -68,3 +68,6 @@ go build .
 4. [ ] 支持http2
 5. [ ] auto-tune, 自动调整并发数量
 6. [x] 可自定义的递归配置
+7. [ ] 参考[fuzzuli](https://github.com/musana/fuzzuli), 实现备份文件字典生成器
+8. [ ] 支持socks/http代理, 不建议使用, 优先级较低. 代理的keep-alive会带来严重的性能下降
+9. [ ] 云函数化, chainreactors工具链的通用分布式解决方案.
