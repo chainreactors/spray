@@ -31,7 +31,7 @@ type Option struct {
 
 type InputOptions struct {
 	ResumeFrom   string   `long:"resume"`
-	URL          string   `short:"u" long:"url" description:"String, input baseurl (separated by commas), e.g.: http://google.com, http://baidu.com"`
+	URL          []string `short:"u" long:"url" description:"String, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	Raw          string   `long:"raw" description:"File, input raw request filename"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
@@ -292,13 +292,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	// prepare task
-	var u *url.URL
-	if opt.URL != "" {
-		u, err = url.Parse(opt.URL)
-		if err != nil {
-			u, _ = url.Parse("http://" + opt.URL)
-		}
-	}
 	var tasks []*Task
 	var taskfrom string
 	if opt.ResumeFrom != "" {
@@ -314,9 +307,19 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	} else {
 		var file *os.File
 		var urls []string
-		if u != nil {
+		if len(opt.URL) == 1 {
+			u, err := url.Parse(opt.URL[0])
+			if err != nil {
+				u, _ = url.Parse("http://" + opt.URL[0])
+			}
 			urls = append(urls, u.String())
-			tasks = append(tasks, &Task{baseUrl: opt.URL})
+			tasks = append(tasks, &Task{baseUrl: opt.URL[0]})
+			taskfrom = u.Host
+		} else if len(opt.URL) > 1 {
+			for _, u := range opt.URL {
+				urls = append(urls, u)
+				tasks = append(tasks, &Task{baseUrl: u})
+			}
 			taskfrom = "cmd"
 		} else if opt.URLFile != "" {
 			file, err = os.Open(opt.URLFile)
@@ -471,12 +474,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
-	} else if opt.URLFile != "" {
-		r.StatFile, err = files.NewFile(opt.URLFile+".stat", false, true, true)
-	} else if taskfrom == "stdin" {
-		r.StatFile, err = files.NewFile("stdin.stat", false, true, true)
-	} else if u != nil {
-		r.StatFile, err = files.NewFile(u.Host+".stat", false, true, true)
+	} else {
+		r.StatFile, err = files.NewFile(taskfrom+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
