@@ -228,7 +228,6 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 			r.Done()
 		})
-
 	}
 
 	if err != nil {
