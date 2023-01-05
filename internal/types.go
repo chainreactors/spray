@@ -54,6 +54,7 @@ const (
 	WordSource
 	WafSource
 	RuleSource
+	BakSource
 )
 
 func newUnit(path string, source int) *Unit {

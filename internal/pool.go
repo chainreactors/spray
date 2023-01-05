@@ -144,7 +144,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		case RedirectSource:
 			bl.FrontURL = unit.frontUrl
 			pool.tempCh <- bl
-		case CrawlSource, ActiveSource, RuleSource:
+		case CrawlSource, ActiveSource, RuleSource, BakSource:
 			pool.tempCh <- bl
 		}
 
@@ -310,6 +310,11 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	if pool.Active {
 		pool.wg.Add(1)
 		go pool.doActive()
+	}
+
+	if pool.Bak {
+		pool.wg.Add(1)
+		go pool.doBak()
 	}
 
 Loop:
@@ -504,6 +509,25 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 	}
 }
 
+func (pool *Pool) doRule(bl *pkg.Baseline) {
+	defer pool.wg.Done()
+	if pool.AppendRule == nil {
+		return
+	}
+	if bl.Source == int(RuleSource) || bl.Dir {
+		return
+	}
+
+	for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
+		pool.wg.Add(1)
+		pool.additionCh <- &Unit{
+			path:   path.Join(path.Dir(bl.Path), u),
+			source: RuleSource,
+			depth:  1,
+		}
+	}
+}
+
 func (pool *Pool) doActive() {
 	defer pool.wg.Done()
 	for _, u := range pkg.ActivePath {
@@ -511,6 +535,26 @@ func (pool *Pool) doActive() {
 		pool.additionCh <- &Unit{
 			path:   u,
 			source: ActiveSource,
+		}
+	}
+}
+
+func (pool *Pool) doBak() {
+	defer pool.wg.Done()
+	u, err := url.Parse(pool.BaseURL)
+	if err != nil {
+		return
+	}
+	worder, err := words.NewWorderWithDsl("{?0}.{@bak_ext}", [][]string{pkg.BakGenerator(u.Host)}, nil)
+	if err != nil {
+		return
+	}
+	worder.Run()
+	for w := range worder.C {
+		pool.wg.Add(1)
+		pool.additionCh <- &Unit{
+			path:   w,
+			source: BakSource,
 		}
 	}
 }
@@ -528,25 +572,6 @@ func (pool *Pool) doCheck() {
 		pool.checkCh <- CheckSource
 	} else if pool.Mod == pkg.PathSpray {
 		pool.checkCh <- CheckSource
-	}
-}
-
-func (pool *Pool) doRule(bl *pkg.Baseline) {
-	defer pool.wg.Done()
-	if pool.AppendRule == nil {
-		return
-	}
-	if bl.Source == int(RuleSource) || bl.Dir {
-		return
-	}
-
-	for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
-		pool.wg.Add(1)
-		pool.additionCh <- &Unit{
-			path:   path.Join(path.Dir(bl.Path), u),
-			source: RuleSource,
-			depth:  1,
-		}
 	}
 }
 

@@ -74,6 +74,7 @@ type Runner struct {
 	IgnoreWaf      bool
 	Crawl          bool
 	Active         bool
+	Bak            bool
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
@@ -95,6 +96,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		IgnoreWaf:      r.IgnoreWaf,
 		Crawl:          r.Crawl,
 		Active:         r.Active,
+		Bak:            r.Bak,
 	}
 	if config.Mod == pkg.PathSpray {
 		config.ClientType = ihttp.FAST
@@ -118,7 +120,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				r.poolwg.Done()
 				return
 			}
-			pool.worder = words.NewWorderWithFns(r.URLList, r.Fns)
+			pool.worder = words.NewWorder(r.URLList)
+			pool.worder.Fns = r.Fns
 			pool.bar = pkg.NewBar("check", r.Total-r.Offset, r.Progress)
 			pool.Run(ctx, r.Offset, r.Total)
 			r.poolwg.Done()
@@ -166,7 +169,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 					r.Done()
 					return
 				}
-				pool.worder = words.NewWorderWithFns(wl, r.Fns)
+				pool.worder = words.NewWorder(wl)
+				pool.worder.Fns = r.Fns
 				rules, err := loadRuleWithFiles(t.origin.RuleFiles, t.origin.RuleFilter)
 				if err != nil {
 					logs.Log.Error(err.Error())
@@ -181,7 +185,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			} else {
 				pool.Statistor = pkg.NewStatistor(t.baseUrl)
-				pool.worder = words.NewWorderWithFns(r.Wordlist, r.Fns)
+				pool.worder = words.NewWorder(r.Wordlist)
+				pool.worder.Fns = r.Fns
 				pool.worder.Rules = r.Rules.Expressions
 			}
 
