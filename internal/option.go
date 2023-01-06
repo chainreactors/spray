@@ -77,14 +77,15 @@ type RequestOptions struct {
 
 type ModeOptions struct {
 	Advance         bool   `short:"a" long:"advance" description:"Bool, enable crawl and active"`
-	Force           bool   `long:"force" description:"Bool, skip error break"`
-	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
-	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
-	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
 	Active          bool   `long:"active" description:"Bool, enable active finger detect"`
 	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
 	Bak             bool   `long:"bak" description:"Bool, enable bak found"`
 	FileBak         bool   `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
+	Common          bool   `long:"common" description:"Bool, enable common file found"`
+	Force           bool   `long:"force" description:"Bool, skip error break"`
+	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
+	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
+	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
 	CrawlDepth      int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
@@ -136,6 +137,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Crawl:          opt.Crawl,
 		Active:         opt.Active,
 		Bak:            opt.Bak,
+		Common:         opt.Common,
 	}
 
 	if opt.Extracts != nil {
@@ -181,6 +183,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Crawl = true
 		r.Active = true
 		r.Bak = true
+		r.Common = true
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	} else if opt.FileBak {
 		opt.AppendRule = append(opt.AppendRule, "filebak")

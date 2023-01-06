@@ -55,6 +55,7 @@ const (
 	WafSource
 	RuleSource
 	BakSource
+	CommonFileSource
 )
 
 func newUnit(path string, source int) *Unit {

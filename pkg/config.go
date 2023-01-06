@@ -42,4 +42,5 @@ type Config struct {
 	Crawl          bool
 	Active         bool
 	Bak            bool
+	Common         bool
 }

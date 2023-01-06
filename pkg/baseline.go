@@ -85,7 +85,9 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 		bl.Host = host
 	}
 
-	bl.Body = resp.Body()
+	body := resp.Body()
+	bl.Body = make([]byte, len(body))
+	copy(bl.Body, body)
 	bl.BodyLength = resp.ContentLength()
 	bl.Header = resp.Header()
 	bl.HeaderLength = len(bl.Header)
