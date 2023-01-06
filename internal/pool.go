@@ -146,20 +146,14 @@ type Pool struct {
 
 func (pool *Pool) Init() error {
 	// 分成两步是为了避免闭包的线程安全问题
-	pool.initwg.Add(1)
+	pool.initwg.Add(2)
 	pool.reqPool.Invoke(newUnit("/", InitIndexSource))
+	pool.reqPool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	pool.initwg.Wait()
 	if pool.index.ErrString != "" {
 		return fmt.Errorf(pool.index.String())
 	}
 	logs.Log.Info("[baseline.index] " + pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
-	if pool.index.Status == 200 || (pool.index.Status/100) == 3 {
-		pool.OutputCh <- pool.index
-	}
-
-	pool.initwg.Add(1)
-	pool.reqPool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
-	pool.initwg.Wait()
 	// 检测基本访问能力
 	if pool.random.ErrString != "" {
 		return fmt.Errorf(pool.random.String())
@@ -323,13 +317,20 @@ func (pool *Pool) Invoke(v interface{}) {
 	switch unit.source {
 	case InitRandomSource:
 		bl.Collect()
+		pool.locker.Lock()
 		pool.random = bl
+		pool.locker.Unlock()
 		pool.addFuzzyBaseline(bl)
 		pool.initwg.Done()
 	case InitIndexSource:
 		bl.Collect()
+		pool.locker.Lock()
 		pool.index = bl
+		pool.locker.Unlock()
 		pool.wg.Add(1)
+		if bl.Status == 200 || (bl.Status/100) == 3 {
+			pool.OutputCh <- bl
+		}
 		pool.doCrawl(bl)
 		pool.initwg.Done()
 	case CheckSource:
