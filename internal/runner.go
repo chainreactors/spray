@@ -75,6 +75,7 @@ type Runner struct {
 	Crawl          bool
 	Active         bool
 	Bak            bool
+	Common         bool
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
@@ -97,6 +98,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Crawl:          r.Crawl,
 		Active:         r.Active,
 		Bak:            r.Bak,
+		Common:         r.Common,
 	}
 	if config.Mod == pkg.PathSpray {
 		config.ClientType = ihttp.FAST

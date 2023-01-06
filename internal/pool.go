@@ -9,6 +9,7 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
+	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
@@ -203,12 +204,19 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 		pool.wg.Add(1)
 		go pool.doBak()
 	}
+
+	if pool.Common {
+		pool.wg.Add(1)
+		go pool.doCommonFile()
+	}
+
 	go func() {
 		for {
 			pool.wg.Wait()
 			pool.closeCh <- struct{}{}
 		}
 	}()
+
 Loop:
 	for {
 		select {
@@ -284,7 +292,7 @@ func (pool *Pool) Invoke(v interface{}) {
 		bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 		pool.failedBaselines = append(pool.failedBaselines, bl)
 	} else {
-		if unit.source <= 3 || unit.source == CrawlSource {
+		if unit.source <= 3 || unit.source == CrawlSource || unit.source == CommonFileSource {
 			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 		} else {
 			if pool.MatchExpr != nil {
@@ -366,7 +374,7 @@ func (pool *Pool) Invoke(v interface{}) {
 	case RedirectSource:
 		bl.FrontURL = unit.frontUrl
 		pool.tempCh <- bl
-	case CrawlSource, ActiveSource, RuleSource, BakSource:
+	default:
 		pool.tempCh <- bl
 	}
 }
@@ -570,6 +578,30 @@ func (pool *Pool) doBak() {
 		pool.addAddition(&Unit{
 			path:   safePath(pool.BaseURL, w),
 			source: BakSource,
+		})
+	}
+
+	worder, err = words.NewWorderWithDsl("{@bak_name}.{@bak_ext}", nil, nil)
+	if err != nil {
+		return
+	}
+	worder.Run()
+	for w := range worder.C {
+		pool.wg.Add(1)
+		pool.addAddition(&Unit{
+			path:   safePath(pool.BaseURL, w),
+			source: BakSource,
+		})
+	}
+}
+
+func (pool *Pool) doCommonFile() {
+	defer pool.wg.Done()
+	for _, u := range mask.SpecialWords["common_file"] {
+		pool.wg.Add(1)
+		pool.addAddition(&Unit{
+			path:   safePath(pool.BaseURL, u),
+			source: CommonFileSource,
 		})
 	}
 }
