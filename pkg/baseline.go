@@ -55,14 +55,21 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	if resp.ClientType == ihttp.STANDARD {
 		bl.Host = host
 	}
+	header := resp.Header()
+	bl.Header = make([]byte, len(header))
+	copy(bl.Header, header)
+	bl.HeaderLength = len(bl.Header)
+
 	body := resp.Body()
 	bl.Body = make([]byte, len(body))
 	copy(bl.Body, body)
 	bl.BodyLength = resp.ContentLength()
-	bl.Header = resp.Header()
-	bl.HeaderLength = len(bl.Header)
-	bl.RedirectURL = resp.GetHeader("Location")
+	if bl.BodyLength == -1 {
+		bl.BodyLength = len(bl.Body)
+	}
+
 	bl.Raw = append(bl.Header, bl.Body...)
+	bl.RedirectURL = resp.GetHeader("Location")
 	return bl
 }
 
@@ -85,12 +92,9 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 		bl.Host = host
 	}
 
-	body := resp.Body()
-	bl.Body = make([]byte, len(body))
-	copy(bl.Body, body)
+	// 无效数据也要读取body, 否则keep-alive不生效
+	resp.Body()
 	bl.BodyLength = resp.ContentLength()
-	bl.Header = resp.Header()
-	bl.HeaderLength = len(bl.Header)
 	bl.RedirectURL = string(resp.GetHeader("Location"))
 
 	return bl
@@ -339,8 +343,8 @@ func (bl *Baseline) ColorString() string {
 	}
 	line.WriteString(" - ")
 	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
+	line.WriteString(logs.YellowBold(" - " + GetSourceName(bl.Source)))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
-	line.WriteString(logs.GreenLine(bl.Additional("source")))
 	line.WriteString(logs.Cyan(bl.Frameworks.String()))
 	line.WriteString(logs.Cyan(bl.Extracteds.String()))
 	if bl.RedirectURL != "" {
