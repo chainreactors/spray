@@ -49,8 +49,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	}
 
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
-
 	pool.reqPool = p
+
 	// 挂起一个异步的处理结果线程, 不干扰主线程的请求并发
 	go func() {
 		for bl := range pool.tempCh {
