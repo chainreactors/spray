@@ -70,6 +70,12 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		bl.BodyLength = len(bl.Body)
 	}
 
+	if t, ok := ContentTypeMap[resp.ContentType()]; ok {
+		bl.ContentType = t
+		bl.Title = t + " data"
+	} else {
+		bl.ContentType = "other"
+	}
 	bl.Raw = append(bl.Header, bl.Body...)
 	bl.RedirectURL = resp.GetHeader("Location")
 	return bl
@@ -119,6 +125,7 @@ type Baseline struct {
 	FrontURL        string     `json:"front_url,omitempty"`
 	Status          int        `json:"status"`
 	Spended         int64      `json:"spend"` // 耗时, 毫秒
+	ContentType     string     `json:"content_type"`
 	Title           string     `json:"title"`
 	Frameworks      Frameworks `json:"frameworks"`
 	Extracteds      Extracteds `json:"extracts"`
@@ -143,12 +150,22 @@ func (bl *Baseline) IsDir() bool {
 
 // Collect 深度收集信息
 func (bl *Baseline) Collect() {
+	bl.Frameworks = FingerDetect(string(bl.Raw))
 	if len(bl.Body) > 0 {
-		bl.Title = utils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
+		if bl.ContentType == "html" {
+			bl.Title = utils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
+		} else if bl.ContentType == "ico" {
+			if name, ok := Md5Fingers[parsers.Md5Hash(bl.Body)]; ok {
+				bl.Frameworks = append(bl.Frameworks, &parsers.Framework{Name: name})
+			} else if name, ok := Mmh3Fingers[parsers.Mmh3Hash32(bl.Body)]; ok {
+				bl.Frameworks = append(bl.Frameworks, &parsers.Framework{Name: name})
+			}
+		}
 	}
+
 	bl.Hashes = parsers.NewHashes(bl.Raw)
 	bl.Extracteds = Extractors.Extract(string(bl.Raw))
-	bl.Frameworks = FingerDetect(string(bl.Raw))
+
 }
 
 func (bl *Baseline) CollectURL() {
@@ -231,6 +248,8 @@ func (bl *Baseline) Get(key string) string {
 		return bl.UrlString
 	case "host":
 		return bl.Host
+	case "content_type", "type":
+		return bl.ContentType
 	case "title":
 		return bl.Title
 	case "redirect":

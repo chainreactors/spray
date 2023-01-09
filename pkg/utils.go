@@ -33,6 +33,30 @@ var (
 		regexp.MustCompile("[\",',‘,“]\\s{0,6}([#,.]{0,2}/[^\\s,^',^’,^\",^”,^>,^<,^:,^),^(]{2,250}?)\\s{0,6}[\",',‘,“]"),
 		regexp.MustCompile("href\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})|action\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})"),
 	}
+
+	ContentTypeMap = map[string]string{
+		"application/javascript":   "js",
+		"application/json":         "json",
+		"application/xml":          "xml",
+		"application/octet-stream": "bin",
+		"application/atom+xml":     "atom",
+		"application/msword":       "doc",
+		"application/pdf":          "pdf",
+		"image/gif":                "gif",
+		"image/jpeg":               "jpg",
+		"image/png":                "png",
+		"image/svg+xml":            "svg",
+		"text/css":                 "css",
+		"text/plain":               "txt",
+		"text/html":                "html",
+		"audio/mpeg":               "mp3",
+		"video/mp4":                "mp4",
+		"video/ogg":                "ogg",
+		"video/webm":               "webm",
+		"video/x-ms-wmv":           "wmv",
+		"video/avi":                "avi",
+		"image/x-icon":             "ico",
+	}
 )
 
 func StringsContains(s []string, e string) bool {
@@ -176,7 +200,6 @@ func LoadTemplates() error {
 
 func FingerDetect(content string) Frameworks {
 	var frames Frameworks
-	//content := string(body)
 	for _, finger := range Fingers {
 		frame, _, ok := fingers.FingerMatcher(finger, content, 0, nil)
 		if ok {
