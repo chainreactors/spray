@@ -232,14 +232,15 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
 	}
 
-	if len(opt.Dictionaries) > 0 && opt.Word == "" {
+	if len(opt.Dictionaries) == 0 && opt.Word == "" {
+		// 用来仅使用高级功能下, 防止无字典报错.
+		opt.Word = "/"
+	} else {
 		opt.Word = "{?"
 		for i, _ := range dicts {
 			opt.Word += strconv.Itoa(i)
 		}
 		opt.Word += "}"
-	} else {
-		opt.Word = "/"
 	}
 
 	if opt.Suffixes != nil {
@@ -376,7 +377,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.RemoveExtensions != "" {
 		rexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); StringsContains(rexts, ext) {
+			if ext := parseExtension(s); pkg.StringsContains(rexts, ext) {
 				return strings.TrimSuffix(s, "."+ext)
 			}
 			return s
@@ -386,7 +387,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.ExcludeExtensions != "" {
 		exexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); StringsContains(exexts, ext) {
+			if ext := parseExtension(s); pkg.StringsContains(exexts, ext) {
 				return ""
 			}
 			return s

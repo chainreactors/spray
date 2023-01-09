@@ -77,6 +77,22 @@ func IntsContains(s []int, e int) bool {
 	return false
 }
 
+func RemoveDuplication(arr []string) []string {
+	set := make(map[string]struct{}, len(arr))
+	j := 0
+	for _, v := range arr {
+		_, ok := set[v]
+		if ok {
+			continue
+		}
+		set[v] = struct{}{}
+		arr[j] = v
+		j++
+	}
+
+	return arr[:j]
+}
+
 func HasStdin() bool {
 	stat, err := os.Stdin.Stat()
 	if err != nil {
@@ -210,20 +226,22 @@ func FingerDetect(content string) Frameworks {
 
 var (
 	BadExt = []string{".js", ".css", ".scss", ",", ".jpeg", ".jpg", ".png", ".gif", ".ico", ".svg", ".vue", ".ts"}
-	//BadURL   = []string{".js?", ".css?", ".jpeg?", ".jpg?", ".png?", ".gif?", "github.com", "www.w3.org", "example.com", "<", ">", "{", "}", "[", "]", "|", "^", ";", "/js/", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*", "\\n"}
-	BadScoop = []string{"www.w3.org", "example.com"}
+	BadURL = []string{"www.w3.org", "example.com", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*"}
 )
 
 func filterJs(u string) bool {
-	for _, scoop := range BadScoop {
-		if strings.Contains(u, scoop) {
-			return true
-		}
+	if commonFilter(u) {
+		return true
 	}
+
 	return false
 }
 
 func filterUrl(u string) bool {
+	if commonFilter(u) {
+		return true
+	}
+
 	parsed, err := url.Parse(u)
 	if err != nil {
 		return true
@@ -235,7 +253,26 @@ func filterUrl(u string) bool {
 			}
 		}
 	}
-	for _, scoop := range BadScoop {
+	return false
+}
+
+func formatURL(u string) string {
+	// 去掉frag与params, 节约url.parse性能, 防止带参数造成意外的影响
+	if i := strings.Index(u, "?"); i != -1 {
+		return u[:i]
+	}
+	if i := strings.Index(u, "#"); i != -1 {
+		return u[:i]
+	}
+	return u
+}
+
+func commonFilter(u string) bool {
+	if strings.HasPrefix(u, "http") && len(u) < 9 {
+		return true
+	}
+
+	for _, scoop := range BadURL {
 		if strings.Contains(u, scoop) {
 			return true
 		}

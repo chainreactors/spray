@@ -18,9 +18,9 @@ func GetSourceName(s int) string {
 	case 1:
 		return "check"
 	case 2:
-		return "index"
-	case 3:
 		return "random"
+	case 3:
+		return "index"
 	case 4:
 		return "redirect"
 	case 5:
@@ -177,7 +177,7 @@ func (bl *Baseline) CollectURL() {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			if !filterJs(u[1]) {
-				bl.URLs = append(bl.URLs, u[1])
+				bl.URLs = append(bl.URLs, formatURL(u[1]))
 			}
 		}
 	}
@@ -186,7 +186,7 @@ func (bl *Baseline) CollectURL() {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			if !filterUrl(u[1]) {
-				bl.URLs = append(bl.URLs, u[1])
+				bl.URLs = append(bl.URLs, formatURL(u[1]))
 			}
 		}
 	}
@@ -194,7 +194,7 @@ func (bl *Baseline) CollectURL() {
 	if bl.URLs != nil {
 		bl.Extracteds = append(bl.Extracteds, &fingers.Extracted{
 			Name:          "crawl",
-			ExtractResult: bl.URLs,
+			ExtractResult: RemoveDuplication(bl.URLs),
 		})
 	}
 }
