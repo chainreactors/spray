@@ -30,7 +30,7 @@ var (
 	URLRegexps []*regexp.Regexp = []*regexp.Regexp{
 		regexp.MustCompile(`["'‘“]\s{0,6}(https{0,1}:[^\s^,^'^’^"^”^>^<^),^(]{2,250}?)\s{0,6}["'‘“]`),
 		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250})`),
-		regexp.MustCompile(`["'](\w{2,250}?\.\w{2,4}?)["']`),
+		regexp.MustCompile(`["']([\w/]{2,250}?\.\w{2,4}?)["']`),
 		regexp.MustCompile(`["'‘“]\s{0,6}([#,.]{0,2}/[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?)\s{0,6}["'‘“]`),
 		regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s^'^’^"^“^>^<^)^(]{2,250})`),
 	}
@@ -226,7 +226,7 @@ func FingerDetect(content string) Frameworks {
 }
 
 var (
-	BadExt = []string{".js", ".css", ".scss", ",", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts"}
+	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf"}
 	BadURL = []string{";", "}", "{", "www.w3.org", "example.com", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*"}
 )
 
@@ -249,7 +249,7 @@ func filterUrl(u string) bool {
 	} else {
 		ext := path.Ext(parsed.Path)
 		for _, e := range BadExt {
-			if e == ext {
+			if strings.EqualFold(e, ext) {
 				return true
 			}
 		}
@@ -269,7 +269,7 @@ func formatURL(u string) string {
 }
 
 func commonFilter(u string) bool {
-	if strings.HasPrefix(u, "http") && len(u) < 9 {
+	if strings.HasPrefix(u, "http") && len(u) < 15 {
 		return true
 	}
 

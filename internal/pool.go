@@ -520,6 +520,8 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 				} else {
 					u = pkg.URLJoin(path.Dir(bl.Url.Path), u[2:])
 				}
+			} else if strings.HasPrefix(u, "../") {
+				u = path.Join(path.Dir(bl.Url.Path), u)
 			} else if !strings.HasPrefix(u, "http") {
 				// 相对目录拼接
 				if bl.Dir {
