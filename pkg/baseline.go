@@ -337,11 +337,12 @@ func (bl *Baseline) Format(probes []string) string {
 
 func (bl *Baseline) ColorString() string {
 	var line strings.Builder
+	line.WriteString(logs.GreenLine("[" + GetSourceName(bl.Source) + "]"))
 	if bl.FrontURL != "" {
-		line.WriteString("\t")
 		line.WriteString(logs.CyanLine(bl.FrontURL))
 		line.WriteString(" --> ")
 	}
+	line.WriteString(" ")
 	line.WriteString(logs.GreenLine(bl.UrlString))
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
@@ -368,7 +369,6 @@ func (bl *Baseline) ColorString() string {
 	}
 	line.WriteString(" - ")
 	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
-	line.WriteString(logs.YellowBold(" - " + GetSourceName(bl.Source)))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
 	if bl.Distance != 0 {
 		line.WriteString(logs.GreenLine(bl.Additional("sim")))
@@ -391,11 +391,12 @@ func (bl *Baseline) ColorString() string {
 
 func (bl *Baseline) String() string {
 	var line strings.Builder
+	line.WriteString(logs.GreenLine("[" + GetSourceName(bl.Source) + "]"))
 	if bl.FrontURL != "" {
-		line.WriteString("\t")
 		line.WriteString(bl.FrontURL)
 		line.WriteString(" --> ")
 	}
+	line.WriteString(" ")
 	line.WriteString(bl.UrlString)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")

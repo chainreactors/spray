@@ -232,12 +232,14 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
 	}
 
-	if opt.Word == "" {
+	if len(opt.Dictionaries) > 0 && opt.Word == "" {
 		opt.Word = "{?"
 		for i, _ := range dicts {
 			opt.Word += strconv.Itoa(i)
 		}
 		opt.Word += "}"
+	} else {
+		opt.Word = "/"
 	}
 
 	if opt.Suffixes != nil {
