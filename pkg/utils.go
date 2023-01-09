@@ -23,16 +23,17 @@ var (
 	ActivePath  []string
 	Fingers     fingers.Fingers
 	JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile(`.(https{0,1}:[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?[^=^*^\s^'^’^"^”^>^<^:^;^*^|^(^)^\[]{3}[.]js)`),
-		regexp.MustCompile(`["'‘“]\s{0,6}(/{0,1}[^\s^,^'^’^"^”^|^>^<^:^;^*^(^\)^\[]{2,250}?[^=^*^\s^'^’^|^"^”^>^<^:^;^*^(^)^\[]{3}[.]js)`),
-		regexp.MustCompile(`=\s{0,6}["'’”]{0,1}\s{0,6}(/{0,1}[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?[^=^,^*^\s^'^’^"^”^>^|^<^:^;^*^(^)^\[]{3}[.]js)`),
+		regexp.MustCompile(`.(https{0,1}:[^\s',’"”><;()|*\[]{2,250}?[^=*\s'’><:;|()[]{3}\[]\.js)`),
+		regexp.MustCompile(`["']\s{0,6}(/{0,1}[^\s',’"”><;()|*:\[]{2,250}?[^=*\s'’|"”><^:;()\[]{3}\.\.js)`),
+		regexp.MustCompile(`=\s{0,6}["']{0,1}\s{0,6}(/{0,1}[^\s^',’><;()|*\[]{2,250}?[^=,\s'’"”>|<:;*()\[]{3}\.js)`),
 	}
 	URLRegexps []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile(`["'‘“]\s{0,6}(https{0,1}:[^\s^,^'^’^"^”^>^<^),^(]{2,250}?)\s{0,6}["'‘“]`),
-		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250})`),
-		regexp.MustCompile(`["']([\w/]{2,250}?\.\w{2,4}?)["']`),
-		regexp.MustCompile(`["'‘“]\s{0,6}([#,.]{0,2}/[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?)\s{0,6}["'‘“]`),
-		regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s^'^’^"^“^>^<^)^(]{2,250})`),
+		regexp.MustCompile(`["']\s{0,6}(https{0,1}:[^\s,'’"”><)^(]{2,250}?)\s{0,6}["']`),
+		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s',’"”><;()|*\[]{2,250})`),
+		regexp.MustCompile(`["']([^\s',’"”><;()|*\[]{2,250}\.[a-zA-Z]\w{1,3})["']`),
+		regexp.MustCompile(`["'](https?:[^\s',’"”><;()|*\[]{2,250}?)["']`),
+		regexp.MustCompile(`["']\s{0,6}([#,.]{0,2}/[^\s',’"”><;()|*\[]{2,250}?)\s{0,6}["']`),
+		regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s',’"”><;()|*\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s'’"“><)(]{2,250})`),
 	}
 
 	ContentTypeMap = map[string]string{
@@ -226,8 +227,8 @@ func FingerDetect(content string) Frameworks {
 }
 
 var (
-	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf"}
-	BadURL = []string{";", "}", "{", "www.w3.org", "example.com", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*"}
+	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4"}
+	BadURL = []string{";", "}", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*"}
 )
 
 func filterJs(u string) bool {
@@ -259,6 +260,16 @@ func filterUrl(u string) bool {
 
 func formatURL(u string) string {
 	// 去掉frag与params, 节约url.parse性能, 防止带参数造成意外的影响
+	if strings.Contains(u, "2f") || strings.Contains(u, "2F") {
+		u = strings.ReplaceAll(u, "\\u002F", "/")
+		u = strings.ReplaceAll(u, "\\u002f", "/")
+		u = strings.ReplaceAll(u, "%252F", "/")
+		u = strings.ReplaceAll(u, "%252f", "/")
+		u = strings.ReplaceAll(u, "%2f", "/")
+		u = strings.ReplaceAll(u, "%2F", "/")
+	}
+
+	u = strings.TrimRight(u, "\\")
 	if i := strings.Index(u, "?"); i != -1 {
 		return u[:i]
 	}
@@ -273,8 +284,8 @@ func commonFilter(u string) bool {
 		return true
 	}
 
-	for _, scoop := range BadURL {
-		if strings.Contains(u, scoop) {
+	for _, bad := range BadURL {
+		if strings.Contains(u, bad) {
 			return true
 		}
 	}
