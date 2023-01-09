@@ -49,10 +49,11 @@ func (r *Response) Body() []byte {
 				return body
 			} else if err == io.ErrUnexpectedEOF {
 				return body[:n]
-			} else {
-				logs.Log.Error("readfull failed" + err.Error())
+			} else if err == io.EOF {
 				return nil
-
+			} else {
+				logs.Log.Error("readfull failed, " + err.Error())
+				return nil
 			}
 		}
 		return nil
