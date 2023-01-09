@@ -104,9 +104,8 @@ const (
 func RandPath() string {
 	n := 16
 	b := make([]byte, n)
-	b[0] = byte(0x2f)
 	// A rand.Int63() generates 63 random bits, enough for letterIdMax letters!
-	for i, cache, remain := n-1, src.Int63(), letterIdMax; i >= 1; {
+	for i, cache, remain := n-1, src.Int63(), letterIdMax; i >= 0; {
 		if remain == 0 {
 			cache, remain = src.Int63(), letterIdMax
 		}

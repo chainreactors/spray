@@ -380,7 +380,6 @@ func (r *Runner) Outputting() {
 					} else {
 						logs.Log.Debug(bl.String())
 					}
-
 				}
 			}
 		}
@@ -410,7 +409,9 @@ func (r *Runner) Outputting() {
 				if !ok {
 					return
 				}
-				fuzzySaveFunc(bl)
+				if r.Fuzzy {
+					fuzzySaveFunc(bl)
+				}
 			}
 		}
 	}()

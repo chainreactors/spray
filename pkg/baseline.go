@@ -135,6 +135,7 @@ type Baseline struct {
 	IsFuzzy         bool       `json:"fuzzy"`
 	Source          int        `json:"source"`
 	ReqDepth        int        `json:"depth"`
+	Distance        uint8      `json:"distance"`
 	Recu            bool       `json:"-"`
 	RecuDepth       int        `json:"-"`
 	URLs            []string   `json:"-"`
@@ -233,10 +234,11 @@ func (bl *Baseline) Compare(other *Baseline) int {
 	return -1
 }
 
-var Distance uint8 = 5
+var Distance uint8 = 5 // 数字越小越相似, 数字为0则为完全一致.
 
 func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
-	if parsers.SimhashCompare(other.BodySimhash, bl.BodySimhash) < Distance {
+	// 这里使用rawsimhash, 是为了保证一定数量的字符串, 否则超短的body会导致simhash偏差指较大
+	if other.Distance = parsers.SimhashCompare(other.RawSimhash, bl.RawSimhash); other.Distance < Distance {
 		return true
 	}
 	return false
@@ -278,6 +280,8 @@ func (bl *Baseline) Get(key string) string {
 		return strconv.Itoa(int(bl.Spended)) + "ms"
 	case "length":
 		return strconv.Itoa(bl.BodyLength)
+	case "sim", "distance":
+		return "sim:" + strconv.Itoa(int(bl.Distance))
 	case "source":
 		return GetSourceName(bl.Source)
 	case "extract":
@@ -366,6 +370,9 @@ func (bl *Baseline) ColorString() string {
 	line.WriteString(logs.YellowBold(strconv.Itoa(int(bl.Spended)) + "ms"))
 	line.WriteString(logs.YellowBold(" - " + GetSourceName(bl.Source)))
 	line.WriteString(logs.GreenLine(bl.Additional("title")))
+	if bl.Distance != 0 {
+		line.WriteString(logs.GreenLine(bl.Additional("sim")))
+	}
 	line.WriteString(logs.Cyan(bl.Frameworks.String()))
 	line.WriteString(logs.Cyan(bl.Extracteds.String()))
 	if bl.RedirectURL != "" {
@@ -416,6 +423,9 @@ func (bl *Baseline) String() string {
 	line.WriteString(" - ")
 	line.WriteString(strconv.Itoa(int(bl.Spended)) + "ms")
 	line.WriteString(bl.Additional("title"))
+	if bl.Distance != 0 {
+		line.WriteString(logs.GreenLine(bl.Additional("sim")))
+	}
 	line.WriteString(bl.Frameworks.String())
 	line.WriteString(bl.Extracteds.String())
 	if bl.RedirectURL != "" {
