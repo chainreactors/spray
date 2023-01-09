@@ -35,6 +35,8 @@ func GetSourceName(s int) string {
 		return "rule"
 	case 10:
 		return "bak"
+	case 11:
+		return "common"
 	default:
 		return "unknown"
 	}
