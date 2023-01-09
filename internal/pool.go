@@ -27,6 +27,7 @@ var (
 	maxRedirect  = 3
 	maxCrawl     = 3
 	maxRecursion = 0
+	nilBaseline  = &pkg.Baseline{}
 )
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
@@ -54,6 +55,10 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	// 挂起一个异步的处理结果线程, 不干扰主线程的请求并发
 	go func() {
 		for bl := range pool.tempCh {
+			if bl.IsValid {
+				pool.addFuzzyBaseline(bl)
+			}
+
 			if _, ok := pool.Statistor.Counts[bl.Status]; ok {
 				pool.Statistor.Counts[bl.Status]++
 			} else {
@@ -71,7 +76,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 					if bl, ok := pool.baselines[status]; ok {
 						params["bl"+strconv.Itoa(status)] = bl
 					} else {
-						params["bl"+strconv.Itoa(status)] = &pkg.Baseline{}
+						params["bl"+strconv.Itoa(status)] = nilBaseline
 					}
 				}
 			}
@@ -257,7 +262,7 @@ Loop:
 			if pool.Mod == pkg.HostSpray {
 				pool.reqPool.Invoke(newUnit(pkg.RandHost(), source))
 			} else if pool.Mod == pkg.PathSpray {
-				pool.reqPool.Invoke(newUnit(pkg.RandPath(), source))
+				pool.reqPool.Invoke(newUnit(safePath(pool.BaseURL, pkg.RandPath()), source))
 			}
 		case unit, ok := <-pool.additionCh:
 			if !ok {
@@ -323,7 +328,6 @@ func (pool *Pool) Invoke(v interface{}) {
 					pool.wg.Add(1)
 					pool.doRedirect(bl, unit.depth)
 				}
-				pool.addFuzzyBaseline(bl)
 			} else {
 				bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
 			}
@@ -643,11 +647,9 @@ func (pool *Pool) addAddition(u *Unit) {
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
-		pool.locker.Lock()
 		pool.wg.Add(1)
 		pool.doCrawl(bl)
 		pool.baselines[bl.Status] = bl
-		pool.locker.Unlock()
 		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	}
 }
