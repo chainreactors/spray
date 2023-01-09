@@ -221,12 +221,6 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	}
 
 	closeCh := make(chan struct{})
-	//go func() {
-	//	select {
-	//	case <-worderDone:
-	//		closeCh <- struct{}{}
-	//	}
-	//}()
 	var worderDone bool
 	wait := func() {
 		if !worderDone {
@@ -279,9 +273,6 @@ Loop:
 	}
 
 	pool.wg.Wait()
-	for pool.analyzeDone {
-		time.Sleep(time.Duration(100) * time.Millisecond)
-	}
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.Close()
 }
@@ -345,8 +336,8 @@ func (pool *Pool) Invoke(v interface{}) {
 		bl.Collect()
 		pool.locker.Lock()
 		pool.random = bl
-		pool.locker.Unlock()
 		pool.addFuzzyBaseline(bl)
+		pool.locker.Unlock()
 		pool.initwg.Done()
 	case InitIndexSource:
 		bl.Collect()
@@ -354,10 +345,10 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.index = bl
 		pool.locker.Unlock()
 		pool.wg.Add(1)
+		pool.doCrawl(bl)
 		if bl.Status == 200 || (bl.Status/100) == 3 {
 			pool.OutputCh <- bl
 		}
-		pool.doCrawl(bl)
 		pool.initwg.Done()
 	case CheckSource:
 		if bl.ErrString != "" {
@@ -399,7 +390,7 @@ func (pool *Pool) Invoke(v interface{}) {
 
 func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 	status := resp.StatusCode()
-	if IntsContains(WhiteStatus, status) {
+	if pkg.IntsContains(WhiteStatus, status) {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
@@ -407,11 +398,11 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 		return ErrSameStatus
 	}
 
-	if IntsContains(BlackStatus, status) {
+	if pkg.IntsContains(BlackStatus, status) {
 		return ErrBadStatus
 	}
 
-	if IntsContains(WAFStatus, status) {
+	if pkg.IntsContains(WAFStatus, status) {
 		return ErrWaf
 	}
 
@@ -505,17 +496,47 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 		return
 	}
 	bl.CollectURL()
+	if bl.URLs == nil {
+		pool.wg.Done()
+		return
+	}
 	go func() {
 		defer pool.wg.Done()
 		for _, u := range bl.URLs {
 			if strings.HasPrefix(u, "//") {
-				u = bl.Url.Scheme + u
+				parsed, err := url.Parse(u)
+				if err != nil {
+					continue
+				}
+				if parsed.Host != bl.Url.Host {
+					continue
+				}
+				u = parsed.Path
 			} else if strings.HasPrefix(u, "/") {
 				// 绝对目录拼接
-				u = pkg.URLJoin(pool.BaseURL, u)
+				// 不需要进行处理, 用来跳过下面的判断
+			} else if strings.HasPrefix(u, "./") {
+				// "./"相对目录拼接
+				if bl.Dir {
+					u = pkg.URLJoin(bl.Url.Path, u[2:])
+				} else {
+					u = pkg.URLJoin(path.Dir(bl.Url.Path), u[2:])
+				}
 			} else if !strings.HasPrefix(u, "http") {
 				// 相对目录拼接
-				u = pkg.URLJoin(pool.BaseURL, u)
+				if bl.Dir {
+					u = pkg.URLJoin(bl.Url.Path, u)
+				} else {
+					u = pkg.URLJoin(path.Dir(bl.Url.Path), u)
+				}
+			} else {
+				parsed, err := url.Parse(u)
+				if err != nil {
+					continue
+				}
+				if parsed.Host != bl.Url.Host {
+					continue
+				}
 			}
 
 			if _, ok := pool.urls[u]; ok {
@@ -526,17 +547,9 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 				pool.urls[u] = 1
 				pool.locker.Unlock()
 				if bl.ReqDepth < maxCrawl {
-					parsed, err := url.Parse(u)
-					if err != nil {
-						continue
-					}
-					if parsed.Host != bl.Url.Host {
-						// 自动限定scoop, 防止爬到其他网站
-						continue
-					}
 					pool.wg.Add(1)
 					pool.addAddition(&Unit{
-						path:   parsed.Path,
+						path:   u[1:],
 						source: CrawlSource,
 						depth:  bl.ReqDepth + 1,
 					})
@@ -645,7 +658,7 @@ func (pool *Pool) addAddition(u *Unit) {
 }
 
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
-	if _, ok := pool.baselines[bl.Status]; !ok && IntsContains(FuzzyStatus, bl.Status) {
+	if _, ok := pool.baselines[bl.Status]; !ok && pkg.IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
 		pool.wg.Add(1)
 		pool.doCrawl(bl)

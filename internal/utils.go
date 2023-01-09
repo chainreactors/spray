@@ -16,24 +16,6 @@ func parseExtension(s string) string {
 	return ""
 }
 
-func StringsContains(s []string, e string) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
-
-func IntsContains(s []int, e int) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
-
 func loadFileToSlice(filename string) ([]string, error) {
 	var ss []string
 	content, err := ioutil.ReadFile(filename)

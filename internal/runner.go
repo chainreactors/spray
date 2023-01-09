@@ -326,6 +326,13 @@ func (r *Runner) Done() {
 }
 
 func (r *Runner) Outputting() {
+	debugPrint := func(bl *pkg.Baseline) {
+		if r.Color {
+			logs.Log.Debug(bl.ColorString())
+		} else {
+			logs.Log.Debug(bl.String())
+		}
+	}
 	go func() {
 		var saveFunc func(*pkg.Baseline)
 
@@ -355,7 +362,6 @@ func (r *Runner) Outputting() {
 						logs.Log.Console("[+] " + bl.String() + "\n")
 					}
 				}
-
 			}
 		}
 
@@ -375,11 +381,7 @@ func (r *Runner) Outputting() {
 						r.AddPool(&Task{baseUrl: bl.UrlString, depth: bl.RecuDepth + 1})
 					}
 				} else {
-					if r.Color {
-						logs.Log.Debug(bl.ColorString())
-					} else {
-						logs.Log.Debug(bl.String())
-					}
+					debugPrint(bl)
 				}
 			}
 		}
@@ -411,6 +413,8 @@ func (r *Runner) Outputting() {
 				}
 				if r.Fuzzy {
 					fuzzySaveFunc(bl)
+				} else {
+					debugPrint(bl)
 				}
 			}
 		}
