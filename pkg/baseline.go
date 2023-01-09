@@ -25,7 +25,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		bl.Url = uu
 	}
 	bl.Dir = bl.IsDir()
-	if resp.ClientType == ihttp.STANDARD {
+	if bl.Url.Host != host {
 		bl.Host = host
 	}
 	header := resp.Header()
@@ -67,7 +67,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 	}
 	bl.Dir = bl.IsDir()
 
-	if resp.ClientType == ihttp.STANDARD {
+	if bl.Url.Host != host {
 		bl.Host = host
 	}
 
