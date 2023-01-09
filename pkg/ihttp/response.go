@@ -6,6 +6,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type Response struct {
@@ -54,6 +55,23 @@ func (r *Response) ContentLength() int {
 		return int(r.StandardResponse.ContentLength)
 	} else {
 		return 0
+	}
+}
+
+func (r *Response) ContentType() string {
+	var t string
+	if r.FastResponse != nil {
+		t = string(r.FastResponse.Header.ContentType())
+	} else if r.StandardResponse != nil {
+		t = r.StandardResponse.Header.Get("Content-Type")
+	} else {
+		return ""
+	}
+
+	if i := strings.Index(t, ";"); i > 0 {
+		return t[:i]
+	} else {
+		return t
 	}
 }
 

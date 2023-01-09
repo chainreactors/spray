@@ -77,6 +77,10 @@ func (r *Request) Host() string {
 }
 
 func safeUrlJoin(base, uri string) string {
+	if uri == "" {
+		// 如果url为空, 则直接对原样的url请求
+		return base
+	}
 	if !strings.HasSuffix(base, "/") && !strings.HasPrefix(uri, "/") {
 		return base + "/" + uri
 	} else {

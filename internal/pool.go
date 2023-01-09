@@ -148,7 +148,7 @@ type Pool struct {
 func (pool *Pool) Init() error {
 	// 分成两步是为了避免闭包的线程安全问题
 	pool.initwg.Add(2)
-	pool.reqPool.Invoke(newUnit("/", InitIndexSource))
+	pool.reqPool.Invoke(newUnit("", InitIndexSource))
 	pool.reqPool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
 	pool.initwg.Wait()
 	if pool.index.ErrString != "" {
@@ -175,6 +175,11 @@ func (pool *Pool) Init() error {
 }
 
 func (pool *Pool) checkRedirect(redirectURL string) bool {
+	if pool.random.RedirectURL == "" {
+		// 如果random的redirectURL为空, 此时该项
+		return true
+	}
+
 	if redirectURL == pool.random.RedirectURL {
 		// 相同的RedirectURL将被认为是无效数据
 		return false
