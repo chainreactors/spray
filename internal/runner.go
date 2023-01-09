@@ -48,6 +48,7 @@ type Runner struct {
 	RecuDepth      int
 	Threads        int
 	PoolSize       int
+	ClientType     int
 	Pools          *ants.PoolWithFunc
 	PoolName       map[string]bool
 	Timeout        int
@@ -99,11 +100,15 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Active:         r.Active,
 		Bak:            r.Bak,
 		Common:         r.Common,
+		ClientType:     r.ClientType,
 	}
-	if config.Mod == pkg.PathSpray {
-		config.ClientType = ihttp.FAST
-	} else if config.Mod == pkg.HostSpray {
-		config.ClientType = ihttp.STANDARD
+
+	if config.ClientType == 0 {
+		if config.Mod == pkg.PathSpray {
+			config.ClientType = ihttp.FAST
+		} else if config.Mod == pkg.HostSpray {
+			config.ClientType = ihttp.STANDARD
+		}
 	}
 	return config
 }

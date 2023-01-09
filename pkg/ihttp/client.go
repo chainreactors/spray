@@ -14,7 +14,8 @@ var (
 )
 
 const (
-	FAST = iota
+	Auto = iota
+	FAST
 	STANDARD
 )
 
