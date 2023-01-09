@@ -23,15 +23,16 @@ var (
 	ActivePath  []string
 	Fingers     fingers.Fingers
 	JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile(".(https{0,1}:[^\\s,^',^’,^\",^”,^>,^<,^;,^(,^),^|,^*,^\\[]{2,250}?[^=,^*,^\\s,^',^’,^\",^”,^>,^<,^:,^;,^*,^|,^(,^),^\\[]{3}[.]js)"),
-		regexp.MustCompile("[\",',‘,“]\\s{0,6}(/{0,1}[^\\s,^',^’,^\",^”,^|,^>,^<,^:,^;,^*,^(,^\\),^\\[]{2,250}?[^=,^*,^\\s,^',^’,^|,^\",^”,^>,^<,^:,^;,^*,^(,^),^\\[]{3}[.]js)"),
-		regexp.MustCompile("=\\s{0,6}[\",',’,”]{0,1}\\s{0,6}(/{0,1}[^\\s,^',^’,^\",^”,^|,^>,^<,^;,^*,^(,^),^\\[]{2,250}?[^=,^*,^\\s,^',^’,^\",^”,^>,^|,^<,^:,^;,^*,^(,^),^\\[]{3}[.]js)"),
+		regexp.MustCompile(`.(https{0,1}:[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?[^=^*^\s^'^’^"^”^>^<^:^;^*^|^(^)^\[]{3}[.]js)`),
+		regexp.MustCompile(`["'‘“]\s{0,6}(/{0,1}[^\s^,^'^’^"^”^|^>^<^:^;^*^(^\)^\[]{2,250}?[^=^*^\s^'^’^|^"^”^>^<^:^;^*^(^)^\[]{3}[.]js)`),
+		regexp.MustCompile(`=\s{0,6}["'’”]{0,1}\s{0,6}(/{0,1}[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?[^=^,^*^\s^'^’^"^”^>^|^<^:^;^*^(^)^\[]{3}[.]js)`),
 	}
 	URLRegexps []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile("[\",',‘,“]\\s{0,6}(https{0,1}:[^\\s,^',^’,^\",^”,^>,^<,^),^(]{2,250}?)\\s{0,6}[\",',‘,“]"),
-		regexp.MustCompile("=\\s{0,6}(https{0,1}:[^\\s,^',^’,^\",^”,^>,^<,^),^(]{2,250})"),
-		regexp.MustCompile("[\",',‘,“]\\s{0,6}([#,.]{0,2}/[^\\s,^',^’,^\",^”,^>,^<,^:,^),^(]{2,250}?)\\s{0,6}[\",',‘,“]"),
-		regexp.MustCompile("href\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})|action\\s{0,6}=\\s{0,6}[\",',‘,“]{0,1}\\s{0,6}([^\\s,^',^’,^\",^“,^>,^<,^,^+),^(]{2,250})"),
+		regexp.MustCompile(`["'‘“]\s{0,6}(https{0,1}:[^\s^,^'^’^"^”^>^<^),^(]{2,250}?)\s{0,6}["'‘“]`),
+		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250})`),
+		regexp.MustCompile(`["'](\w{2,250}?\.\w{2,4}?)["']`),
+		regexp.MustCompile(`["'‘“]\s{0,6}([#,.]{0,2}/[^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250}?)\s{0,6}["'‘“]`),
+		regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s^'^,^’^"^”^>^<^;^(^)^|^*^\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s^'^’^"^“^>^<^)^(]{2,250})`),
 	}
 
 	ContentTypeMap = map[string]string{
@@ -225,8 +226,8 @@ func FingerDetect(content string) Frameworks {
 }
 
 var (
-	BadExt = []string{".js", ".css", ".scss", ",", ".jpeg", ".jpg", ".png", ".gif", ".ico", ".svg", ".vue", ".ts"}
-	BadURL = []string{"www.w3.org", "example.com", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*"}
+	BadExt = []string{".js", ".css", ".scss", ",", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts"}
+	BadURL = []string{";", "}", "{", "www.w3.org", "example.com", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path", "*#__PURE__*"}
 )
 
 func filterJs(u string) bool {
