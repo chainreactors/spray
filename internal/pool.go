@@ -42,7 +42,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan int),
 		additionCh:  make(chan *Unit, 100),
-		closeCh:     make(chan struct{}),
 		wg:          sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		reqCount:    1,
@@ -134,7 +133,6 @@ type Pool struct {
 	tempCh          chan *pkg.Baseline // 待处理的baseline
 	checkCh         chan int           // 独立的check管道， 防止与redirect/crawl冲突
 	additionCh      chan *Unit
-	closeCh         chan struct{}
 	reqCount        int
 	failedCount     int
 	isFailed        bool

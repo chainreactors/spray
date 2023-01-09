@@ -31,7 +31,7 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
 				ReadTimeout:                   time.Duration(timeout) * time.Second,
 				WriteTimeout:                  time.Duration(timeout) * time.Second,
-				ReadBufferSize:                16384,
+				ReadBufferSize:                16384, // 16k
 				MaxResponseBodySize:           DefaultMaxBodySize,
 				NoDefaultUserAgentHeader:      true,
 				DisablePathNormalizing:        true,
@@ -52,6 +52,7 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 					},
 					MaxConnsPerHost: thread * 3 / 2,
 					IdleConnTimeout: time.Duration(timeout) * time.Second,
+					ReadBufferSize:  16384, // 16k
 				},
 				Timeout: time.Second * time.Duration(timeout),
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {

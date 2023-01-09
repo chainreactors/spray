@@ -29,8 +29,20 @@ func (r *Response) Body() []byte {
 	if r.FastResponse != nil {
 		return r.FastResponse.Body()
 	} else if r.StandardResponse != nil {
-		body := make([]byte, 20480)
-		if r.StandardResponse.ContentLength > 0 {
+		if DefaultMaxBodySize == 0 {
+			body, err := io.ReadAll(r.StandardResponse.Body)
+			if err != nil {
+				return nil
+			}
+			return body
+		} else {
+			var body []byte
+			if r.StandardResponse.ContentLength > 0 && r.StandardResponse.ContentLength < int64(DefaultMaxBodySize) {
+				body = make([]byte, r.StandardResponse.ContentLength)
+			} else {
+				body = make([]byte, DefaultMaxBodySize)
+			}
+
 			n, err := io.ReadFull(r.StandardResponse.Body, body)
 			_ = r.StandardResponse.Body.Close()
 			if err == nil {
@@ -40,6 +52,7 @@ func (r *Response) Body() []byte {
 			} else {
 				logs.Log.Error("readfull failed" + err.Error())
 				return nil
+
 			}
 		}
 		return nil

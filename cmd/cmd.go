@@ -3,13 +3,16 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 )
@@ -56,6 +59,25 @@ func Spray() {
 		utils.Fatal(err.Error())
 	}
 
+	if option.Extracts != nil {
+		for _, e := range option.Extracts {
+			if reg, ok := fingers.PresetExtracts[e]; ok {
+				pkg.Extractors[e] = reg
+			} else {
+				pkg.Extractors[e] = regexp.MustCompile(e)
+			}
+		}
+	}
+	// 一些全局变量初始化
+	if option.Debug {
+		logs.Log.Level = logs.Debug
+	}
+
+	pkg.Distance = uint8(option.SimhashDistance)
+	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
+	if option.ReadAll {
+		ihttp.DefaultMaxBodySize = 0
+	}
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {
 		runner, err = option.PrepareRunner()
