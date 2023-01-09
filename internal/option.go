@@ -414,7 +414,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Recursive != "current.IsDir()" {
-		maxRecursion = 1
+		MaxRecursion = 1
 		exp, err := expr.Compile(opt.Recursive)
 		if err != nil {
 			return nil, err
@@ -422,7 +422,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.RecursiveExpr = exp
 	}
 	if opt.Depth != 0 {
-		maxRecursion = opt.Depth
+		MaxRecursion = opt.Depth
 	}
 
 	// prepare header

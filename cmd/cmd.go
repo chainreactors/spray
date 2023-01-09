@@ -75,6 +75,7 @@ func Spray() {
 
 	pkg.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
+	internal.MaxCrawl = option.CrawlDepth
 	if option.ReadAll {
 		ihttp.DefaultMaxBodySize = 0
 	}

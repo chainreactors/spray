@@ -24,9 +24,9 @@ import (
 
 var (
 	max          = 2147483647
-	maxRedirect  = 3
-	maxCrawl     = 3
-	maxRecursion = 0
+	MaxRedirect  = 3
+	MaxCrawl     = 3
+	MaxRecursion = 0
 	nilBaseline  = &pkg.Baseline{}
 )
 
@@ -107,7 +107,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 				pool.wg.Add(2)
 				pool.doCrawl(bl)
 				pool.doRule(bl)
-				if bl.RecuDepth < maxRecursion {
+				if bl.RecuDepth < MaxRecursion {
 					if CompareWithExpr(pool.RecuExpr, params) {
 						bl.Recu = true
 					}
@@ -473,7 +473,7 @@ func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
 
 func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 	defer pool.wg.Done()
-	if depth >= maxRedirect {
+	if depth >= MaxRedirect {
 		return
 	}
 
@@ -546,7 +546,7 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 			} else {
 				// 通过map去重,  只有新的url才会进入到该逻辑
 				pool.urls[u] = 1
-				if bl.ReqDepth < maxCrawl {
+				if bl.ReqDepth < MaxCrawl {
 					pool.wg.Add(1)
 					pool.addAddition(&Unit{
 						path:   u[1:],
