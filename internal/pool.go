@@ -506,7 +506,7 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 				if err != nil {
 					continue
 				}
-				if parsed.Host != bl.Url.Host {
+				if parsed.Host != bl.Url.Host || len(parsed.Path) <= 1 {
 					continue
 				}
 				u = parsed.Path
@@ -534,18 +534,18 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 				if err != nil {
 					continue
 				}
-				if parsed.Host != bl.Url.Host {
+				if parsed.Host != bl.Url.Host || len(parsed.Path) <= 1 {
 					continue
 				}
+				u = parsed.Path
 			}
 
+			pool.locker.Lock()
 			if _, ok := pool.urls[u]; ok {
 				pool.urls[u]++
 			} else {
 				// 通过map去重,  只有新的url才会进入到该逻辑
-				pool.locker.Lock()
 				pool.urls[u] = 1
-				pool.locker.Unlock()
 				if bl.ReqDepth < maxCrawl {
 					pool.wg.Add(1)
 					pool.addAddition(&Unit{
@@ -555,6 +555,7 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 					})
 				}
 			}
+			pool.locker.Unlock()
 		}
 	}()
 

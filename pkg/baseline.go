@@ -13,35 +13,6 @@ import (
 	"strings"
 )
 
-func GetSourceName(s int) string {
-	switch s {
-	case 1:
-		return "check"
-	case 2:
-		return "random"
-	case 3:
-		return "index"
-	case 4:
-		return "redirect"
-	case 5:
-		return "crawl"
-	case 6:
-		return "active"
-	case 7:
-		return "word"
-	case 8:
-		return "waf"
-	case 9:
-		return "rule"
-	case 10:
-		return "bak"
-	case 11:
-		return "common"
-	default:
-		return "unknown"
-	}
-}
-
 func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl := &Baseline{
 		UrlString: u,
@@ -176,8 +147,9 @@ func (bl *Baseline) CollectURL() {
 	for _, reg := range JSRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
+			u[1] = formatURL(u[1])
 			if !filterJs(u[1]) {
-				bl.URLs = append(bl.URLs, formatURL(u[1]))
+				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
 	}
@@ -185,8 +157,9 @@ func (bl *Baseline) CollectURL() {
 	for _, reg := range URLRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
+			u[1] = formatURL(u[1])
 			if !filterUrl(u[1]) {
-				bl.URLs = append(bl.URLs, formatURL(u[1]))
+				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
 	}
