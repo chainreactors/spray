@@ -323,10 +323,10 @@ func (pool *Pool) Invoke(v interface{}) {
 		}
 	}
 
-	if bl.BodyLength > ihttp.DefaultMaxBodySize {
+	if ihttp.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp.DefaultMaxBodySize {
 		bl.ExceedLength = true
 	}
-	bl.Source = int(unit.source)
+	bl.Source = unit.source
 	bl.ReqDepth = unit.depth
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
