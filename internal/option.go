@@ -4,17 +4,14 @@ import (
 	"fmt"
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
 	"io/ioutil"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -72,6 +69,7 @@ type RequestOptions struct {
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
 	Cookie          []string `long:"cookie" description:"String, Multi, custom cookie"`
+	ReadAll         bool     `long:"read-all" description:"Bool, read all response body"`
 	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000"`
 }
 
@@ -140,24 +138,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Common:         opt.Common,
 	}
 
-	if opt.Extracts != nil {
-		for _, e := range opt.Extracts {
-			if reg, ok := fingers.PresetExtracts[e]; ok {
-				pkg.Extractors[e] = reg
-			} else {
-				pkg.Extractors[e] = regexp.MustCompile(e)
-			}
-		}
-	}
-	// 一些全局变量初始化
+	// log and bar
 	if !opt.NoColor {
 		logs.Log.Color = true
 		logs.DefaultColorMap[logs.Info] = logs.PurpleBold
 		logs.DefaultColorMap[logs.Important] = logs.Green
 		r.Color = true
-	}
-	if opt.Debug {
-		logs.Log.Level = logs.Debug
 	}
 	if opt.Quiet {
 		logs.Log.Quiet = true
@@ -168,8 +154,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Progress.Start()
 		logs.Log.Writer = r.Progress.Bypass()
 	}
-	pkg.Distance = uint8(opt.SimhashDistance)
-	ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
 
 	// configuration
 	if opt.Force {
