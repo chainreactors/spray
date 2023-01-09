@@ -6,6 +6,7 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
@@ -161,6 +162,14 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.BreakThreshold = max
 		r.CheckPeriod = max
 		r.ErrPeriod = max
+	}
+
+	if opt.Client == "auto" {
+		r.ClientType = ihttp.Auto
+	} else if opt.Client == "fast" {
+		r.ClientType = ihttp.FAST
+	} else if opt.Client == "standard" {
+		r.ClientType = ihttp.STANDARD
 	}
 
 	if opt.Advance {
