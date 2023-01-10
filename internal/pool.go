@@ -81,6 +81,12 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 				pool.Statistor.Counts[bl.Status] = 1
 			}
 
+			if _, ok := pool.Statistor.Sources[bl.Source]; ok {
+				pool.Statistor.Sources[bl.Source]++
+			} else {
+				pool.Statistor.Sources[bl.Source] = 1
+			}
+
 			var params map[string]interface{}
 			if pool.MatchExpr != nil || pool.FilterExpr != nil || pool.RecuExpr != nil {
 				params = map[string]interface{}{
@@ -172,7 +178,7 @@ type Pool struct {
 func (pool *Pool) Init() error {
 	// 分成两步是为了避免闭包的线程安全问题
 	pool.initwg.Add(2)
-	pool.reqPool.Invoke(newUnit("", InitIndexSource))
+	pool.reqPool.Invoke(newUnit(pool.url.Path, InitIndexSource))
 	pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
 	pool.initwg.Wait()
 	if pool.index.ErrString != "" {
