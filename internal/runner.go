@@ -223,10 +223,12 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 			if r.Color {
 				logs.Log.Important(pool.Statistor.ColorString())
-				logs.Log.Important(pool.Statistor.ColorDetail())
+				logs.Log.Important(pool.Statistor.ColorCountString())
+				logs.Log.Important(pool.Statistor.ColorSourceString())
 			} else {
 				logs.Log.Important(pool.Statistor.String())
-				logs.Log.Important(pool.Statistor.Detail())
+				logs.Log.Important(pool.Statistor.CountString())
+				logs.Log.Important(pool.Statistor.SourceString())
 			}
 
 			if r.StatFile != nil {
