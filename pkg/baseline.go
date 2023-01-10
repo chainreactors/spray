@@ -19,15 +19,6 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		Status:    resp.StatusCode(),
 		IsValid:   true,
 	}
-	uu, err := url.Parse(u)
-	if err == nil {
-		bl.Path = uu.Path
-		bl.Url = uu
-	}
-	bl.Dir = bl.IsDir()
-	if bl.Url.Host != host {
-		bl.Host = host
-	}
 	header := resp.Header()
 	bl.Header = make([]byte, len(header))
 	copy(bl.Header, header)
@@ -53,6 +44,16 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	}
 	bl.Raw = append(bl.Header, bl.Body...)
 	bl.RedirectURL = resp.GetHeader("Location")
+
+	uu, err := url.Parse(u)
+	if err == nil {
+		bl.Path = uu.Path
+		bl.Url = uu
+	}
+	bl.Dir = bl.IsDir()
+	if bl.Url.Host != host {
+		bl.Host = host
+	}
 	return bl
 }
 
@@ -64,21 +65,22 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 		Reason:    reason,
 	}
 
+	// 无效数据也要读取body, 否则keep-alive不生效
+	resp.Body()
+	bl.BodyLength = resp.ContentLength()
+	bl.RedirectURL = string(resp.GetHeader("Location"))
+
 	uu, err := url.Parse(u)
 	if err == nil {
 		bl.Path = uu.Path
 		bl.Url = uu
+		return bl
 	}
 	bl.Dir = bl.IsDir()
 
 	if bl.Url.Host != host {
 		bl.Host = host
 	}
-
-	// 无效数据也要读取body, 否则keep-alive不生效
-	resp.Body()
-	bl.BodyLength = resp.ContentLength()
-	bl.RedirectURL = string(resp.GetHeader("Location"))
 
 	return bl
 }
@@ -152,7 +154,7 @@ func (bl *Baseline) CollectURL() {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			u[1] = formatURL(u[1])
-			if !filterJs(u[1]) {
+			if u[1] != "" && !filterJs(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
@@ -162,7 +164,7 @@ func (bl *Baseline) CollectURL() {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			u[1] = formatURL(u[1])
-			if !filterUrl(u[1]) {
+			if u[1] != "" && !filterUrl(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
@@ -314,12 +316,11 @@ func (bl *Baseline) Format(probes []string) string {
 
 func (bl *Baseline) ColorString() string {
 	var line strings.Builder
-	line.WriteString(logs.GreenLine("[" + GetSourceName(bl.Source) + "]"))
+	line.WriteString(logs.GreenLine("[" + GetSourceName(bl.Source) + "] "))
 	if bl.FrontURL != "" {
 		line.WriteString(logs.CyanLine(bl.FrontURL))
 		line.WriteString(" --> ")
 	}
-	line.WriteString(" ")
 	line.WriteString(logs.GreenLine(bl.UrlString))
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")
@@ -368,12 +369,11 @@ func (bl *Baseline) ColorString() string {
 
 func (bl *Baseline) String() string {
 	var line strings.Builder
-	line.WriteString(logs.GreenLine("[" + GetSourceName(bl.Source) + "]"))
+	line.WriteString(logs.GreenLine("[" + GetSourceName(bl.Source) + "] "))
 	if bl.FrontURL != "" {
 		line.WriteString(bl.FrontURL)
 		line.WriteString(" --> ")
 	}
-	line.WriteString(" ")
 	line.WriteString(bl.UrlString)
 	if bl.Host != "" {
 		line.WriteString(" (" + bl.Host + ")")

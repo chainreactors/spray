@@ -86,6 +86,7 @@ type ModeOptions struct {
 	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
 	CrawlDepth      int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
+	CrawlScope      string `long:"crawl-scope" description:"Int, crawl scope (todo)"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
@@ -225,15 +226,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
 	}
 
-	if len(opt.Dictionaries) == 0 && opt.Word == "" {
-		// 用来仅使用高级功能下, 防止无字典报错.
-		opt.Word = "/"
-	} else {
-		opt.Word = "{?"
-		for i, _ := range dicts {
-			opt.Word += strconv.Itoa(i)
+	if opt.Word == "" {
+		if len(opt.Dictionaries) == 0 {
+			opt.Word = "/"
+		} else {
+			opt.Word = "{?"
+			for i, _ := range dicts {
+				opt.Word += strconv.Itoa(i)
+			}
+			opt.Word += "}"
 		}
-		opt.Word += "}"
 	}
 
 	if opt.Suffixes != nil {

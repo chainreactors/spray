@@ -3,16 +3,15 @@ package ihttp
 import (
 	"github.com/valyala/fasthttp"
 	"net/http"
-	"strings"
 )
 
 func BuildPathRequest(clientType int, base, path string) (*Request, error) {
 	if clientType == FAST {
 		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(safeUrlJoin(base, path))
+		req.SetRequestURI(base + path)
 		return &Request{FastRequest: req, ClientType: FAST}, nil
 	} else {
-		req, err := http.NewRequest("GET", safeUrlJoin(base, path), nil)
+		req, err := http.NewRequest("GET", base+path, nil)
 		return &Request{StandardRequest: req, ClientType: STANDARD}, err
 	}
 }
@@ -73,17 +72,5 @@ func (r *Request) Host() string {
 		return r.StandardRequest.Host
 	} else {
 		return ""
-	}
-}
-
-func safeUrlJoin(base, uri string) string {
-	if uri == "" {
-		// 如果url为空, 则直接对原样的url请求
-		return base
-	}
-	if !strings.HasSuffix(base, "/") && !strings.HasPrefix(uri, "/") {
-		return base + "/" + uri
-	} else {
-		return base + uri
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"io/ioutil"
+	"net/url"
+	"path"
 	"strings"
 )
 
@@ -107,14 +109,107 @@ func loadRuleWithFiles(ruleFiles []string, filter string) ([]rule.Expression, er
 	return rule.Compile(rules.String(), filter).Expressions, nil
 }
 
-func safePath(url, path string) string {
-	urlSlash := strings.HasSuffix(url, "/")
-	pathSlash := strings.HasPrefix(path, "/")
-	if !urlSlash && !pathSlash {
-		return "/" + path
-	} else if urlSlash && pathSlash {
-		return path[1:]
+func relaPath(base, u string) string {
+	// 拼接相对目录, 不使用path.join的原因是, 如果存在"////"这样的情况, 可能真的是有意义的路由, 不能随意去掉.
+	// ""	/a 	/a
+	// "" 	a  	/a
+	// /    ""  /
+	// /a/ 	b 	/a/b
+	// /a/ 	/b 	/a/b
+	// /a  	b 	/b
+	// /a  	/b 	/b
+
+	if u == "" {
+		return base
+	}
+
+	pathSlash := strings.HasPrefix(u, "/")
+	if base == "" {
+		if pathSlash {
+			return u[1:]
+		} else {
+			return "/" + u
+		}
+	} else if strings.HasSuffix(base, "/") {
+		if pathSlash {
+			return base + u[1:]
+		} else {
+			return base + u
+		}
 	} else {
-		return path
+		if pathSlash {
+			return Dir(base) + u[1:]
+		} else {
+			return Dir(base) + u
+		}
 	}
 }
+
+func Dir(u string) string {
+	// 安全的获取目录, 不会额外处理多个"//", 并非用来获取上级目录
+	// /a 	/
+	// /a/ 	/a/
+	// a/ 	a/
+	// aaa 	/
+
+	if strings.HasSuffix(u, "/") {
+		return u
+	} else if i := strings.LastIndex(u, "/"); i == -1 {
+		return "/"
+	} else {
+		return u[:i+1]
+	}
+}
+
+func FormatURL(base, u string) string {
+	if strings.HasPrefix(u, "http") {
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return ""
+		}
+		if len(parsed.Path) <= 1 {
+			return ""
+		}
+		return parsed.Path
+	} else if strings.HasPrefix(u, "//") {
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return ""
+		}
+		if len(parsed.Path) <= 1 {
+			// 跳过"/"与空目录
+			return ""
+		}
+		return parsed.Path
+	} else if strings.HasPrefix(u, "/") {
+		// 绝对目录拼接
+		// 不需要进行处理, 用来跳过下面的判断
+		return u
+	} else if strings.HasPrefix(u, "./") {
+		// "./"相对目录拼接
+		return relaPath(base, u[2:])
+	} else if strings.HasPrefix(u, "../") {
+		return path.Join(Dir(base), u)
+	} else {
+		// 相对目录拼接
+		return relaPath(base, u)
+	}
+}
+
+//func Join(base, u string) string {
+//	// //././ ../../../a
+//	base = Dir(base)
+//	for strings.HasPrefix(u, "../") {
+//		u = u[3:]
+//		for strings.HasSuffix(base, "/") {
+//			// 去掉多余的"/"
+//			base = base[:len(base)-2]
+//		}
+//		if i := strings.LastIndex(base, "/"); i == -1 {
+//			return "/"
+//		} else {
+//			return base[:i+1]
+//		}
+//	}
+//	return base + u
+//}
