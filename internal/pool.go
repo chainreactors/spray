@@ -39,6 +39,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
 		Config:      config,
+		base:        u.Scheme + "://" + u.Hostname(),
+		isDir:       strings.HasSuffix(config.BaseURL, "/"),
 		url:         u,
 		ctx:         pctx,
 		cancel:      cancel,
@@ -52,6 +54,15 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		initwg:      sync.WaitGroup{},
 		reqCount:    1,
 		failedCount: 1,
+	}
+
+	// 格式化dir, 保证至少有一个"/"
+	if pool.isDir {
+		pool.dir = pool.url.Path
+	} else if pool.url.Path == "" {
+		pool.dir = "/"
+	} else {
+		pool.dir = Dir(pool.url.Path)
 	}
 
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
@@ -130,6 +141,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 type Pool struct {
 	*pkg.Config
+	base            string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
+	isDir           bool   // url是否以/结尾
+	dir             string
 	url             *url.URL
 	Statistor       *pkg.Statistor
 	client          *ihttp.Client
@@ -159,7 +173,7 @@ func (pool *Pool) Init() error {
 	// 分成两步是为了避免闭包的线程安全问题
 	pool.initwg.Add(2)
 	pool.reqPool.Invoke(newUnit("", InitIndexSource))
-	pool.reqPool.Invoke(newUnit(pkg.RandPath(), InitRandomSource))
+	pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
 	pool.initwg.Wait()
 	if pool.index.ErrString != "" {
 		return fmt.Errorf(pool.index.String())
@@ -206,7 +220,7 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 	if pool.Mod == pkg.HostSpray {
 		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
 	} else if pool.Mod == pkg.PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.BaseURL, s)
+		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
@@ -258,13 +272,13 @@ Loop:
 			}
 
 			pool.wg.Add(1)
-			pool.reqPool.Invoke(newUnit(u, WordSource))
+			pool.reqPool.Invoke(newUnit(pool.safePath(u), WordSource)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
 			if pool.Mod == pkg.HostSpray {
 				pool.reqPool.Invoke(newUnit(pkg.RandHost(), source))
 			} else if pool.Mod == pkg.PathSpray {
-				pool.reqPool.Invoke(newUnit(safePath(pool.BaseURL, pkg.RandPath()), source))
+				pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), source))
 			}
 		case unit, ok := <-pool.additionCh:
 			if !ok {
@@ -306,30 +320,27 @@ func (pool *Pool) Invoke(v interface{}) {
 	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 		pool.failedCount++
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
-		bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
+		bl = &pkg.Baseline{UrlString: pool.base + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
 		pool.failedBaselines = append(pool.failedBaselines, bl)
 	} else {
 		if unit.source <= 3 || unit.source == CrawlSource || unit.source == CommonFileSource {
+			// 一些高优先级的source, 将跳过PreCompare
+			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+		} else if pool.MatchExpr != nil {
+			// 如果自定义了match函数, 则所有数据送入tempch中
+			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+		} else if err = pool.PreCompare(resp); err == nil {
+			// 通过预对比跳过一些无用数据, 减少性能消耗
 			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 		} else {
-			if pool.MatchExpr != nil {
-				// 如果非wordsource, 或自定义了match函数, 则所有数据送入tempch中
-				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
-			} else if err = pool.PreCompare(resp); err == nil {
-				// 通过预对比跳过一些无用数据, 减少性能消耗
-				bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
-				if err != ErrRedirect && bl.RedirectURL != "" {
-					if bl.RedirectURL != "" && !strings.HasPrefix(bl.RedirectURL, "http") {
-						bl.RedirectURL = "/" + strings.TrimLeft(bl.RedirectURL, "/")
-						bl.RedirectURL = pool.BaseURL + bl.RedirectURL
-					}
-					pool.wg.Add(1)
-					pool.doRedirect(bl, unit.depth)
-				}
-			} else {
-				bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
-			}
+			bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
 		}
+	}
+
+	// 手动处理重定向
+	if bl.IsValid && unit.source != CheckSource && bl.RedirectURL != "" {
+		pool.wg.Add(1)
+		pool.doRedirect(bl, unit.depth)
 	}
 
 	if ihttp.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp.DefaultMaxBodySize {
@@ -484,7 +495,7 @@ func (pool *Pool) Upgrade(bl *pkg.Baseline) error {
 	rurl, err := url.Parse(bl.RedirectURL)
 	if err == nil && rurl.Hostname() == bl.Url.Hostname() && bl.Url.Scheme == "http" && rurl.Scheme == "https" {
 		logs.Log.Infof("baseurl %s upgrade http to https, reinit", pool.BaseURL)
-		pool.BaseURL = strings.Replace(pool.BaseURL, "http", "https", 1)
+		pool.base = strings.Replace(pool.BaseURL, "http", "https", 1)
 		pool.url.Scheme = "https"
 		// 重新初始化
 		err = pool.Init()
@@ -501,20 +512,19 @@ func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 	if depth >= MaxRedirect {
 		return
 	}
+	reURL := FormatURL(bl.Url.Path, bl.RedirectURL)
 
-	if uu, err := url.Parse(bl.RedirectURL); err == nil && uu.Hostname() == pool.index.Url.Hostname() {
-		pool.wg.Add(1)
-		go pool.addAddition(&Unit{
-			path:     uu.Path,
-			source:   RedirectSource,
-			frontUrl: bl.UrlString,
-			depth:    depth + 1,
-		})
-	}
+	pool.wg.Add(1)
+	go pool.addAddition(&Unit{
+		path:     reURL,
+		source:   RedirectSource,
+		frontUrl: bl.UrlString,
+		depth:    depth + 1,
+	})
 }
 
 func (pool *Pool) doCrawl(bl *pkg.Baseline) {
-	if !pool.Crawl {
+	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
 		pool.wg.Done()
 		return
 	}
@@ -523,46 +533,12 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 		pool.wg.Done()
 		return
 	}
+
 	go func() {
 		defer pool.wg.Done()
 		for _, u := range bl.URLs {
-			if strings.HasPrefix(u, "//") {
-				parsed, err := url.Parse(u)
-				if err != nil {
-					continue
-				}
-				if parsed.Host != bl.Url.Host || len(parsed.Path) <= 1 {
-					continue
-				}
-				u = parsed.Path
-			} else if strings.HasPrefix(u, "/") {
-				// 绝对目录拼接
-				// 不需要进行处理, 用来跳过下面的判断
-			} else if strings.HasPrefix(u, "./") {
-				// "./"相对目录拼接
-				if bl.Dir {
-					u = pkg.URLJoin(bl.Url.Path, u[2:])
-				} else {
-					u = pkg.URLJoin(path.Dir(bl.Url.Path), u[2:])
-				}
-			} else if strings.HasPrefix(u, "../") {
-				u = path.Join(path.Dir(bl.Url.Path), u)
-			} else if !strings.HasPrefix(u, "http") {
-				// 相对目录拼接
-				if bl.Dir {
-					u = pkg.URLJoin(bl.Url.Path, u)
-				} else {
-					u = pkg.URLJoin(path.Dir(bl.Url.Path), u)
-				}
-			} else {
-				parsed, err := url.Parse(u)
-				if err != nil {
-					continue
-				}
-				if parsed.Host != bl.Url.Host || len(parsed.Path) <= 1 {
-					continue
-				}
-				u = parsed.Path
+			if u = FormatURL(bl.Url.Path, u); u == "" || u == pool.url.Path {
+				continue
 			}
 
 			pool.locker.Lock()
@@ -571,14 +547,12 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 			} else {
 				// 通过map去重,  只有新的url才会进入到该逻辑
 				pool.urls[u] = 1
-				if bl.ReqDepth < MaxCrawl {
-					pool.wg.Add(1)
-					pool.addAddition(&Unit{
-						path:   u[1:],
-						source: CrawlSource,
-						depth:  bl.ReqDepth + 1,
-					})
-				}
+				pool.wg.Add(1)
+				pool.addAddition(&Unit{
+					path:   u,
+					source: CrawlSource,
+					depth:  bl.ReqDepth + 1,
+				})
 			}
 			pool.locker.Unlock()
 		}
@@ -601,7 +575,7 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
 			pool.wg.Add(1)
 			pool.addAddition(&Unit{
-				path:   path.Join(path.Dir(bl.Path), u),
+				path:   Dir(bl.Url.Path) + u,
 				source: RuleSource,
 			})
 		}
@@ -613,7 +587,7 @@ func (pool *Pool) doActive() {
 	for _, u := range pkg.ActivePath {
 		pool.wg.Add(1)
 		pool.addAddition(&Unit{
-			path:   safePath(pool.BaseURL, u),
+			path:   pool.dir + u[1:],
 			source: ActiveSource,
 		})
 	}
@@ -629,7 +603,7 @@ func (pool *Pool) doBak() {
 	for w := range worder.C {
 		pool.wg.Add(1)
 		pool.addAddition(&Unit{
-			path:   safePath(pool.BaseURL, w),
+			path:   pool.dir + w,
 			source: BakSource,
 		})
 	}
@@ -642,7 +616,7 @@ func (pool *Pool) doBak() {
 	for w := range worder.C {
 		pool.wg.Add(1)
 		pool.addAddition(&Unit{
-			path:   safePath(pool.BaseURL, w),
+			path:   pool.dir + w,
 			source: BakSource,
 		})
 	}
@@ -653,7 +627,7 @@ func (pool *Pool) doCommonFile() {
 	for _, u := range mask.SpecialWords["common_file"] {
 		pool.wg.Add(1)
 		pool.addAddition(&Unit{
-			path:   safePath(pool.BaseURL, u),
+			path:   pool.dir + u,
 			source: CommonFileSource,
 		})
 	}
@@ -718,4 +692,18 @@ func (pool *Pool) Close() {
 	close(pool.tempCh)
 	close(pool.additionCh)
 	pool.bar.Close()
+}
+
+func (pool *Pool) safePath(u string) string {
+	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
+	if u == "" {
+		return pool.url.Path
+	}
+
+	if strings.HasPrefix(u, "/") {
+		// 如果path已经有"/", 则去掉
+		return pool.dir + u[1:]
+	} else {
+		return pool.dir + u
+	}
 }
