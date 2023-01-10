@@ -294,7 +294,6 @@ func (pool *Pool) Invoke(v interface{}) {
 		return
 	}
 	req.SetHeaders(pool.Headers)
-
 	start := time.Now()
 	resp, reqerr := pool.client.Do(pool.ctx, req)
 	if pool.ClientType == ihttp.FAST {

@@ -33,12 +33,16 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	copy(bl.Header, header)
 	bl.HeaderLength = len(bl.Header)
 
-	body := resp.Body()
-	bl.Body = make([]byte, len(body))
-	copy(bl.Body, body)
-	bl.BodyLength = resp.ContentLength()
-	if bl.BodyLength == -1 {
-		bl.BodyLength = len(bl.Body)
+	if i := resp.ContentLength(); i != 0 {
+		body := resp.Body()
+		bl.Body = make([]byte, len(body))
+		copy(bl.Body, body)
+
+		if i == -1 {
+			bl.BodyLength = len(bl.Body)
+		} else {
+			bl.BodyLength = i
+		}
 	}
 
 	if t, ok := ContentTypeMap[resp.ContentType()]; ok {
