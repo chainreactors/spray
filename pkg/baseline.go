@@ -170,10 +170,11 @@ func (bl *Baseline) CollectURL() {
 		}
 	}
 
+	bl.URLs = RemoveDuplication(bl.URLs)
 	if bl.URLs != nil {
 		bl.Extracteds = append(bl.Extracteds, &fingers.Extracted{
 			Name:          "crawl",
-			ExtractResult: RemoveDuplication(bl.URLs),
+			ExtractResult: bl.URLs,
 		})
 	}
 }
