@@ -121,7 +121,7 @@ func (stat *Statistor) ColorCountString() string {
 		if k == 0 {
 			continue
 		}
-		s.WriteString(fmt.Sprintf(" %s: %s,", logs.YellowBold(strconv.Itoa(k)), logs.YellowBold(strconv.Itoa(v))))
+		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(strconv.Itoa(k)), logs.YellowBold(strconv.Itoa(v))))
 	}
 	return s.String()
 }
@@ -131,7 +131,7 @@ func (stat *Statistor) ColorSourceString() string {
 	s.WriteString("[stat] ")
 	s.WriteString(stat.BaseUrl)
 	for k, v := range stat.Sources {
-		s.WriteString(fmt.Sprintf(" %s: %s,", logs.YellowBold(GetSourceName(k)), logs.YellowBold(strconv.Itoa(v))))
+		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(GetSourceName(k)), logs.YellowBold(strconv.Itoa(v))))
 	}
 	return s.String()
 }
