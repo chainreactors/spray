@@ -40,13 +40,13 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pool := &Pool{
 		Config:      config,
 		base:        u.Scheme + "://" + u.Hostname(),
-		isDir:       strings.HasSuffix(config.BaseURL, "/"),
+		isDir:       strings.HasSuffix(u.Path, "/"),
 		url:         u,
 		ctx:         pctx,
 		cancel:      cancel,
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		baselines:   make(map[int]*pkg.Baseline),
-		urls:        make(map[string]int),
+		urls:        make(map[string]struct{}),
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan int),
 		additionCh:  make(chan *Unit, 100),
@@ -57,7 +57,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	}
 
 	// 格式化dir, 保证至少有一个"/"
-	if pool.isDir {
+	if strings.HasSuffix(config.BaseURL, "/") {
 		pool.dir = pool.url.Path
 	} else if pool.url.Path == "" {
 		pool.dir = "/"
@@ -148,8 +148,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 type Pool struct {
 	*pkg.Config
 	base            string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
-	isDir           bool   // url是否以/结尾
 	dir             string
+	isDir           bool
 	url             *url.URL
 	Statistor       *pkg.Statistor
 	client          *ihttp.Client
@@ -167,7 +167,7 @@ type Pool struct {
 	random          *pkg.Baseline
 	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
-	urls            map[string]int
+	urls            map[string]struct{}
 	analyzeDone     bool
 	worder          *words.Worder
 	locker          sync.Mutex
@@ -278,6 +278,7 @@ Loop:
 			}
 
 			pool.wg.Add(1)
+			pool.urls[u] = struct{}{}
 			pool.reqPool.Invoke(newUnit(pool.safePath(u), WordSource)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
@@ -290,7 +291,12 @@ Loop:
 			if !ok {
 				continue
 			}
-			pool.reqPool.Invoke(unit)
+			if _, ok := pool.urls[unit.path]; ok {
+				pool.wg.Done()
+			} else {
+				pool.urls[unit.path] = struct{}{}
+				pool.reqPool.Invoke(unit)
+			}
 		case <-closeCh:
 			break Loop
 		case <-ctx.Done():
@@ -543,24 +549,18 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 	go func() {
 		defer pool.wg.Done()
 		for _, u := range bl.URLs {
-			if u = FormatURL(bl.Url.Path, u); u == "" || u == pool.url.Path {
+			if u = FormatURL(bl.Url.Path, u); u == "" {
 				continue
 			}
 
-			pool.locker.Lock()
-			if _, ok := pool.urls[u]; ok {
-				pool.urls[u]++
-			} else {
-				// 通过map去重,  只有新的url才会进入到该逻辑
-				pool.urls[u] = 1
-				pool.wg.Add(1)
-				pool.addAddition(&Unit{
-					path:   u,
-					source: CrawlSource,
-					depth:  bl.ReqDepth + 1,
-				})
-			}
-			pool.locker.Unlock()
+			// 通过map去重,  只有新的url才会进入到该逻辑
+			pool.urls[u] = struct{}{}
+			pool.wg.Add(1)
+			pool.addAddition(&Unit{
+				path:   u,
+				source: CrawlSource,
+				depth:  bl.ReqDepth + 1,
+			})
 		}
 	}()
 
@@ -571,7 +571,7 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 		pool.wg.Done()
 		return
 	}
-	if bl.Source == int(RuleSource) || bl.Dir {
+	if bl.Source == int(RuleSource) {
 		pool.wg.Done()
 		return
 	}
@@ -702,14 +702,10 @@ func (pool *Pool) Close() {
 
 func (pool *Pool) safePath(u string) string {
 	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
-	if u == "" {
-		return pool.url.Path
-	}
-
-	if strings.HasPrefix(u, "/") {
+	if !pool.isDir && !strings.HasPrefix(u, "/") {
 		// 如果path已经有"/", 则去掉
-		return pool.dir + u[1:]
-	} else {
 		return pool.dir + u
+	} else {
+		return pool.dir + u[1:]
 	}
 }
