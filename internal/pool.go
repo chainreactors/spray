@@ -351,7 +351,7 @@ func (pool *Pool) Invoke(v interface{}) {
 	}
 
 	// 手动处理重定向
-	if bl.IsValid && unit.source > 3 && bl.RedirectURL != "" {
+	if bl.IsValid && unit.source != CheckSource && bl.RedirectURL != "" {
 		pool.wg.Add(1)
 		pool.doRedirect(bl, unit.depth)
 	}
