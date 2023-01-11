@@ -292,6 +292,7 @@ Loop:
 				continue
 			}
 			if _, ok := pool.urls[unit.path]; ok {
+				logs.Log.Debugf("[%s] duplicate path: %s, skipped", pkg.GetSourceName(unit.source), pool.base+unit.path)
 				pool.wg.Done()
 			} else {
 				pool.urls[unit.path] = struct{}{}
@@ -554,7 +555,6 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 			}
 
 			// 通过map去重,  只有新的url才会进入到该逻辑
-			pool.urls[u] = struct{}{}
 			pool.wg.Add(1)
 			pool.addAddition(&Unit{
 				path:   u,
