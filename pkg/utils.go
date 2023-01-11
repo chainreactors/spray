@@ -24,16 +24,18 @@ var (
 	Fingers     fingers.Fingers
 	JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
 		regexp.MustCompile(`.(https{0,1}:[^\s'’"”><;()|*\[]{2,250}?[^=*\s'’><:;|()[]{3}\[]\.js)`),
-		regexp.MustCompile(`["']\s{0,6}(/{0,1}[^\s',’"”><;()|*:\[]{2,250}?[^=*\s'’|"”><^:;()\[]{3}\.\.js)`),
-		regexp.MustCompile(`=\s{0,6}["']{0,1}\s{0,6}(/{0,1}[^\s^',’><;()|*\[]{2,250}?[^=,\s'’"”>|<:;*()\[]{3}\.js)`),
+		regexp.MustCompile(`["']\s{0,6}([^\s',’"”><;()|*:\[]{2,250}?[^=*\s'’|"”><^:;()\[]{3}\.js)`),
+		regexp.MustCompile(`=\s{0,6}["']{0,1}\s{0,6}([^\s^',’><;()|*\[]{2,250}?[^=,\s'’"”>|<:;*()\[]{3}\.js)`),
 	}
 	URLRegexps []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s'’"”><;()|*\[]{2,250})`),
+		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s'"><;()|*\[]{2,250})`),
 		regexp.MustCompile(`["']([^\s',’"”><.@;:()|*\[]{2,250}\.[a-zA-Z]\w{1,4})["']`),
-		regexp.MustCompile(`["'](https?:[^\s'’"”><;()@|*\[]{2,250}?\.[^\s',’"”><;()|*\[]{2,250}?)["']`),
-		regexp.MustCompile(`["']\s{0,6}([#,.]{0,2}/[^\s',’"”><;()|*\[]{2,250}?)\s{0,6}["']`),
+		regexp.MustCompile(`["'](https?:[^\s'"><;()@|*\[]{2,250}?\.[^\s',’"”><;()|*\[]{2,250}?)["']`),
+		regexp.MustCompile(`["']\s{0,6}([#,.]{0,2}/[^\s'",><;()|*\[]{2,250}?)\s{0,6}["']`),
 		regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s',’"”><;()|*\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s'’"“><)(]{2,250})`),
 	}
+	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4"}
+	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
 
 	ContentTypeMap = map[string]string{
 		"application/javascript":   "js",
@@ -224,11 +226,6 @@ func FingerDetect(content string) Frameworks {
 	}
 	return frames
 }
-
-var (
-	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4"}
-	BadURL = []string{";", "}", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
-)
 
 func filterJs(u string) bool {
 	if commonFilter(u) {
