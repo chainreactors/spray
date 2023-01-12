@@ -30,6 +30,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		copy(bl.Body, body)
 
 		if i == -1 {
+			bl.Chunked = true
 			bl.BodyLength = len(bl.Body)
 		} else {
 			bl.BodyLength = i
@@ -45,12 +46,13 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl.Raw = append(bl.Header, bl.Body...)
 	bl.RedirectURL = resp.GetHeader("Location")
 
+	bl.Dir = bl.IsDir()
 	uu, err := url.Parse(u)
 	if err == nil {
 		bl.Path = uu.Path
 		bl.Url = uu
 	}
-	bl.Dir = bl.IsDir()
+
 	if bl.Url.Host != host {
 		bl.Host = host
 	}
@@ -70,13 +72,14 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 	bl.BodyLength = resp.ContentLength()
 	bl.RedirectURL = string(resp.GetHeader("Location"))
 
+	bl.Dir = bl.IsDir()
 	uu, err := url.Parse(u)
 	if err == nil {
 		bl.Path = uu.Path
 		bl.Url = uu
+	} else {
 		return bl
 	}
-	bl.Dir = bl.IsDir()
 
 	if bl.Url.Host != host {
 		bl.Host = host
@@ -90,7 +93,8 @@ type Baseline struct {
 	Url             *url.URL   `json:"-"`
 	UrlString       string     `json:"url"`
 	Path            string     `json:"path"`
-	Dir             bool       `json:"isdir"`
+	Dir             bool       `json:"-"`
+	Chunked         bool       `json:"-"`
 	Host            string     `json:"host"`
 	Body            []byte     `json:"-"`
 	BodyLength      int        `json:"body_length"`
@@ -361,7 +365,7 @@ func (bl *Baseline) ColorString() string {
 	}
 	if len(bl.Extracteds) > 0 {
 		for _, e := range bl.Extracteds {
-			line.WriteString("\n  " + e.Name + ": \n\t")
+			line.WriteString("\n  " + e.Name + " (" + strconv.Itoa(len(e.ExtractResult)) + ") items : \n\t")
 			line.WriteString(logs.GreenLine(strings.Join(e.ExtractResult, "\n\t")))
 		}
 	}
@@ -414,7 +418,7 @@ func (bl *Baseline) String() string {
 	}
 	if len(bl.Extracteds) > 0 {
 		for _, e := range bl.Extracteds {
-			line.WriteString("\n  " + e.Name + ": \n\t")
+			line.WriteString("\n  " + e.Name + " (" + strconv.Itoa(len(e.ExtractResult)) + ") items : \n\t")
 			line.WriteString(strings.Join(e.ExtractResult, "\n\t"))
 		}
 	}

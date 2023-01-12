@@ -184,6 +184,9 @@ func (pool *Pool) Init() error {
 	if pool.index.ErrString != "" {
 		return fmt.Errorf(pool.index.String())
 	}
+	if pool.index.Chunked && pool.ClientType == ihttp.FAST {
+		logs.Log.Warn("chunk encoding! buf current client FASTHTTP not support chunk decode")
+	}
 	logs.Log.Info("[baseline.index] " + pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	// 检测基本访问能力
 	if pool.random.ErrString != "" {
