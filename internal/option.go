@@ -451,7 +451,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			return nil, err
 		}
 	} else if opt.AutoFile {
-		r.OutputFile, err = files.NewFile("result.json", true, false, true)
+		r.OutputFile, err = files.NewFile("result.json", false, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -463,7 +463,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			return nil, err
 		}
 	} else if opt.AutoFile {
-		r.FuzzyFile, err = files.NewFile("fuzzy.json", true, false, true)
+		r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +475,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			return nil, err
 		}
 	} else if opt.Dump {
-		r.DumpFile, err = files.NewFile("dump.json", true, false, true)
+		r.DumpFile, err = files.NewFile("dump.json", false, false, true)
 		if err != nil {
 			return nil, err
 		}
