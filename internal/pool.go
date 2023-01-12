@@ -13,6 +13,7 @@ import (
 	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
+	"golang.org/x/time/rate"
 	"net/url"
 	"path"
 	"strconv"
@@ -50,8 +51,9 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		tempCh:      make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan int),
 		additionCh:  make(chan *Unit, 100),
-		wg:          sync.WaitGroup{},
+		waiter:      sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
+		limiter:     rate.NewLimiter(rate.Limit(config.RateLimit), 1),
 		reqCount:    1,
 		failedCount: 1,
 	}
@@ -127,7 +129,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 
 			// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 			if bl.IsValid {
-				pool.wg.Add(2)
+				pool.waiter.Add(2)
 				pool.doCrawl(bl)
 				pool.doRule(bl)
 				if bl.RecuDepth < MaxRecursion {
@@ -137,7 +139,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 				}
 			}
 			pool.OutputCh <- bl
-			pool.wg.Done()
+			pool.waiter.Done()
 		}
 
 		pool.analyzeDone = true
@@ -170,8 +172,9 @@ type Pool struct {
 	urls            map[string]struct{}
 	analyzeDone     bool
 	worder          *words.Worder
+	limiter         *rate.Limiter
 	locker          sync.Mutex
-	wg              sync.WaitGroup
+	waiter          sync.WaitGroup
 	initwg          sync.WaitGroup // 初始化用, 之后改成锁
 }
 
@@ -237,17 +240,17 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	pool.worder.RunWithRules()
 	if pool.Active {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		go pool.doActive()
 	}
 
 	if pool.Bak {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		go pool.doBak()
 	}
 
 	if pool.Common {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		go pool.doCommonFile()
 	}
 
@@ -256,7 +259,7 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	wait := func() {
 		if !worderDone {
 			worderDone = true
-			pool.wg.Wait()
+			pool.waiter.Wait()
 			close(closeCh)
 		}
 	}
@@ -280,7 +283,7 @@ Loop:
 				continue
 			}
 
-			pool.wg.Add(1)
+			pool.waiter.Add(1)
 			pool.urls[u] = struct{}{}
 			pool.reqPool.Invoke(newUnit(pool.safePath(u), WordSource)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
 		case source := <-pool.checkCh:
@@ -296,7 +299,7 @@ Loop:
 			}
 			if _, ok := pool.urls[unit.path]; ok {
 				logs.Log.Debugf("[%s] duplicate path: %s, skipped", pkg.GetSourceName(unit.source), pool.base+unit.path)
-				pool.wg.Done()
+				pool.waiter.Done()
 			} else {
 				pool.urls[unit.path] = struct{}{}
 				pool.reqPool.Invoke(unit)
@@ -310,12 +313,16 @@ Loop:
 		}
 	}
 
-	pool.wg.Wait()
+	pool.waiter.Wait()
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.Close()
 }
 
 func (pool *Pool) Invoke(v interface{}) {
+	if pool.RateLimit != 0 {
+		pool.limiter.Wait(pool.ctx)
+	}
+
 	atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 	unit := v.(*Unit)
 	req, err := pool.genReq(unit.path)
@@ -355,7 +362,7 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	// 手动处理重定向
 	if bl.IsValid && unit.source != CheckSource && bl.RedirectURL != "" {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.doRedirect(bl, unit.depth)
 	}
 
@@ -378,7 +385,7 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.locker.Lock()
 		pool.index = bl
 		pool.locker.Unlock()
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.doCrawl(bl)
 		if bl.Status == 200 || (bl.Status/100) == 3 {
 			pool.OutputCh <- bl
@@ -524,13 +531,13 @@ func (pool *Pool) Upgrade(bl *pkg.Baseline) error {
 }
 
 func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
-	defer pool.wg.Done()
+	defer pool.waiter.Done()
 	if depth >= MaxRedirect {
 		return
 	}
 	reURL := FormatURL(bl.Url.Path, bl.RedirectURL)
 
-	pool.wg.Add(1)
+	pool.waiter.Add(1)
 	go pool.addAddition(&Unit{
 		path:     reURL,
 		source:   RedirectSource,
@@ -541,24 +548,24 @@ func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 
 func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
-		pool.wg.Done()
+		pool.waiter.Done()
 		return
 	}
 	bl.CollectURL()
 	if bl.URLs == nil {
-		pool.wg.Done()
+		pool.waiter.Done()
 		return
 	}
 
 	go func() {
-		defer pool.wg.Done()
+		defer pool.waiter.Done()
 		for _, u := range bl.URLs {
 			if u = FormatURL(bl.Url.Path, u); u == "" {
 				continue
 			}
 
 			// 通过map去重,  只有新的url才会进入到该逻辑
-			pool.wg.Add(1)
+			pool.waiter.Add(1)
 			pool.addAddition(&Unit{
 				path:   u,
 				source: CrawlSource,
@@ -571,18 +578,18 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 
 func (pool *Pool) doRule(bl *pkg.Baseline) {
 	if pool.AppendRule == nil {
-		pool.wg.Done()
+		pool.waiter.Done()
 		return
 	}
 	if bl.Source == int(RuleSource) {
-		pool.wg.Done()
+		pool.waiter.Done()
 		return
 	}
 
 	go func() {
-		defer pool.wg.Done()
+		defer pool.waiter.Done()
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
-			pool.wg.Add(1)
+			pool.waiter.Add(1)
 			pool.addAddition(&Unit{
 				path:   Dir(bl.Url.Path) + u,
 				source: RuleSource,
@@ -592,9 +599,9 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 }
 
 func (pool *Pool) doActive() {
-	defer pool.wg.Done()
+	defer pool.waiter.Done()
 	for _, u := range pkg.ActivePath {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + u[1:],
 			source: ActiveSource,
@@ -603,14 +610,14 @@ func (pool *Pool) doActive() {
 }
 
 func (pool *Pool) doBak() {
-	defer pool.wg.Done()
+	defer pool.waiter.Done()
 	worder, err := words.NewWorderWithDsl("{?0}.{@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
 	if err != nil {
 		return
 	}
 	worder.Run()
 	for w := range worder.C {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: BakSource,
@@ -623,7 +630,7 @@ func (pool *Pool) doBak() {
 	}
 	worder.Run()
 	for w := range worder.C {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: BakSource,
@@ -632,9 +639,9 @@ func (pool *Pool) doBak() {
 }
 
 func (pool *Pool) doCommonFile() {
-	defer pool.wg.Done()
+	defer pool.waiter.Done()
 	for _, u := range mask.SpecialWords["common_file"] {
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
 			source: CommonFileSource,
@@ -665,7 +672,7 @@ func (pool *Pool) addAddition(u *Unit) {
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && pkg.IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
-		pool.wg.Add(1)
+		pool.waiter.Add(1)
 		pool.doCrawl(bl)
 		pool.baselines[bl.Status] = bl
 		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
