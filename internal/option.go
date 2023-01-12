@@ -200,35 +200,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Important("Advance Mod: " + s.String())
 	}
 
-	if opt.BlackStatus != "" {
-		for _, s := range strings.Split(opt.BlackStatus, ",") {
-			si, err := strconv.Atoi(s)
-			if err != nil {
-				return nil, err
-			}
-			BlackStatus = append(BlackStatus, si)
-		}
-	}
-
-	if opt.WhiteStatus != "" {
-		for _, s := range strings.Split(opt.WhiteStatus, ",") {
-			si, err := strconv.Atoi(s)
-			if err != nil {
-				return nil, err
-			}
-			WhiteStatus = append(WhiteStatus, si)
-		}
-	}
-
-	if opt.FuzzyStatus != "" {
-		for _, s := range strings.Split(opt.FuzzyStatus, ",") {
-			si, err := strconv.Atoi(s)
-			if err != nil {
-				return nil, err
-			}
-			FuzzyStatus = append(FuzzyStatus, si)
-		}
-	}
+	BlackStatus = parseStatus(BlackStatus, opt.BlackStatus)
+	WhiteStatus = parseStatus(WhiteStatus, opt.WhiteStatus)
+	FuzzyStatus = parseStatus(FuzzyStatus, opt.FuzzyStatus)
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
