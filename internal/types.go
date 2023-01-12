@@ -62,7 +62,12 @@ func newUnit(path string, source int) *Unit {
 	return &Unit{path: path, source: source}
 }
 
+func newUnitWithNumber(path string, source int, number int) *Unit {
+	return &Unit{path: path, source: source, number: number}
+}
+
 type Unit struct {
+	number   int
 	path     string
 	source   int
 	frontUrl string

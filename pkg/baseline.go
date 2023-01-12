@@ -91,6 +91,8 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 type Baseline struct {
 	Number          int        `json:"number"`
 	Url             *url.URL   `json:"-"`
+	IsValid         bool       `json:"valid"`
+	IsFuzzy         bool       `json:"fuzzy"`
 	UrlString       string     `json:"url"`
 	Path            string     `json:"path"`
 	Dir             bool       `json:"-"`
@@ -112,8 +114,6 @@ type Baseline struct {
 	Extracteds      Extracteds `json:"extracts"`
 	ErrString       string     `json:"error"`
 	Reason          string     `json:"reason"`
-	IsValid         bool       `json:"valid"`
-	IsFuzzy         bool       `json:"fuzzy"`
 	Source          int        `json:"source"`
 	ReqDepth        int        `json:"depth"`
 	Distance        uint8      `json:"distance"`

@@ -54,7 +54,6 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		waiter:      sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
 		limiter:     rate.NewLimiter(rate.Limit(config.RateLimit), 1),
-		reqCount:    1,
 		failedCount: 1,
 	}
 
@@ -162,7 +161,7 @@ type Pool struct {
 	tempCh          chan *pkg.Baseline // 待处理的baseline
 	checkCh         chan int           // 独立的check管道， 防止与redirect/crawl冲突
 	additionCh      chan *Unit
-	reqCount        int
+	wordOffset      int
 	failedCount     int
 	isFailed        bool
 	failedBaselines []*pkg.Baseline
@@ -251,8 +250,8 @@ Loop:
 				continue
 			}
 			pool.Statistor.End++
-			if pool.reqCount < offset {
-				pool.reqCount++
+			pool.wordOffset++
+			if pool.wordOffset <= offset {
 				continue
 			}
 
@@ -263,13 +262,13 @@ Loop:
 
 			pool.waiter.Add(1)
 			pool.urls[u] = struct{}{}
-			pool.reqPool.Invoke(newUnit(pool.safePath(u), WordSource)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
+			pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(u), WordSource, pool.wordOffset)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
 			if pool.Mod == pkg.HostSpray {
-				pool.reqPool.Invoke(newUnit(pkg.RandHost(), source))
+				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), source, pool.wordOffset))
 			} else if pool.Mod == pkg.PathSpray {
-				pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), source))
+				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(pkg.RandPath()), source, pool.wordOffset))
 			}
 		case unit, ok := <-pool.additionCh:
 			if !ok {
@@ -280,6 +279,7 @@ Loop:
 				pool.waiter.Done()
 			} else {
 				pool.urls[unit.path] = struct{}{}
+				unit.number = pool.wordOffset
 				pool.reqPool.Invoke(unit)
 			}
 		case <-closeCh:
@@ -347,6 +347,7 @@ func (pool *Pool) Invoke(v interface{}) {
 	}
 	bl.Source = unit.source
 	bl.ReqDepth = unit.depth
+	bl.Number = unit.number
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
 	case InitRandomSource:
@@ -388,9 +389,7 @@ func (pool *Pool) Invoke(v interface{}) {
 	case WordSource:
 		// 异步进行性能消耗较大的深度对比
 		pool.tempCh <- bl
-		pool.reqCount++
-		if pool.reqCount%pool.CheckPeriod == 0 {
-			pool.reqCount++
+		if pool.wordOffset%pool.CheckPeriod == 0 {
 			pool.doCheck()
 		} else if pool.failedCount%pool.ErrPeriod == 0 {
 			pool.failedCount++
@@ -581,7 +580,7 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 		pool.waiter.Done()
 		return
 	}
-	if bl.Source == int(RuleSource) {
+	if bl.Source == RuleSource {
 		pool.waiter.Done()
 		return
 	}
@@ -695,7 +694,7 @@ func (pool *Pool) resetFailed() {
 }
 
 func (pool *Pool) recover() {
-	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.reqCount)
+	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
 	for i, bl := range pool.failedBaselines {
 		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
 	}
@@ -714,10 +713,13 @@ func (pool *Pool) Close() {
 
 func (pool *Pool) safePath(u string) string {
 	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
-	if !pool.isDir && !strings.HasPrefix(u, "/") {
+	hasSlash := strings.HasPrefix(u, "/")
+	if !pool.isDir && hasSlash {
 		// 如果path已经有"/", 则去掉
-		return pool.dir + u
-	} else {
+		return pool.dir + "/" + u
+	} else if pool.isDir && hasSlash {
 		return pool.dir + u[1:]
+	} else {
+		return pool.dir + u
 	}
 }
