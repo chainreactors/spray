@@ -73,6 +73,8 @@ func Spray() {
 		logs.Log.Level = logs.Debug
 	}
 
+	logs.DefaultColorMap[logs.Info] = logs.PurpleBold
+	logs.DefaultColorMap[logs.Important] = logs.GreenBold
 	pkg.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
 	internal.MaxCrawl = option.CrawlDepth

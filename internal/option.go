@@ -143,8 +143,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	// log and bar
 	if !opt.NoColor {
 		logs.Log.Color = true
-		logs.DefaultColorMap[logs.Info] = logs.PurpleBold
-		logs.DefaultColorMap[logs.Important] = logs.Green
 		r.Color = true
 	}
 	if opt.Quiet {
@@ -181,6 +179,25 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	} else if opt.FileBak {
 		opt.AppendRule = append(opt.AppendRule, "filebak")
+	}
+	var s strings.Builder
+	if r.Crawl {
+		s.WriteString("crawl enable; ")
+	}
+	if r.Active {
+		s.WriteString("active fingerprint enable; ")
+	}
+	if r.Bak {
+		s.WriteString("bak file enable; ")
+	}
+	if r.Common {
+		s.WriteString("common file enable; ")
+	}
+	if len(opt.AppendRule) > 0 {
+		s.WriteString("file bak enable; ")
+	}
+	if s.Len() > 0 {
+		logs.Log.Important("Advance Mod: " + s.String())
 	}
 
 	if opt.BlackStatus != "" {
