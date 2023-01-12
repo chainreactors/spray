@@ -106,7 +106,7 @@ func Spray() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			<-c
-			fmt.Println("exit signal, save stat and exit")
+			logs.Log.Important("exit signal, save stat and exit")
 			canceler()
 		}()
 	}()

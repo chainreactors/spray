@@ -208,10 +208,11 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			pool.bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
 			err = pool.Init()
 			if err != nil {
-				logs.Log.Error(err.Error())
+				pool.Statistor.Error = err.Error()
 				if !r.Force {
 					// 如果没开启force, init失败将会关闭pool
-					pool.cancel()
+					pool.Close()
+					r.PrintStat(pool)
 					r.Done()
 					return
 				}
@@ -223,20 +224,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
 				pool.Statistor.End = pool.failedBaselines[0].Number
 			}
-			if r.Color {
-				logs.Log.Important(pool.Statistor.ColorString())
-				logs.Log.Important(pool.Statistor.ColorCountString())
-				logs.Log.Important(pool.Statistor.ColorSourceString())
-			} else {
-				logs.Log.Important(pool.Statistor.String())
-				logs.Log.Important(pool.Statistor.CountString())
-				logs.Log.Important(pool.Statistor.SourceString())
-			}
-
-			if r.StatFile != nil {
-				r.StatFile.SafeWrite(pool.Statistor.Json())
-				r.StatFile.SafeSync()
-			}
+			r.PrintStat(pool)
 			r.Done()
 		})
 	}
@@ -332,6 +320,27 @@ func (r *Runner) Done() {
 	r.bar.Incr()
 	r.finished++
 	r.poolwg.Done()
+}
+
+func (r *Runner) PrintStat(pool *Pool) {
+	if r.Color {
+		logs.Log.Important(pool.Statistor.ColorString())
+		if pool.Statistor.Error == "" {
+			logs.Log.Important(pool.Statistor.ColorCountString())
+			logs.Log.Important(pool.Statistor.ColorSourceString())
+		}
+	} else {
+		logs.Log.Important(pool.Statistor.String())
+		if pool.Statistor.Error == "" {
+			logs.Log.Important(pool.Statistor.CountString())
+			logs.Log.Important(pool.Statistor.SourceString())
+		}
+	}
+
+	if r.StatFile != nil {
+		r.StatFile.SafeWrite(pool.Statistor.Json())
+		r.StatFile.SafeSync()
+	}
 }
 
 func (r *Runner) Outputting() {

@@ -38,6 +38,7 @@ func NewStatistorFromStat(origin *Statistor) *Statistor {
 
 type Statistor struct {
 	BaseUrl        string      `json:"url"`
+	Error          string      `json:"error"`
 	Counts         map[int]int `json:"counts"`
 	Sources        map[int]int `json:"sources"`
 	FailedNumber   int32       `json:"failed"`

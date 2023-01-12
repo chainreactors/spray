@@ -483,7 +483,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
 	} else {
-		r.StatFile, err = files.NewFile(taskfrom+".stat", false, true, true)
+		r.StatFile, err = files.NewFile(strings.ReplaceAll(taskfrom, ":", "_")+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
