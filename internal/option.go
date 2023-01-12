@@ -21,6 +21,7 @@ type Option struct {
 	InputOptions    `group:"Input Options"`
 	FunctionOptions `group:"Function Options"`
 	OutputOptions   `group:"Output Options"`
+	PluginOptions   `group:"Plugin Options"`
 	RequestOptions  `group:"Request Options"`
 	ModeOptions     `group:"Modify Options"`
 	MiscOptions     `group:"Miscellaneous Options"`
@@ -28,15 +29,15 @@ type Option struct {
 
 type InputOptions struct {
 	ResumeFrom   string   `long:"resume"`
-	URL          []string `short:"u" long:"url" description:"String, Multi, input baseurl, e.g.: http://google.com"`
+	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	Raw          string   `long:"raw" description:"File, input raw request filename"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
-	Rules        []string `short:"r" long:"rules" description:"Files, Multi, rule files, e.g.: -r rule1.txt -r rule2.txt"`
-	AppendRule   []string `long:"append-rule" description:"File, when found valid path , use append rule generator new word with current path"`
+	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
+	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'"`
 }
 
@@ -46,15 +47,15 @@ type FunctionOptions struct {
 	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
 	Uppercase         bool              `short:"U" long:"uppercase" desvcription:"Bool, upper wordlist, e.g.: --uppercase"`
 	Lowercase         bool              `short:"L" long:"lowercase" description:"Bool, lower wordlist, e.g.: --lowercase"`
-	Prefixes          []string          `long:"prefix" description:"Strings, Multi, add prefix, e.g.: --prefix aaa --prefix bbb"`
-	Suffixes          []string          `long:"suffix" description:"Strings, Multi, add suffix, e.g.: --suffix aaa --suffix bbb"`
-	Replaces          map[string]string `long:"replace" description:"Strings, Multi, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd"`
+	Prefixes          []string          `long:"prefix" description:"Strings, add prefix, e.g.: --prefix aaa --prefix bbb"`
+	Suffixes          []string          `long:"suffix" description:"Strings, add suffix, e.g.: --suffix aaa --suffix bbb"`
+	Replaces          map[string]string `long:"replace" description:"Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd"`
 }
 
 type OutputOptions struct {
 	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
 	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
-	Extracts    []string `long:"extract" description:"String, Multi, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
+	Extracts    []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
 	OutputFile  string   `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty"`
 	Format      string   `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
 	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
@@ -66,27 +67,31 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Headers         []string `long:"header" description:"String, Multi, custom headers, e.g.: --headers 'Auth: example_auth'"`
+	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --headers 'Auth: example_auth'"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent"`
-	Cookie          []string `long:"cookie" description:"String, Multi, custom cookie"`
+	Cookie          []string `long:"cookie" description:"Strings, custom cookie"`
 	ReadAll         bool     `long:"read-all" description:"Bool, read all response body"`
 	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000"`
 }
 
+type PluginOptions struct {
+	Advance    bool   `short:"a" long:"advance" description:"Bool, enable crawl and active"`
+	Active     bool   `long:"active" description:"Bool, enable active finger detect"`
+	Bak        bool   `long:"bak" description:"Bool, enable bak found"`
+	FileBak    bool   `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
+	Common     bool   `long:"common" description:"Bool, enable common file found"`
+	Crawl      bool   `long:"crawl" description:"Bool, enable crawl"`
+	CrawlDepth int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
+	CrawlScope string `long:"crawl-scope" description:"Int, crawl scope (todo)"`
+}
+
 type ModeOptions struct {
-	Advance         bool   `short:"a" long:"advance" description:"Bool, enable crawl and active"`
-	Active          bool   `long:"active" description:"Bool, enable active finger detect"`
-	Crawl           bool   `long:"crawl" description:"Bool, enable crawl"`
-	Bak             bool   `long:"bak" description:"Bool, enable bak found"`
-	FileBak         bool   `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
-	Common          bool   `long:"common" description:"Bool, enable common file found"`
+	RateLimit       int    `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
 	Force           bool   `long:"force" description:"Bool, skip error break"`
 	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
 	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
-	CrawlDepth      int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
-	CrawlScope      string `long:"crawl-scope" description:"Int, crawl scope (todo)"`
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
@@ -121,6 +126,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		PoolSize:       opt.PoolSize,
 		Mod:            opt.Mod,
 		Timeout:        opt.Timeout,
+		RateLimit:      opt.RateLimit,
 		Deadline:       opt.Deadline,
 		Headers:        make(map[string]string),
 		Offset:         opt.Offset,

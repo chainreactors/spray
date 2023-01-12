@@ -64,6 +64,7 @@ type Runner struct {
 	Progress       *uiprogress.Progress
 	Offset         int
 	Limit          int
+	RateLimit      int
 	Total          int
 	Deadline       int
 	CheckPeriod    int
@@ -83,6 +84,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 	config := &pkg.Config{
 		Thread:         r.Threads,
 		Timeout:        r.Timeout,
+		RateLimit:      r.RateLimit,
 		Headers:        r.Headers,
 		Mod:            pkg.ModMap[r.Mod],
 		OutputCh:       r.OutputCh,

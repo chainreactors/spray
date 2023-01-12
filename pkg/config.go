@@ -24,6 +24,7 @@ type Config struct {
 	Thread         int
 	Wordlist       []string
 	Timeout        int
+	RateLimit      int
 	CheckPeriod    int
 	ErrPeriod      int
 	BreakThreshold int
