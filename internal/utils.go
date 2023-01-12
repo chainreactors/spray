@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -16,6 +17,42 @@ func parseExtension(s string) string {
 		return s[i+1:]
 	}
 	return ""
+}
+
+func parseStatus(preset []int, changed string) []int {
+	if changed == "" {
+		return preset
+	}
+	if strings.HasPrefix(changed, "+") {
+		for _, s := range strings.Split(changed[1:], ",") {
+			if t, err := strconv.Atoi(s); err != nil {
+				continue
+			} else {
+				preset = append(preset, t)
+			}
+		}
+	} else if strings.HasPrefix(changed, "!") {
+		for _, s := range strings.Split(changed[1:], ",") {
+			for i, status := range preset {
+				if t, err := strconv.Atoi(s); err != nil {
+					break
+				} else if t == status {
+					preset = append(preset[:i], preset[i+1:]...)
+					break
+				}
+			}
+		}
+	} else {
+		preset = []int{}
+		for _, s := range strings.Split(changed, ",") {
+			if t, err := strconv.Atoi(s); err != nil {
+				continue
+			} else {
+				preset = append(preset, t)
+			}
+		}
+	}
+	return preset
 }
 
 func loadFileToSlice(filename string) ([]string, error) {
