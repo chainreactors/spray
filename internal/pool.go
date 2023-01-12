@@ -40,7 +40,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
 		Config:      config,
-		base:        u.Scheme + "://" + u.Hostname(),
+		base:        u.Scheme + "://" + u.Host,
 		isDir:       strings.HasSuffix(u.Path, "/"),
 		url:         u,
 		ctx:         pctx,
@@ -185,7 +185,8 @@ func (pool *Pool) Init() error {
 	pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
 	pool.initwg.Wait()
 	if pool.index.ErrString != "" {
-		return fmt.Errorf(pool.index.String())
+		logs.Log.Error(pool.index.String())
+		return fmt.Errorf(pool.index.ErrString)
 	}
 	if pool.index.Chunked && pool.ClientType == ihttp.FAST {
 		logs.Log.Warn("chunk encoding! buf current client FASTHTTP not support chunk decode")
@@ -193,7 +194,8 @@ func (pool *Pool) Init() error {
 	logs.Log.Info("[baseline.index] " + pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	// 检测基本访问能力
 	if pool.random.ErrString != "" {
-		return fmt.Errorf(pool.random.String())
+		logs.Log.Error(pool.index.String())
+		return fmt.Errorf(pool.index.ErrString)
 	}
 	logs.Log.Info("[baseline.random] " + pool.random.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 
@@ -211,30 +213,6 @@ func (pool *Pool) Init() error {
 	}
 
 	return nil
-}
-
-func (pool *Pool) checkRedirect(redirectURL string) bool {
-	if pool.random.RedirectURL == "" {
-		// 如果random的redirectURL为空, 此时该项
-		return true
-	}
-
-	if redirectURL == pool.random.RedirectURL {
-		// 相同的RedirectURL将被认为是无效数据
-		return false
-	} else {
-		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
-		return true
-	}
-}
-
-func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
-	if pool.Mod == pkg.HostSpray {
-		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if pool.Mod == pkg.PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
-	}
-	return nil, fmt.Errorf("unknown mod")
 }
 
 func (pool *Pool) Run(ctx context.Context, offset, limit int) {
@@ -313,8 +291,6 @@ Loop:
 		}
 	}
 
-	pool.waiter.Wait()
-	pool.Statistor.EndTime = time.Now().Unix()
 	pool.Close()
 }
 
@@ -427,6 +403,30 @@ func (pool *Pool) Invoke(v interface{}) {
 	default:
 		pool.tempCh <- bl
 	}
+}
+
+func (pool *Pool) checkRedirect(redirectURL string) bool {
+	if pool.random.RedirectURL == "" {
+		// 如果random的redirectURL为空, 此时该项
+		return true
+	}
+
+	if redirectURL == pool.random.RedirectURL {
+		// 相同的RedirectURL将被认为是无效数据
+		return false
+	} else {
+		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
+		return true
+	}
+}
+
+func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
+	if pool.Mod == pkg.HostSpray {
+		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
+	} else if pool.Mod == pkg.PathSpray {
+		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
+	}
+	return nil, fmt.Errorf("unknown mod")
 }
 
 func (pool *Pool) PreCompare(resp *ihttp.Response) error {
@@ -705,8 +705,10 @@ func (pool *Pool) Close() {
 	for pool.analyzeDone {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
-	close(pool.tempCh)
+
 	close(pool.additionCh)
+	close(pool.checkCh)
+	pool.Statistor.EndTime = time.Now().Unix()
 	pool.bar.Close()
 }
 
