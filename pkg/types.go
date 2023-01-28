@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/parsers"
 	"strings"
 )
@@ -15,18 +14,6 @@ func (fs Frameworks) String() string {
 	}
 	return strings.Join(frameworkStrs, " ") + " "
 }
-
-type Extracteds []*fingers.Extracted
-
-func (es Extracteds) String() string {
-	var s strings.Builder
-	for _, e := range es {
-		s.WriteString("[ " + e.ToString() + " ]")
-	}
-	return s.String() + " "
-}
-
-var Extractors = make(fingers.Extractors)
 
 func GetSourceName(s int) string {
 	switch s {

@@ -6,6 +6,7 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
@@ -439,7 +440,7 @@ func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
 
 func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 	status := resp.StatusCode()
-	if pkg.IntsContains(WhiteStatus, status) {
+	if iutils.IntsContains(WhiteStatus, status) {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
@@ -447,11 +448,11 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 		return ErrSameStatus
 	}
 
-	if pkg.IntsContains(BlackStatus, status) {
+	if iutils.IntsContains(BlackStatus, status) {
 		return ErrBadStatus
 	}
 
-	if pkg.IntsContains(WAFStatus, status) {
+	if iutils.IntsContains(WAFStatus, status) {
 		return ErrWaf
 	}
 
@@ -683,7 +684,7 @@ func (pool *Pool) addAddition(u *Unit) {
 }
 
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
-	if _, ok := pool.baselines[bl.Status]; !ok && pkg.IntsContains(FuzzyStatus, bl.Status) {
+	if _, ok := pool.baselines[bl.Status]; !ok && iutils.IntsContains(FuzzyStatus, bl.Status) {
 		bl.Collect()
 		pool.waiter.Add(1)
 		pool.doCrawl(bl)

@@ -3,7 +3,6 @@ package pkg
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -89,37 +88,37 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 }
 
 type Baseline struct {
-	Number          int        `json:"number"`
-	Url             *url.URL   `json:"-"`
-	IsValid         bool       `json:"valid"`
-	IsFuzzy         bool       `json:"fuzzy"`
-	UrlString       string     `json:"url"`
-	Path            string     `json:"path"`
-	Dir             bool       `json:"-"`
-	Chunked         bool       `json:"-"`
-	Host            string     `json:"host"`
-	Body            []byte     `json:"-"`
-	BodyLength      int        `json:"body_length"`
-	ExceedLength    bool       `json:"-"`
-	Header          []byte     `json:"-"`
-	Raw             []byte     `json:"-"`
-	HeaderLength    int        `json:"header_length"`
-	RedirectURL     string     `json:"redirect_url,omitempty"`
-	FrontURL        string     `json:"front_url,omitempty"`
-	Status          int        `json:"status"`
-	Spended         int64      `json:"spend"` // 耗时, 毫秒
-	ContentType     string     `json:"content_type"`
-	Title           string     `json:"title"`
-	Frameworks      Frameworks `json:"frameworks"`
-	Extracteds      Extracteds `json:"extracts"`
-	ErrString       string     `json:"error"`
-	Reason          string     `json:"reason"`
-	Source          int        `json:"source"`
-	ReqDepth        int        `json:"depth"`
-	Distance        uint8      `json:"distance"`
-	Recu            bool       `json:"-"`
-	RecuDepth       int        `json:"-"`
-	URLs            []string   `json:"-"`
+	Number          int                `json:"number"`
+	Url             *url.URL           `json:"-"`
+	IsValid         bool               `json:"valid"`
+	IsFuzzy         bool               `json:"fuzzy"`
+	UrlString       string             `json:"url"`
+	Path            string             `json:"path"`
+	Dir             bool               `json:"-"`
+	Chunked         bool               `json:"-"`
+	Host            string             `json:"host"`
+	Body            []byte             `json:"-"`
+	BodyLength      int                `json:"body_length"`
+	ExceedLength    bool               `json:"-"`
+	Header          []byte             `json:"-"`
+	Raw             []byte             `json:"-"`
+	HeaderLength    int                `json:"header_length"`
+	RedirectURL     string             `json:"redirect_url,omitempty"`
+	FrontURL        string             `json:"front_url,omitempty"`
+	Status          int                `json:"status"`
+	Spended         int64              `json:"spend"` // 耗时, 毫秒
+	ContentType     string             `json:"content_type"`
+	Title           string             `json:"title"`
+	Frameworks      Frameworks         `json:"frameworks"`
+	Extracteds      parsers.Extracteds `json:"extracts"`
+	ErrString       string             `json:"error"`
+	Reason          string             `json:"reason"`
+	Source          int                `json:"source"`
+	ReqDepth        int                `json:"depth"`
+	Distance        uint8              `json:"distance"`
+	Recu            bool               `json:"-"`
+	RecuDepth       int                `json:"-"`
+	URLs            []string           `json:"-"`
 	*parsers.Hashes `json:"hashes"`
 }
 
@@ -154,7 +153,7 @@ func (bl *Baseline) CollectURL() {
 	if len(bl.Body) == 0 {
 		return
 	}
-	for _, reg := range JSRegexps {
+	for _, reg := range ExtractRegexps["js"] {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			u[1] = formatURL(u[1])
@@ -164,7 +163,7 @@ func (bl *Baseline) CollectURL() {
 		}
 	}
 
-	for _, reg := range URLRegexps {
+	for _, reg := range ExtractRegexps["url"] {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			u[1] = formatURL(u[1])
@@ -176,7 +175,7 @@ func (bl *Baseline) CollectURL() {
 
 	bl.URLs = RemoveDuplication(bl.URLs)
 	if bl.URLs != nil {
-		bl.Extracteds = append(bl.Extracteds, &fingers.Extracted{
+		bl.Extracteds = append(bl.Extracteds, &parsers.Extracted{
 			Name:          "crawl",
 			ExtractResult: bl.URLs,
 		})
