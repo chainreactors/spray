@@ -3,9 +3,9 @@ package pkg
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"net/url"
 	"strconv"
@@ -134,7 +134,7 @@ func (bl *Baseline) Collect() {
 	bl.Frameworks = FingerDetect(string(bl.Raw))
 	if len(bl.Body) > 0 {
 		if bl.ContentType == "html" {
-			bl.Title = utils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
+			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
 		} else if bl.ContentType == "ico" {
 			if name, ok := Md5Fingers[parsers.Md5Hash(bl.Body)]; ok {
 				bl.Frameworks = append(bl.Frameworks, &parsers.Framework{Name: name})

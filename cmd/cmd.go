@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
@@ -55,7 +55,7 @@ func Spray() {
 
 	err = pkg.LoadTemplates()
 	if err != nil {
-		utils.Fatal(err.Error())
+		iutils.Fatal(err.Error())
 	}
 
 	if option.Extracts != nil {
