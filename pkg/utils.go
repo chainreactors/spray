@@ -295,30 +295,6 @@ func commonFilter(u string) bool {
 	return false
 }
 
-//func SafeJoin(base, uri string) string {
-//	baseSlash := strings.HasSuffix(base, "/")
-//	uriSlash := strings.HasPrefix(uri, "/")
-//	if (baseSlash && !uriSlash) || (!baseSlash && uriSlash) {
-//		return base + uri
-//	} else if baseSlash && uriSlash {
-//		return base + uri[1:]
-//	} else {
-//		return base + "/" + uri
-//	}
-//}
-
-//func SafePath(url, path string) string {
-//	urlSlash := strings.HasSuffix(url, "/")
-//	pathSlash := strings.HasPrefix(path, "/")
-//	if !urlSlash && !pathSlash {
-//		return "/" + path
-//	} else if urlSlash && pathSlash {
-//		return path[1:]
-//	} else {
-//		return path
-//	}
-//}
-
 func BakGenerator(domain string) []string {
 	var possibilities []string
 	for first, _ := range domain {
