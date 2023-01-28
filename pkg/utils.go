@@ -3,7 +3,6 @@ package pkg
 import (
 	"encoding/json"
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
-	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/ipcs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/parsers/iutils"
@@ -196,7 +195,7 @@ func LoadTemplates() error {
 	for k, v := range keywords {
 		t := make([]string, len(v.([]interface{})))
 		for i, vv := range v.([]interface{}) {
-			t[i] = utils.ToString(vv)
+			t[i] = iutils.ToString(vv)
 		}
 		mask.SpecialWords[k] = t
 	}
