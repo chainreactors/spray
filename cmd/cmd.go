@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
@@ -61,10 +60,10 @@ func Spray() {
 
 	if option.Extracts != nil {
 		for _, e := range option.Extracts {
-			if reg, ok := fingers.PresetExtracts[e]; ok {
+			if reg, ok := pkg.ExtractRegexps[e]; ok {
 				pkg.Extractors[e] = reg
 			} else {
-				pkg.Extractors[e] = regexp.MustCompile(e)
+				pkg.Extractors[e] = []*regexp.Regexp{regexp.MustCompile(e)}
 			}
 		}
 	}

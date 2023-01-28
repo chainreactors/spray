@@ -232,21 +232,3 @@ func FormatURL(base, u string) string {
 		return relaPath(base, u)
 	}
 }
-
-//func Join(base, u string) string {
-//	// //././ ../../../a
-//	base = Dir(base)
-//	for strings.HasPrefix(u, "../") {
-//		u = u[3:]
-//		for strings.HasSuffix(base, "/") {
-//			// 去掉多余的"/"
-//			base = base[:len(base)-2]
-//		}
-//		if i := strings.LastIndex(base, "/"); i == -1 {
-//			return "/"
-//		} else {
-//			return base[:i+1]
-//		}
-//	}
-//	return base + u
-//}

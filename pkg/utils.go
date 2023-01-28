@@ -5,6 +5,8 @@ import (
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/gogo/v2/pkg/utils"
 	"github.com/chainreactors/ipcs"
+	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/words/mask"
 	"math/rand"
 	"net/url"
@@ -22,18 +24,21 @@ var (
 	Rules       map[string]string = make(map[string]string)
 	ActivePath  []string
 	Fingers     fingers.Fingers
-	JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile(`.(https{0,1}:[^\s'’"”><()|*\[]{2,250}?[^=*\s'’><:;|()[]{3}\[]\.js)`),
-		regexp.MustCompile(`["']([^\s',’"”><;()|*:\[]{2,250}?[^=*\s'’|"”><^:;()\[]{3}\.js)`),
-		regexp.MustCompile(`=\s{0,6}["']{0,1}\s{0,6}([^\s^'’,+><;()|*\[]{2,250}?[^=,\s'’"”>|<:;*()\[]{3}\.js)`),
-	}
-	URLRegexps []*regexp.Regexp = []*regexp.Regexp{
-		regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s'"><()|*\[]{2,250})`),
-		regexp.MustCompile(`["']([^\s',’"”><.@$;:()|*\[]{2,250}\.[a-zA-Z]\w{1,4})["']`),
-		regexp.MustCompile(`["'](https?:[^\s'"><()@|*\[]{2,250}?\.[^\s',’"”><;()|*\[]{2,250}?)["']`),
-		regexp.MustCompile(`["']\s{0,6}([#,.]{0,2}/[^\s'",><;@$()|*\[]{2,250}?)\s{0,6}["']`),
-		regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s',’"”><$@;()|*\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s'’"“><)(]{2,250})`),
-	}
+	//JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
+	//	regexp.MustCompile(`.(https{0,1}:[^\s'’"”><()|*\[]{2,250}?[^=*\s'’><:;|()[]{3}\[]\.js)`),
+	//	regexp.MustCompile(`["']([^\s',’"”><;()|*:\[]{2,250}?[^=*\s'’|"”><^:;()\[]{3}\.js)`),
+	//	regexp.MustCompile(`=\s{0,6}["']{0,1}\s{0,6}([^\s^'’,+><;()|*\[]{2,250}?[^=,\s'’"”>|<:;*()\[]{3}\.js)`),
+	//}
+	//URLRegexps []*regexp.Regexp = []*regexp.Regexp{
+	//	regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s'"><()|*\[]{2,250})`),
+	//	regexp.MustCompile(`["']([^\s',’"”><.@$;:()|*\[]{2,250}\.[a-zA-Z]\w{1,4})["']`),
+	//	regexp.MustCompile(`["'](https?:[^\s'"><()@|*\[]{2,250}?\.[^\s',’"”><;()|*\[]{2,250}?)["']`),
+	//	regexp.MustCompile(`["']\s{0,6}([#,.]{0,2}/[^\s'",><;@$()|*\[]{2,250}?)\s{0,6}["']`),
+	//	regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s',’"”><$@;()|*\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s'’"“><)(]{2,250})`),
+	//}
+	ExtractRegexps map[string][]*regexp.Regexp = map[string][]*regexp.Regexp{}
+	Extractors                                 = make(parsers.Extractors)
+
 	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4"}
 	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
 
@@ -61,24 +66,6 @@ var (
 		"image/x-icon":             "ico",
 	}
 )
-
-func StringsContains(s []string, e string) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
-
-func IntsContains(s []int, e int) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
 
 func RemoveDuplication(arr []string) []string {
 	set := make(map[string]struct{}, len(arr))
@@ -213,12 +200,32 @@ func LoadTemplates() error {
 		}
 		mask.SpecialWords[k] = t
 	}
+
+	var extracts []*parsers.Extractor
+	err = json.Unmarshal(LoadConfig("extract"), &extracts)
+	if err != nil {
+		return err
+	}
+
+	for _, extract := range extracts {
+		extract.Compile()
+
+		ExtractRegexps[extract.Name] = extract.CompiledRegexps
+		for _, tag := range extract.Tags {
+			if _, ok := ExtractRegexps[tag]; !ok {
+				ExtractRegexps[tag] = extract.CompiledRegexps
+			} else {
+				ExtractRegexps[tag] = append(ExtractRegexps[tag], extract.CompiledRegexps...)
+			}
+		}
+	}
 	return nil
 }
 
 func FingerDetect(content string) Frameworks {
 	var frames Frameworks
 	for _, finger := range Fingers {
+		// sender置空, 所有的发包交给spray的pool
 		frame, _, ok := fingers.FingerMatcher(finger, content, 0, nil)
 		if ok {
 			frames = append(frames, frame)
@@ -317,7 +324,7 @@ func BakGenerator(domain string) []string {
 	for first, _ := range domain {
 		for last, _ := range domain[first:] {
 			p := domain[first : first+last+1]
-			if !StringsContains(possibilities, p) {
+			if !iutils.StringsContains(possibilities, p) {
 				possibilities = append(possibilities, p)
 			}
 		}

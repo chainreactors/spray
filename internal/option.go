@@ -5,6 +5,7 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words/mask"
@@ -53,17 +54,16 @@ type FunctionOptions struct {
 }
 
 type OutputOptions struct {
-	Match       string   `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
-	Filter      string   `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
-	Extracts    []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" json:"extracts,omitempty"`
-	OutputFile  string   `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty"`
-	Format      string   `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
-	FuzzyFile   string   `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
-	DumpFile    string   `long:"dump-file" description:"String, dump all request, and write to filename"`
-	Dump        bool     `long:"dump" description:"Bool, dump all request"`
-	AutoFile    bool     `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" `
-	Fuzzy       bool     `long:"fuzzy" description:"String, open fuzzy output" json:"fuzzy,omitempty"`
-	OutputProbe string   `short:"o" long:"probe" description:"String, output format" json:"output_probe,omitempty"`
+	Match       string `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
+	Filter      string `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
+	OutputFile  string `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty"`
+	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
+	FuzzyFile   string `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
+	DumpFile    string `long:"dump-file" description:"String, dump all request, and write to filename"`
+	Dump        bool   `long:"dump" description:"Bool, dump all request"`
+	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" `
+	Fuzzy       bool   `long:"fuzzy" description:"String, open fuzzy output" json:"fuzzy,omitempty"`
+	OutputProbe string `short:"o" long:"probe" description:"String, output format" json:"output_probe,omitempty"`
 }
 
 type RequestOptions struct {
@@ -76,14 +76,15 @@ type RequestOptions struct {
 }
 
 type PluginOptions struct {
-	Advance    bool   `short:"a" long:"advance" description:"Bool, enable crawl and active"`
-	Active     bool   `long:"active" description:"Bool, enable active finger detect"`
-	Bak        bool   `long:"bak" description:"Bool, enable bak found"`
-	FileBak    bool   `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
-	Common     bool   `long:"common" description:"Bool, enable common file found"`
-	Crawl      bool   `long:"crawl" description:"Bool, enable crawl"`
-	CrawlDepth int    `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
-	CrawlScope string `long:"crawl-scope" description:"Int, crawl scope (todo)"`
+	Advance    bool     `short:"a" long:"advance" description:"Bool, enable crawl and active"`
+	Extracts   []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)"`
+	Active     bool     `long:"active" description:"Bool, enable active finger detect"`
+	Bak        bool     `long:"bak" description:"Bool, enable bak found"`
+	FileBak    bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
+	Common     bool     `long:"common" description:"Bool, enable common file found"`
+	Crawl      bool     `long:"crawl" description:"Bool, enable crawl"`
+	CrawlDepth int      `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
+	CrawlScope string   `long:"crawl-scope" description:"Int, crawl scope (todo)"`
 }
 
 type ModeOptions struct {
@@ -369,7 +370,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.RemoveExtensions != "" {
 		rexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); pkg.StringsContains(rexts, ext) {
+			if ext := parseExtension(s); iutils.StringsContains(rexts, ext) {
 				return strings.TrimSuffix(s, "."+ext)
 			}
 			return s
@@ -379,7 +380,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.ExcludeExtensions != "" {
 		exexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
-			if ext := parseExtension(s); pkg.StringsContains(exexts, ext) {
+			if ext := parseExtension(s); iutils.StringsContains(exexts, ext) {
 				return ""
 			}
 			return s
