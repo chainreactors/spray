@@ -8,7 +8,7 @@ require (
 	github.com/chainreactors/gogo/v2 v2.10.1
 	github.com/chainreactors/ipcs v0.0.13
 	github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580
-	github.com/chainreactors/parsers v0.2.9-0.20230128045953-708a73b0e3b3
+	github.com/chainreactors/parsers v0.3.0
 	github.com/chainreactors/words v0.3.2-0.20230105161651-7c1fc4c9605a
 )
 
