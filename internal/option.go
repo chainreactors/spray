@@ -78,6 +78,7 @@ type RequestOptions struct {
 type PluginOptions struct {
 	Advance    bool     `short:"a" long:"advance" description:"Bool, enable crawl and active"`
 	Extracts   []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)"`
+	Recon      bool     `long:"recon" description:"Bool, enable recon"`
 	Active     bool     `long:"active" description:"Bool, enable active finger detect"`
 	Bak        bool     `long:"bak" description:"Bool, enable bak found"`
 	FileBak    bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
@@ -178,15 +179,21 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.ClientType = ihttp.STANDARD
 	}
 
+	if opt.Recon {
+		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
+	}
+
 	if opt.Advance {
 		r.Crawl = true
 		r.Active = true
 		r.Bak = true
 		r.Common = true
+		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	} else if opt.FileBak {
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
+
 	var s strings.Builder
 	if r.Crawl {
 		s.WriteString("crawl enable; ")
@@ -199,6 +206,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	if r.Common {
 		s.WriteString("common file enable; ")
+	}
+	if opt.Recon {
+		s.WriteString("recon enable; ")
 	}
 	if len(opt.AppendRule) > 0 {
 		s.WriteString("file bak enable; ")
