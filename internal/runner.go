@@ -91,8 +91,8 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		FuzzyCh:        r.FuzzyCh,
 		Fuzzy:          r.Fuzzy,
 		CheckPeriod:    r.CheckPeriod,
-		ErrPeriod:      r.ErrPeriod,
-		BreakThreshold: r.BreakThreshold,
+		ErrPeriod:      int32(r.ErrPeriod),
+		BreakThreshold: int32(r.BreakThreshold),
 		MatchExpr:      r.MatchExpr,
 		FilterExpr:     r.FilterExpr,
 		RecuExpr:       r.RecursiveExpr,
@@ -251,11 +251,13 @@ Loop:
 	for {
 		select {
 		case <-ctx.Done():
-			for t := range r.taskCh {
-				stat := pkg.NewStatistor(t.baseUrl)
-				r.StatFile.SafeWrite(stat.Json())
+			if len(r.taskCh) > 0 {
+				for t := range r.taskCh {
+					stat := pkg.NewStatistor(t.baseUrl)
+					r.StatFile.SafeWrite(stat.Json())
+				}
 			}
-			logs.Log.Importantf("save all stat to %s", r.StatFile.Filename)
+			logs.Log.Importantf("already save all stat to %s", r.StatFile.Filename)
 			break Loop
 		case t, ok := <-r.taskCh:
 			if !ok {
@@ -266,7 +268,7 @@ Loop:
 	}
 
 	r.poolwg.Wait()
-	//time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
+	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
 	for {
 		if len(r.OutputCh) == 0 {
 			close(r.OutputCh)
