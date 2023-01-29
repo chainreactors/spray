@@ -26,8 +26,8 @@ type Config struct {
 	Timeout        int
 	RateLimit      int
 	CheckPeriod    int
-	ErrPeriod      int
-	BreakThreshold int
+	ErrPeriod      int32
+	BreakThreshold int32
 	Method         string
 	Mod            SprayMod
 	Headers        map[string]string
