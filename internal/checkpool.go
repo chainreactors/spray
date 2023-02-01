@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
@@ -42,7 +43,15 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 
 		if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 			pool.failedCount++
-			bl = &pkg.Baseline{UrlString: pool.BaseURL + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
+
+			bl = &pkg.Baseline{
+				SprayResult: &parsers.SprayResult{
+					UrlString: pool.BaseURL + unit.path,
+					IsValid:   false,
+					ErrString: reqerr.Error(),
+					Reason:    ErrRequestFailed.Error(),
+				},
+			}
 		} else {
 			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 			bl.Collect()

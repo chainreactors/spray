@@ -6,6 +6,7 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
@@ -283,7 +284,7 @@ Loop:
 				continue
 			}
 			if _, ok := pool.urls[unit.path]; ok {
-				logs.Log.Debugf("[%s] duplicate path: %s, skipped", pkg.GetSourceName(unit.source), pool.base+unit.path)
+				logs.Log.Debugf("[%s] duplicate path: %s, skipped", parsers.GetSpraySourceName(unit.source), pool.base+unit.path)
 				pool.waiter.Done()
 			} else {
 				pool.urls[unit.path] = struct{}{}
@@ -327,7 +328,14 @@ func (pool *Pool) Invoke(v interface{}) {
 	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 		atomic.AddInt32(&pool.failedCount, 1)
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
-		bl = &pkg.Baseline{UrlString: pool.base + unit.path, IsValid: false, ErrString: reqerr.Error(), Reason: ErrRequestFailed.Error()}
+		bl = &pkg.Baseline{
+			SprayResult: &parsers.SprayResult{
+				UrlString: pool.base + unit.path,
+				IsValid:   false,
+				ErrString: reqerr.Error(),
+				Reason:    ErrRequestFailed.Error(),
+			},
+		}
 		pool.failedBaselines = append(pool.failedBaselines, bl)
 	} else {
 		if unit.source <= 3 || unit.source == CrawlSource || unit.source == CommonFileSource {
