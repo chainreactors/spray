@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -109,7 +110,7 @@ func (stat *Statistor) SourceString() string {
 	s.WriteString("[stat] ")
 	s.WriteString(stat.BaseUrl)
 	for k, v := range stat.Sources {
-		s.WriteString(fmt.Sprintf(" %s: %d,", GetSourceName(k), v))
+		s.WriteString(fmt.Sprintf(" %s: %d,", parsers.GetSpraySourceName(k), v))
 	}
 	return s.String()
 }
@@ -132,7 +133,7 @@ func (stat *Statistor) ColorSourceString() string {
 	s.WriteString("[stat] ")
 	s.WriteString(stat.BaseUrl)
 	for k, v := range stat.Sources {
-		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(GetSourceName(k)), logs.YellowBold(strconv.Itoa(v))))
+		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(parsers.GetSpraySourceName(k)), logs.YellowBold(strconv.Itoa(v))))
 	}
 	return s.String()
 }

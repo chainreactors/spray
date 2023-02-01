@@ -221,13 +221,13 @@ func LoadTemplates() error {
 	return nil
 }
 
-func FingerDetect(content string) Frameworks {
-	var frames Frameworks
+func FingerDetect(content string) parsers.Frameworks {
+	frames := make(parsers.Frameworks)
 	for _, finger := range Fingers {
 		// sender置空, 所有的发包交给spray的pool
 		frame, _, ok := fingers.FingerMatcher(finger, content, 0, nil)
 		if ok {
-			frames = append(frames, frame)
+			frames[frame.Name] = frame
 		}
 	}
 	return frames
