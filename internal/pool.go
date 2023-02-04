@@ -73,81 +73,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	pool.reqPool = p
 
 	// 挂起一个异步的处理结果线程, 不干扰主线程的请求并发
-	go func() {
-		for bl := range pool.tempCh {
-			if bl.IsValid {
-				pool.addFuzzyBaseline(bl)
-			}
-			if _, ok := pool.Statistor.Counts[bl.Status]; ok {
-				pool.Statistor.Counts[bl.Status]++
-			} else {
-				pool.Statistor.Counts[bl.Status] = 1
-			}
-
-			if _, ok := pool.Statistor.Sources[bl.Source]; ok {
-				pool.Statistor.Sources[bl.Source]++
-			} else {
-				pool.Statistor.Sources[bl.Source] = 1
-			}
-
-			var params map[string]interface{}
-			if pool.MatchExpr != nil || pool.FilterExpr != nil || pool.RecuExpr != nil {
-				params = map[string]interface{}{
-					"index":   pool.index,
-					"random":  pool.random,
-					"current": bl,
-				}
-				for _, status := range FuzzyStatus {
-					if bl, ok := pool.baselines[status]; ok {
-						params["bl"+strconv.Itoa(status)] = bl
-					} else {
-						params["bl"+strconv.Itoa(status)] = nilBaseline
-					}
-				}
-			}
-
-			var status bool
-			if pool.MatchExpr != nil {
-				if CompareWithExpr(pool.MatchExpr, params) {
-					status = true
-				}
-			} else {
-				if pool.BaseCompare(bl) {
-					status = true
-				}
-			}
-
-			if status {
-				pool.Statistor.FoundNumber++
-				if pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
-					pool.Statistor.FilteredNumber++
-					bl.Reason = ErrCustomFilter.Error()
-					bl.IsValid = false
-				}
-			} else {
-				bl.IsValid = false
-			}
-
-			// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
-			if bl.IsValid {
-				pool.waiter.Add(2)
-				pool.doCrawl(bl)
-				pool.doRule(bl)
-				if bl.RecuDepth < MaxRecursion {
-					if CompareWithExpr(pool.RecuExpr, params) {
-						bl.Recu = true
-					}
-				}
-			}
-			if !pool.closed {
-				// 如果任务被取消, 所有还没处理的请求结果都会被丢弃
-				pool.OutputCh <- bl
-			}
-			pool.waiter.Done()
-		}
-
-		pool.analyzeDone = true
-	}()
+	go pool.Handler()
 	return pool, nil
 }
 
@@ -378,10 +304,9 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.locker.Lock()
 		pool.index = bl
 		pool.locker.Unlock()
-		pool.waiter.Add(1)
-		pool.doCrawl(bl)
 		if bl.Status == 200 || (bl.Status/100) == 3 {
-			pool.OutputCh <- bl
+			pool.waiter.Add(1)
+			pool.tempCh <- bl
 		}
 		pool.initwg.Done()
 	case CheckSource:
@@ -418,6 +343,85 @@ func (pool *Pool) Invoke(v interface{}) {
 	default:
 		pool.tempCh <- bl
 	}
+}
+
+func (pool *Pool) Handler() {
+	for bl := range pool.tempCh {
+		if bl.IsValid {
+			pool.addFuzzyBaseline(bl)
+		}
+		if _, ok := pool.Statistor.Counts[bl.Status]; ok {
+			pool.Statistor.Counts[bl.Status]++
+		} else {
+			pool.Statistor.Counts[bl.Status] = 1
+		}
+
+		if _, ok := pool.Statistor.Sources[bl.Source]; ok {
+			pool.Statistor.Sources[bl.Source]++
+		} else {
+			pool.Statistor.Sources[bl.Source] = 1
+		}
+
+		var params map[string]interface{}
+		if pool.MatchExpr != nil || pool.FilterExpr != nil || pool.RecuExpr != nil {
+			params = map[string]interface{}{
+				"index":   pool.index,
+				"random":  pool.random,
+				"current": bl,
+			}
+			for _, status := range FuzzyStatus {
+				if bl, ok := pool.baselines[status]; ok {
+					params["bl"+strconv.Itoa(status)] = bl
+				} else {
+					params["bl"+strconv.Itoa(status)] = nilBaseline
+				}
+			}
+		}
+
+		var status bool
+		if pool.MatchExpr != nil {
+			if CompareWithExpr(pool.MatchExpr, params) {
+				status = true
+			}
+		} else {
+			if pool.BaseCompare(bl) {
+				status = true
+			}
+		}
+
+		if status {
+			pool.Statistor.FoundNumber++
+			if pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
+				pool.Statistor.FilteredNumber++
+				bl.Reason = ErrCustomFilter.Error()
+				bl.IsValid = false
+			}
+		} else {
+			bl.IsValid = false
+		}
+
+		if bl.IsValid || bl.IsFuzzy {
+			pool.waiter.Add(2)
+			pool.doCrawl(bl)
+			pool.doRule(bl)
+		}
+		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
+		if bl.IsValid {
+			if bl.RecuDepth < MaxRecursion {
+				if CompareWithExpr(pool.RecuExpr, params) {
+					bl.Recu = true
+				}
+			}
+		}
+
+		if !pool.closed {
+			// 如果任务被取消, 所有还没处理的请求结果都会被丢弃
+			pool.OutputCh <- bl
+		}
+		pool.waiter.Done()
+	}
+
+	pool.analyzeDone = true
 }
 
 func (pool *Pool) checkRedirect(redirectURL string) bool {
@@ -470,13 +474,12 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 }
 
 func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
-	if !bl.IsValid {
-		return false
-	}
 	var status = -1
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
 	if !ok {
-		if pool.random.Status == bl.Status {
+		if pool.index != nil {
+
+		} else if pool.random.Status == bl.Status {
 			// 当other的状态码与base相同时, 会使用base
 			ok = true
 			base = pool.random
@@ -735,12 +738,17 @@ func (pool *Pool) Close() {
 func (pool *Pool) safePath(u string) string {
 	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
 	hasSlash := strings.HasPrefix(u, "/")
-	if !pool.isDir && hasSlash {
-		// 如果path已经有"/", 则去掉
-		return pool.dir + "/" + u
-	} else if pool.isDir && hasSlash {
-		return pool.dir + u[1:]
+	if hasSlash {
+		if pool.isDir {
+			return pool.dir + u[1:]
+		} else {
+			return pool.url.Path + u
+		}
 	} else {
-		return pool.dir + u
+		if pool.isDir {
+			return pool.url.Path + u
+		} else {
+			return pool.url.Path + "/" + u
+		}
 	}
 }

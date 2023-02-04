@@ -26,6 +26,8 @@ github.com/chainreactors/parsers v0.3.1-0.20230201101112-af520af38b4d h1:gJaqiDa
 github.com/chainreactors/parsers v0.3.1-0.20230201101112-af520af38b4d/go.mod h1:tA33N6UbYFnIT3k5tufOMfETxmEP20RZFyTSEnVXNUA=
 github.com/chainreactors/parsers v0.3.1-0.20230201103008-e20167926b49 h1:snsLbWcScZRQV66TZxHfECkb2htZzhW2EcF1c60AA9c=
 github.com/chainreactors/parsers v0.3.1-0.20230201103008-e20167926b49/go.mod h1:tA33N6UbYFnIT3k5tufOMfETxmEP20RZFyTSEnVXNUA=
+github.com/chainreactors/parsers v0.3.1-0.20230204104401-6e150669e599 h1:9PwMZzN+RZDv2BUDvOG8e0N6W3XJQLVaP2AW6RD5mjM=
+github.com/chainreactors/parsers v0.3.1-0.20230204104401-6e150669e599/go.mod h1:tA33N6UbYFnIT3k5tufOMfETxmEP20RZFyTSEnVXNUA=
 github.com/chainreactors/words v0.3.2-0.20230105161651-7c1fc4c9605a h1:vRAMDJ6UQV73uyiRBQnuE/+S7Q7JTpfubSpyRlooZ2U=
 github.com/chainreactors/words v0.3.2-0.20230105161651-7c1fc4c9605a/go.mod h1:QIWX1vMT5j/Mp9zx3/wgZh3FqskhjCbo/3Ffy/Hxj9w=
 github.com/chainreactors/words v0.4.1-0.20230203114605-f305deb098a2 h1:51GoU85MLp/s8IvXcKLeedSxypkvZBFJWIBUlGV+MiI=

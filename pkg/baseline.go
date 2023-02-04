@@ -100,6 +100,7 @@ type Baseline struct {
 	Recu      bool     `json:"-"`
 	RecuDepth int      `json:"-"`
 	URLs      []string `json:"-"`
+	Collected bool     `json:"-"`
 }
 
 func (bl *Baseline) IsDir() bool {
@@ -130,6 +131,13 @@ func (bl *Baseline) Collect() {
 }
 
 func (bl *Baseline) CollectURL() {
+	if bl.Collected {
+		// 防止重复收集
+		return
+	} else {
+		bl.Collected = true
+	}
+
 	if len(bl.Body) == 0 {
 		return
 	}
