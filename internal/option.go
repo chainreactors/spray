@@ -97,9 +97,9 @@ type ModeOptions struct {
 	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
-	BlackStatus     string `long:"black-status" default:"404,400,410" description:"Strings (comma split),custom black status, "`
+	BlackStatus     string `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
 	WhiteStatus     string `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
-	FuzzyStatus     string `long:"fuzzy-status" default:"403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
+	FuzzyStatus     string `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
 	SimhashDistance int    `long:"distance" default:"5"`
 }
 
