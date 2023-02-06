@@ -196,7 +196,7 @@ Loop:
 			}
 
 			pool.waiter.Add(1)
-			pool.urls[w] = struct{}{}
+			//pool.urls[w] = struct{}{}
 			pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(w), WordSource, pool.wordOffset)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
