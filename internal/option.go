@@ -219,7 +219,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	BlackStatus = parseStatus(BlackStatus, opt.BlackStatus)
 	WhiteStatus = parseStatus(WhiteStatus, opt.WhiteStatus)
-	FuzzyStatus = parseStatus(FuzzyStatus, opt.FuzzyStatus)
+	if opt.FuzzyStatus == "all" {
+		enableAllFuzzy = true
+	} else {
+		FuzzyStatus = parseStatus(FuzzyStatus, opt.FuzzyStatus)
+	}
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))

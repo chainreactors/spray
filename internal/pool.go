@@ -18,7 +18,6 @@ import (
 	"golang.org/x/time/rate"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,11 +25,12 @@ import (
 )
 
 var (
-	max          = 2147483647
-	MaxRedirect  = 3
-	MaxCrawl     = 3
-	MaxRecursion = 0
-	nilBaseline  = &pkg.Baseline{}
+	max            = 2147483647
+	MaxRedirect    = 3
+	MaxCrawl       = 3
+	MaxRecursion   = 0
+	enableAllFuzzy = false
+	nilBaseline    = &pkg.Baseline{}
 )
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
@@ -369,13 +369,13 @@ func (pool *Pool) Handler() {
 				"random":  pool.random,
 				"current": bl,
 			}
-			for _, status := range FuzzyStatus {
-				if bl, ok := pool.baselines[status]; ok {
-					params["bl"+strconv.Itoa(status)] = bl
-				} else {
-					params["bl"+strconv.Itoa(status)] = nilBaseline
-				}
-			}
+			//for _, status := range FuzzyStatus {
+			//	if bl, ok := pool.baselines[status]; ok {
+			//		params["bl"+strconv.Itoa(status)] = bl
+			//	} else {
+			//		params["bl"+strconv.Itoa(status)] = nilBaseline
+			//	}
+			//}
 		}
 
 		var status bool
@@ -700,7 +700,7 @@ func (pool *Pool) addAddition(u *Unit) {
 }
 
 func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
-	if _, ok := pool.baselines[bl.Status]; !ok && iutils.IntsContains(FuzzyStatus, bl.Status) {
+	if _, ok := pool.baselines[bl.Status]; !ok && (enableAllFuzzy || iutils.IntsContains(FuzzyStatus, bl.Status)) {
 		bl.Collect()
 		pool.waiter.Add(1)
 		pool.doCrawl(bl)
