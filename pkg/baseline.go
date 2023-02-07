@@ -43,7 +43,11 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		bl.ContentType = "other"
 	}
 	bl.Raw = append(bl.Header, bl.Body...)
-	bl.RedirectURL = resp.GetHeader("Location")
+	if r := resp.GetHeader("Location"); r != "" {
+		bl.RedirectURL = r
+	} else {
+		bl.RedirectURL = resp.GetHeader("location")
+	}
 
 	bl.Dir = bl.IsDir()
 	uu, err := url.Parse(u)
