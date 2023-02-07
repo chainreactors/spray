@@ -384,9 +384,7 @@ func (pool *Pool) Handler() {
 				status = true
 			}
 		} else {
-			if pool.BaseCompare(bl) {
-				status = true
-			}
+			status = pool.BaseCompare(bl)
 		}
 
 		if status {
@@ -475,6 +473,15 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 
 func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	var status = -1
+
+	// 30x状态码的特殊处理
+	if strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
+		bl.Reason = ErrFuzzyRedirect.Error()
+		pool.putToFuzzy(bl)
+		return false
+	}
+
+	// 使用与baseline相同状态码, 需要在fuzzystatus中提前配置
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
 	if !ok {
 		if pool.index != nil {
