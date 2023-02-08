@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/pkg"
@@ -63,7 +64,12 @@ func Spray() {
 			if reg, ok := pkg.ExtractRegexps[e]; ok {
 				pkg.Extractors[e] = reg
 			} else {
-				pkg.Extractors[e] = []*regexp.Regexp{regexp.MustCompile(e)}
+				pkg.Extractors[e] = []*parsers.Extractor{
+					&parsers.Extractor{
+						Name:            e,
+						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
+					},
+				}
 			}
 		}
 	}
