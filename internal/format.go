@@ -6,10 +6,18 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"io/ioutil"
+	"os"
 )
 
-func Format(filename string) {
-	content, err := ioutil.ReadFile(filename)
+func Format(filename string, color bool) {
+	var content []byte
+	var err error
+	if filename == "stdin" {
+		content, err = ioutil.ReadAll(os.Stdin)
+	} else {
+		content, err = ioutil.ReadFile(filename)
+	}
+
 	if err != nil {
 		return
 	}
@@ -24,6 +32,10 @@ func Format(filename string) {
 		results = append(results, &result)
 	}
 	for _, result := range results {
-		logs.Log.Info(result.String())
+		if color {
+			logs.Log.Info(result.ColorString())
+		} else {
+			logs.Log.Info(result.String())
+		}
 	}
 }
