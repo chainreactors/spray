@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,27 +18,15 @@ import (
 )
 
 var (
-	Md5Fingers  map[string]string = make(map[string]string)
-	Mmh3Fingers map[string]string = make(map[string]string)
-	Rules       map[string]string = make(map[string]string)
-	ActivePath  []string
-	Fingers     fingers.Fingers
-	//JSRegexps   []*regexp.Regexp = []*regexp.Regexp{
-	//	regexp.MustCompile(`.(https{0,1}:[^\s'’"”><()|*\[]{2,250}?[^=*\s'’><:;|()[]{3}\[]\.js)`),
-	//	regexp.MustCompile(`["']([^\s',’"”><;()|*:\[]{2,250}?[^=*\s'’|"”><^:;()\[]{3}\.js)`),
-	//	regexp.MustCompile(`=\s{0,6}["']{0,1}\s{0,6}([^\s^'’,+><;()|*\[]{2,250}?[^=,\s'’"”>|<:;*()\[]{3}\.js)`),
-	//}
-	//URLRegexps []*regexp.Regexp = []*regexp.Regexp{
-	//	regexp.MustCompile(`=\s{0,6}(https{0,1}:[^\s'"><()|*\[]{2,250})`),
-	//	regexp.MustCompile(`["']([^\s',’"”><.@$;:()|*\[]{2,250}\.[a-zA-Z]\w{1,4})["']`),
-	//	regexp.MustCompile(`["'](https?:[^\s'"><()@|*\[]{2,250}?\.[^\s',’"”><;()|*\[]{2,250}?)["']`),
-	//	regexp.MustCompile(`["']\s{0,6}([#,.]{0,2}/[^\s'",><;@$()|*\[]{2,250}?)\s{0,6}["']`),
-	//	regexp.MustCompile(`href\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s',’"”><$@;()|*\[]{2,250})|action\s{0,6}=\s{0,6}["'‘“]{0,1}\s{0,6}([^\s'’"“><)(]{2,250})`),
-	//}
-	ExtractRegexps map[string][]*regexp.Regexp = map[string][]*regexp.Regexp{}
-	Extractors                                 = make(parsers.Extractors)
+	Md5Fingers     map[string]string = make(map[string]string)
+	Mmh3Fingers    map[string]string = make(map[string]string)
+	Rules          map[string]string = make(map[string]string)
+	ActivePath     []string
+	Fingers        fingers.Fingers
+	ExtractRegexps = map[string][]*parsers.Extractor{}
+	Extractors     = make(parsers.Extractors)
 
-	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4"}
+	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
 	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
 
 	ContentTypeMap = map[string]string{
@@ -210,12 +197,12 @@ func LoadTemplates() error {
 	for _, extract := range extracts {
 		extract.Compile()
 
-		ExtractRegexps[extract.Name] = extract.CompiledRegexps
+		ExtractRegexps[extract.Name] = []*parsers.Extractor{extract}
 		for _, tag := range extract.Tags {
 			if _, ok := ExtractRegexps[tag]; !ok {
-				ExtractRegexps[tag] = extract.CompiledRegexps
+				ExtractRegexps[tag] = []*parsers.Extractor{extract}
 			} else {
-				ExtractRegexps[tag] = append(ExtractRegexps[tag], extract.CompiledRegexps...)
+				ExtractRegexps[tag] = append(ExtractRegexps[tag], extract)
 			}
 		}
 	}
@@ -354,6 +341,7 @@ func CRC16Hash(data []byte) uint16 {
 }
 
 func UniqueHash(bl *Baseline) uint16 {
-	// 由host+状态码+重定向url+content-type+title+length舍去个位与十位组成的hash, 没有body length, 因为可能存在随机值
+	// 由host+状态码+重定向url+content-type+title+length舍去个位与十位组成的hash
+	// body length可能会导致一些误报, 目前没有更好的解决办法
 	return CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/100*100)))
 }

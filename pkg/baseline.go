@@ -147,7 +147,7 @@ func (bl *Baseline) CollectURL() {
 	if len(bl.Body) == 0 {
 		return
 	}
-	for _, reg := range ExtractRegexps["js"] {
+	for _, reg := range ExtractRegexps["js"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			u[1] = formatURL(u[1])
@@ -157,7 +157,7 @@ func (bl *Baseline) CollectURL() {
 		}
 	}
 
-	for _, reg := range ExtractRegexps["url"] {
+	for _, reg := range ExtractRegexps["url"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
 			u[1] = formatURL(u[1])
