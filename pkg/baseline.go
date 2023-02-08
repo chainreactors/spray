@@ -18,12 +18,20 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 			Frameworks: make(parsers.Frameworks),
 		},
 	}
+
+	if t, ok := ContentTypeMap[resp.ContentType()]; ok {
+		bl.ContentType = t
+		bl.Title = t + " data"
+	} else {
+		bl.ContentType = "other"
+	}
+
 	header := resp.Header()
 	bl.Header = make([]byte, len(header))
 	copy(bl.Header, header)
 	bl.HeaderLength = len(bl.Header)
 
-	if i := resp.ContentLength(); i != 0 {
+	if i := resp.ContentLength(); i != 0 && bl.ContentType != "bin" {
 		body := resp.Body()
 		bl.Body = make([]byte, len(body))
 		copy(bl.Body, body)
@@ -36,12 +44,6 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		}
 	}
 
-	if t, ok := ContentTypeMap[resp.ContentType()]; ok {
-		bl.ContentType = t
-		bl.Title = t + " data"
-	} else {
-		bl.ContentType = "other"
-	}
 	bl.Raw = append(bl.Header, bl.Body...)
 	if r := resp.GetHeader("Location"); r != "" {
 		bl.RedirectURL = r
