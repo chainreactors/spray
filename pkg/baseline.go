@@ -59,6 +59,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	if bl.Url.Host != host {
 		bl.Host = host
 	}
+	bl.Unique = UniqueHash(bl)
 	return bl
 }
 
@@ -95,6 +96,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 type Baseline struct {
 	*parsers.SprayResult
+	Unique    uint16   `json:"-"`
 	Url       *url.URL `json:"-"`
 	Dir       bool     `json:"-"`
 	Chunked   bool     `json:"-"`
@@ -131,7 +133,7 @@ func (bl *Baseline) Collect() {
 
 	bl.Hashes = parsers.NewHashes(bl.Raw)
 	bl.Extracteds = Extractors.Extract(string(bl.Raw))
-
+	bl.Unique = UniqueHash(bl)
 }
 
 func (bl *Baseline) CollectURL() {

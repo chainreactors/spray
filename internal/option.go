@@ -89,18 +89,21 @@ type PluginOptions struct {
 }
 
 type ModeOptions struct {
-	RateLimit       int    `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
-	Force           bool   `long:"force" description:"Bool, skip error break"`
-	CheckOnly       bool   `long:"check-only" description:"Bool, check only"`
-	Recursive       string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
-	Depth           int    `long:"depth" default:"0" description:"Int, recursive depth"`
-	CheckPeriod     int    `long:"check-period" default:"200" description:"Int, check period when request"`
-	ErrPeriod       int    `long:"error-period" default:"10" description:"Int, check period when error"`
-	BreakThreshold  int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
-	BlackStatus     string `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
-	WhiteStatus     string `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
-	FuzzyStatus     string `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
-	SimhashDistance int    `long:"distance" default:"5"`
+	RateLimit      int    `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
+	Force          bool   `long:"force" description:"Bool, skip error break"`
+	CheckOnly      bool   `long:"check-only" description:"Bool, check only"`
+	Recursive      string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
+	Depth          int    `long:"depth" default:"0" description:"Int, recursive depth"`
+	CheckPeriod    int    `long:"check-period" default:"200" description:"Int, check period when request"`
+	ErrPeriod      int    `long:"error-period" default:"10" description:"Int, check period when error"`
+	BreakThreshold int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
+	BlackStatus    string `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
+	WhiteStatus    string `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
+	FuzzyStatus    string `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
+	UniqueStatus   string `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
+	Unique         bool   `long:"unique" description:"Bool, unique response"`
+
+	SimhashDistance int `long:"distance" default:"5"`
 }
 
 type MiscOptions struct {
@@ -223,6 +226,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		enableAllFuzzy = true
 	} else {
 		FuzzyStatus = parseStatus(FuzzyStatus, opt.FuzzyStatus)
+	}
+
+	if opt.Unique {
+		enableAllUnique = true
+	} else {
+		UniqueStatus = parseStatus(UniqueStatus, opt.UniqueStatus)
 	}
 
 	// prepare word

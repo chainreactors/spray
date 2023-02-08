@@ -25,12 +25,13 @@ import (
 )
 
 var (
-	max            = 2147483647
-	MaxRedirect    = 3
-	MaxCrawl       = 3
-	MaxRecursion   = 0
-	enableAllFuzzy = false
-	nilBaseline    = &pkg.Baseline{}
+	max             = 2147483647
+	MaxRedirect     = 3
+	MaxCrawl        = 3
+	MaxRecursion    = 0
+	enableAllFuzzy  = false
+	enableAllUnique = false
+	nilBaseline     = &pkg.Baseline{}
 )
 
 func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
@@ -50,6 +51,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		baselines:   make(map[int]*pkg.Baseline),
 		urls:        make(map[string]struct{}),
+		uniques:     make(map[uint16]struct{}),
 		tempCh:      make(chan *pkg.Baseline, 100),
 		checkCh:     make(chan int, 100),
 		additionCh:  make(chan *Unit, 100),
@@ -102,6 +104,7 @@ type Pool struct {
 	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
 	urls            map[string]struct{}
+	uniques         map[uint16]struct{}
 	analyzeDone     bool
 	worder          *words.Worder
 	limiter         *rate.Limiter
@@ -389,7 +392,20 @@ func (pool *Pool) Handler() {
 
 		if status {
 			pool.Statistor.FoundNumber++
-			if pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
+
+			// unique判断
+			if enableAllUnique || iutils.IntsContains(UniqueStatus, bl.Status) {
+				if _, ok := pool.uniques[bl.Unique]; ok {
+					bl.IsValid = false
+					bl.IsFuzzy = true
+					bl.Reason = ErrFuzzyNotUnique.Error()
+				} else {
+					pool.uniques[bl.Unique] = struct{}{}
+				}
+			}
+
+			// 对通过所有对比的有效数据进行再次filter
+			if bl.IsValid && pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
 				pool.Statistor.FilteredNumber++
 				bl.Reason = ErrCustomFilter.Error()
 				bl.IsValid = false
@@ -472,10 +488,12 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 }
 
 func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
+	if !bl.IsValid {
+		return false
+	}
 	var status = -1
-
 	// 30x状态码的特殊处理
-	if strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
+	if bl.RedirectURL != "" && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
 		bl.Reason = ErrFuzzyRedirect.Error()
 		pool.putToFuzzy(bl)
 		return false

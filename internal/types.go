@@ -8,43 +8,37 @@ import (
 type ErrorType uint
 
 const (
-	ErrBadStatus ErrorType = iota
+	NoErr ErrorType = iota
+	ErrBadStatus
 	ErrSameStatus
 	ErrRequestFailed
 	ErrWaf
 	ErrRedirect
 	ErrCompareFailed
-	ErrFuzzyCompareFailed
-	ErrFuzzyRedirect
 	ErrCustomCompareFailed
 	ErrCustomFilter
+	ErrFuzzyCompareFailed
+	ErrFuzzyRedirect
+	ErrFuzzyNotUnique
 )
 
+var ErrMap = map[ErrorType]string{
+	NoErr:                  "",
+	ErrBadStatus:           "blacklist status",
+	ErrSameStatus:          "same status with random baseline",
+	ErrRequestFailed:       "request failed",
+	ErrWaf:                 "maybe banned by waf",
+	ErrRedirect:            "duplicate redirect url",
+	ErrCompareFailed:       "compare failed",
+	ErrCustomCompareFailed: "custom compare failed",
+	ErrCustomFilter:        "custom filtered",
+	ErrFuzzyCompareFailed:  "fuzzy compare failed",
+	ErrFuzzyRedirect:       "fuzzy redirect",
+	ErrFuzzyNotUnique:      "not unique",
+}
+
 func (e ErrorType) Error() string {
-	switch e {
-	case ErrBadStatus:
-		return "blacklist status"
-	case ErrSameStatus:
-		return "same status with random baseline"
-	case ErrRequestFailed:
-		return "request failed"
-	case ErrWaf:
-		return "maybe banned by waf"
-	case ErrRedirect:
-		return "duplicate redirect url"
-	case ErrCompareFailed:
-		return "compare failed"
-	case ErrFuzzyCompareFailed:
-		return "fuzzy compare failed"
-	case ErrFuzzyRedirect:
-		return "fuzzy redirect"
-	case ErrCustomCompareFailed:
-		return "custom compare failed"
-	case ErrCustomFilter:
-		return "custom filtered"
-	default:
-		return "unknown error"
-	}
+	return ErrMap[e]
 }
 
 const (
