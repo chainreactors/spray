@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	WhiteStatus = []int{200}
-	BlackStatus = []int{400, 410}
-	FuzzyStatus = []int{403, 404, 500, 501, 502, 503}
-	WAFStatus   = []int{493, 418, 1020, 406}
+	WhiteStatus  = []int{200}
+	BlackStatus  = []int{400, 410}
+	FuzzyStatus  = []int{403, 404, 500, 501, 502, 503}
+	WAFStatus    = []int{493, 418, 1020, 406}
+	UniqueStatus = []int{403}
 )
 
 var (
