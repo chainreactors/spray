@@ -120,7 +120,11 @@ func (bl *Baseline) IsDir() bool {
 
 // Collect 深度收集信息
 func (bl *Baseline) Collect() {
-	bl.Frameworks = FingerDetect(string(bl.Raw))
+	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
+		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
+		bl.Frameworks = FingerDetect(string(bl.Raw))
+	}
+
 	if len(bl.Body) > 0 {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
