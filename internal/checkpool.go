@@ -56,7 +56,7 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 			bl.Collect()
 		}
-
+		bl.Source = unit.source
 		bl.Spended = time.Since(start).Milliseconds()
 		pool.OutputCh <- bl
 		pool.reqCount++

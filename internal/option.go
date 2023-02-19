@@ -29,13 +29,13 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom   string   `long:"resume"`
-	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
-	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
-	Raw          string   `long:"raw" description:"File, input raw request filename"`
+	ResumeFrom string   `long:"resume"`
+	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
+	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
+	//Raw          string   `long:"raw" description:"File, input raw request filename"`
+	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
-	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}"`
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
 	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path"`
@@ -369,11 +369,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			if err != nil {
 				return nil, err
 			}
-			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
-			for _, u := range urls {
-				tasks = append(tasks, &Task{baseUrl: strings.TrimSpace(u)})
+			urls = strings.Split(strings.TrimSpace(string(content)), "\n")
+			for i, u := range urls {
+				urls[i] = strings.TrimSpace(u)
+				tasks = append(tasks, &Task{baseUrl: urls[i]})
 			}
 		}
+
 		if opt.CheckOnly {
 			r.URLList = urls
 			r.Total = len(r.URLList)
