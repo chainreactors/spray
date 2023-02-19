@@ -468,7 +468,7 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
-	if pool.random != nil && pool.random.Status != 200 && pool.random.Status == status {
+	if pool.random.Status != 200 && pool.random.Status == status {
 		return ErrSameStatus
 	}
 

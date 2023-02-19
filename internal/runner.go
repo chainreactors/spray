@@ -137,6 +137,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			r.poolwg.Done()
 		})
 	} else {
+		// spray 完整探测模式
 		go func() {
 			for _, t := range r.Tasks {
 				r.taskCh <- t

@@ -70,6 +70,7 @@ func RemoveDuplication(arr []string) []string {
 	return arr[:j]
 }
 
+// 判断是否存在标准输入数据
 func HasStdin() bool {
 	stat, err := os.Stdin.Stat()
 	if err != nil {
