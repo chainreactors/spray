@@ -234,7 +234,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.Outputting()
+	r.Output()
 	return nil
 }
 
@@ -347,7 +347,7 @@ func (r *Runner) PrintStat(pool *Pool) {
 	}
 }
 
-func (r *Runner) Outputting() {
+func (r *Runner) Output() {
 	debugPrint := func(bl *pkg.Baseline) {
 		if r.Color {
 			logs.Log.Debug(bl.ColorString())
