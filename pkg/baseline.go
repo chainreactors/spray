@@ -56,10 +56,9 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	if err == nil {
 		bl.Path = uu.Path
 		bl.Url = uu
-	}
-
-	if bl.Url.Host != host {
-		bl.Host = host
+		if bl.Url.Host != host {
+			bl.Host = host
+		}
 	}
 	bl.Unique = UniqueHash(bl)
 	return bl
