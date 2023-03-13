@@ -281,7 +281,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	r.Wordlist, err = mask.Run(opt.Word, dicts, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s %w", opt.Word, err)
 	}
 	if len(r.Wordlist) > 0 {
 		logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
