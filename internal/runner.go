@@ -36,74 +36,76 @@ type Runner struct {
 	bar      *uiprogress.Bar
 	finished int
 
-	Tasks          []*Task
-	URLList        []string
-	Wordlist       []string
-	Rules          *rule.Program
-	AppendRules    *rule.Program
-	Headers        map[string]string
-	Fns            []func(string) string
-	FilterExpr     *vm.Program
-	MatchExpr      *vm.Program
-	RecursiveExpr  *vm.Program
-	RecuDepth      int
-	Threads        int
-	PoolSize       int
-	ClientType     int
-	Pools          *ants.PoolWithFunc
-	PoolName       map[string]bool
-	Timeout        int
-	Mod            string
-	Probes         []string
-	OutputCh       chan *pkg.Baseline
-	FuzzyCh        chan *pkg.Baseline
-	Fuzzy          bool
-	OutputFile     *files.File
-	FuzzyFile      *files.File
-	DumpFile       *files.File
-	StatFile       *files.File
-	Progress       *uiprogress.Progress
-	Offset         int
-	Limit          int
-	RateLimit      int
-	Total          int
-	Deadline       int
-	CheckPeriod    int
-	ErrPeriod      int
-	BreakThreshold int
-	Color          bool
-	CheckOnly      bool
-	Force          bool
-	IgnoreWaf      bool
-	Crawl          bool
-	Active         bool
-	Bak            bool
-	Common         bool
+	Tasks           []*Task
+	URLList         []string
+	Wordlist        []string
+	Rules           *rule.Program
+	AppendRules     *rule.Program
+	Headers         map[string]string
+	Fns             []func(string) string
+	FilterExpr      *vm.Program
+	MatchExpr       *vm.Program
+	RecursiveExpr   *vm.Program
+	RecuDepth       int
+	Threads         int
+	PoolSize        int
+	ClientType      int
+	Pools           *ants.PoolWithFunc
+	PoolName        map[string]bool
+	Timeout         int
+	Mod             string
+	Probes          []string
+	OutputCh        chan *pkg.Baseline
+	FuzzyCh         chan *pkg.Baseline
+	Fuzzy           bool
+	OutputFile      *files.File
+	FuzzyFile       *files.File
+	DumpFile        *files.File
+	StatFile        *files.File
+	Progress        *uiprogress.Progress
+	Offset          int
+	Limit           int
+	RateLimit       int
+	Total           int
+	Deadline        int
+	CheckPeriod     int
+	ErrPeriod       int
+	BreakThreshold  int
+	Color           bool
+	CheckOnly       bool
+	Force           bool
+	IgnoreWaf       bool
+	Crawl           bool
+	Active          bool
+	Bak             bool
+	Common          bool
+	RandomUserAgent bool
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
 	config := &pkg.Config{
-		Thread:         r.Threads,
-		Timeout:        r.Timeout,
-		RateLimit:      r.RateLimit,
-		Headers:        r.Headers,
-		Mod:            pkg.ModMap[r.Mod],
-		OutputCh:       r.OutputCh,
-		FuzzyCh:        r.FuzzyCh,
-		Fuzzy:          r.Fuzzy,
-		CheckPeriod:    r.CheckPeriod,
-		ErrPeriod:      int32(r.ErrPeriod),
-		BreakThreshold: int32(r.BreakThreshold),
-		MatchExpr:      r.MatchExpr,
-		FilterExpr:     r.FilterExpr,
-		RecuExpr:       r.RecursiveExpr,
-		AppendRule:     r.AppendRules,
-		IgnoreWaf:      r.IgnoreWaf,
-		Crawl:          r.Crawl,
-		Active:         r.Active,
-		Bak:            r.Bak,
-		Common:         r.Common,
-		ClientType:     r.ClientType,
+		Thread:          r.Threads,
+		Timeout:         r.Timeout,
+		RateLimit:       r.RateLimit,
+		Headers:         r.Headers,
+		Mod:             pkg.ModMap[r.Mod],
+		OutputCh:        r.OutputCh,
+		FuzzyCh:         r.FuzzyCh,
+		Fuzzy:           r.Fuzzy,
+		CheckPeriod:     r.CheckPeriod,
+		ErrPeriod:       int32(r.ErrPeriod),
+		BreakThreshold:  int32(r.BreakThreshold),
+		MatchExpr:       r.MatchExpr,
+		FilterExpr:      r.FilterExpr,
+		RecuExpr:        r.RecursiveExpr,
+		AppendRule:      r.AppendRules,
+		IgnoreWaf:       r.IgnoreWaf,
+		Crawl:           r.Crawl,
+		Active:          r.Active,
+		Bak:             r.Bak,
+		Common:          r.Common,
+		ClientType:      r.ClientType,
+		RandomUserAgent: r.RandomUserAgent,
 	}
 
 	if config.ClientType == 0 {
