@@ -16,6 +16,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/time/rate"
+	"math/rand"
 	"net/url"
 	"path"
 	"strings"
@@ -61,7 +62,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		limiter:     rate.NewLimiter(rate.Limit(config.RateLimit), 1),
 		failedCount: 1,
 	}
-
+	rand.Seed(time.Now().UnixNano())
 	// 格式化dir, 保证至少有一个"/"
 	if strings.HasSuffix(config.BaseURL, "/") {
 		pool.dir = pool.url.Path
@@ -257,7 +258,10 @@ func (pool *Pool) Invoke(v interface{}) {
 		logs.Log.Error(err.Error())
 		return
 	}
+
 	req.SetHeaders(pool.Headers)
+	req.SetHeader("User-Agent", RandomUA())
+
 	start := time.Now()
 	resp, reqerr := pool.client.Do(pool.ctx, req)
 	if pool.ClientType == ihttp.FAST {

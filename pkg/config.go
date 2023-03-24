@@ -20,28 +20,29 @@ var ModMap = map[string]SprayMod{
 }
 
 type Config struct {
-	BaseURL        string
-	Thread         int
-	Wordlist       []string
-	Timeout        int
-	RateLimit      int
-	CheckPeriod    int
-	ErrPeriod      int32
-	BreakThreshold int32
-	Method         string
-	Mod            SprayMod
-	Headers        map[string]string
-	ClientType     int
-	MatchExpr      *vm.Program
-	FilterExpr     *vm.Program
-	RecuExpr       *vm.Program
-	AppendRule     *rule.Program
-	OutputCh       chan *Baseline
-	FuzzyCh        chan *Baseline
-	Fuzzy          bool
-	IgnoreWaf      bool
-	Crawl          bool
-	Active         bool
-	Bak            bool
-	Common         bool
+	BaseURL         string
+	Thread          int
+	Wordlist        []string
+	Timeout         int
+	RateLimit       int
+	CheckPeriod     int
+	ErrPeriod       int32
+	BreakThreshold  int32
+	Method          string
+	Mod             SprayMod
+	Headers         map[string]string
+	ClientType      int
+	MatchExpr       *vm.Program
+	FilterExpr      *vm.Program
+	RecuExpr        *vm.Program
+	AppendRule      *rule.Program
+	OutputCh        chan *Baseline
+	FuzzyCh         chan *Baseline
+	Fuzzy           bool
+	IgnoreWaf       bool
+	Crawl           bool
+	Active          bool
+	Bak             bool
+	Common          bool
+	RandomUserAgent bool
 }
