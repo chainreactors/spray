@@ -199,8 +199,13 @@ Loop:
 			}
 
 			pool.waiter.Add(1)
-			//pool.urls[w] = struct{}{}
-			pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(w), WordSource, pool.wordOffset)) // 原样的目录拼接, 输入了几个"/"就是几个, 适配java的目录解析
+			if pool.Mod == pkg.HostSpray {
+				pool.reqPool.Invoke(newUnitWithNumber(w, WordSource, pool.wordOffset))
+			} else {
+				// 原样的目录拼接, 输入了几个"/"就是几个, 适配/有语义的中间件
+				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(w), WordSource, pool.wordOffset))
+			}
+
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
 			if pool.Mod == pkg.HostSpray {
@@ -239,7 +244,15 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 	unit := v.(*Unit)
-	req, err := pool.genReq(unit.path)
+
+	var req *ihttp.Request
+	var err error
+	if unit.source == WordSource {
+		req, err = pool.genReq(pool.Mod, unit.path)
+	} else {
+		req, err = pool.genReq(pkg.PathSpray, unit.path)
+	}
+
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -453,10 +466,10 @@ func (pool *Pool) checkRedirect(redirectURL string) bool {
 	}
 }
 
-func (pool *Pool) genReq(s string) (*ihttp.Request, error) {
-	if pool.Mod == pkg.HostSpray {
+func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
+	if mod == pkg.HostSpray {
 		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if pool.Mod == pkg.PathSpray {
+	} else if mod == pkg.PathSpray {
 		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
 	}
 	return nil, fmt.Errorf("unknown mod")
