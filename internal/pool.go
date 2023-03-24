@@ -325,8 +325,8 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.index = bl
 		pool.locker.Unlock()
 		if bl.Status == 200 || (bl.Status/100) == 3 {
-			pool.waiter.Add(1)
-			pool.tempCh <- bl
+			// 保留index输出结果
+			pool.OutputCh <- bl
 		}
 		pool.initwg.Done()
 	case CheckSource:
@@ -519,9 +519,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	// 使用与baseline相同状态码, 需要在fuzzystatus中提前配置
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
 	if !ok {
-		if pool.index != nil {
-
-		} else if pool.random.Status == bl.Status {
+		if pool.random.Status == bl.Status {
 			// 当other的状态码与base相同时, 会使用base
 			ok = true
 			base = pool.random
@@ -540,6 +538,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	}
 
 	bl.Collect()
+
 	//if !pool.IgnoreWaf {
 	//	// 部分情况下waf的特征可能是全局, 指定了--ignore-waf则不会进行waf的指纹检测
 	//	for _, f := range bl.Frameworks {
