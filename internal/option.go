@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/utils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
@@ -16,6 +17,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+)
+
+var (
+	DefaultThreads = 20
+	//DefaultTimeout = 5
+	//DefaultPoolSize = 5
+	//DefaultRateLimit = 0
 )
 
 type Option struct {
@@ -29,10 +37,12 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom string   `long:"resume"`
-	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
-	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
-	//Raw          string   `long:"raw" description:"File, input raw request filename"`
+	ResumeFrom   string   `long:"resume"`
+	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
+	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
+	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
+	CIDRs        string   `short:"c" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	Raw          string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
@@ -46,7 +56,7 @@ type FunctionOptions struct {
 	Extensions        string            `short:"e" long:"extension" description:"String, add extensions (separated by commas), e.g.: -e jsp,jspx"`
 	ExcludeExtensions string            `long:"exclude-extension" description:"String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx"`
 	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
-	Uppercase         bool              `short:"U" long:"uppercase" desvcription:"Bool, upper wordlist, e.g.: --uppercase"`
+	Uppercase         bool              `short:"U" long:"uppercase" description:"Bool, upper wordlist, e.g.: --uppercase"`
 	Lowercase         bool              `short:"L" long:"lowercase" description:"Bool, lower wordlist, e.g.: --lowercase"`
 	Prefixes          []string          `long:"prefix" description:"Strings, add prefix, e.g.: --prefix aaa --prefix bbb"`
 	Suffixes          []string          `long:"suffix" description:"Strings, add suffix, e.g.: --suffix aaa --suffix bbb"`
@@ -108,15 +118,15 @@ type ModeOptions struct {
 
 type MiscOptions struct {
 	Deadline int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
-	Timeout  int    `long:"timeout" default:"2" description:"Int, timeout with request (seconds)"`
-	PoolSize int    `short:"p" long:"pool" default:"5" description:"Int, Pool size"`
+	Timeout  int    `long:"timeout" default:"5" description:"Int, timeout with request (seconds)"`
+	PoolSize int    `short:"P" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
 	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`
 	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
-	Client   string `short:"c" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
+	Client   string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
@@ -183,6 +193,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.ClientType = ihttp.STANDARD
 	}
 
+	if opt.Threads == DefaultThreads && opt.CheckOnly {
+		r.Threads = 1000
+	}
 	if opt.Recon {
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 	}
@@ -324,40 +337,75 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 		r.AppendRules = rule.Compile(string(content), "")
 	}
+
+	ports := utils.ParsePort(opt.PortRange)
+
 	// prepare task
-	var tasks []*Task
+	tasks := make(chan *Task, opt.PoolSize)
 	var taskfrom string
 	if opt.ResumeFrom != "" {
 		stats, err := pkg.ReadStatistors(opt.ResumeFrom)
 		if err != nil {
-			return nil, err
+			logs.Log.Error(err.Error())
 		}
+		r.Count = len(stats)
 		taskfrom = "resume " + opt.ResumeFrom
-		for _, stat := range stats {
-			task := &Task{baseUrl: stat.BaseUrl, origin: stat}
-			tasks = append(tasks, task)
-		}
+		go func() {
+			for _, stat := range stats {
+				tasks <- &Task{baseUrl: stat.BaseUrl, origin: stat}
+			}
+			close(tasks)
+		}()
 	} else {
 		var file *os.File
-		var urls []string
+
+		// 根据不同的输入类型生成任务
 		if len(opt.URL) == 1 {
 			u, err := url.Parse(opt.URL[0])
 			if err != nil {
 				u, _ = url.Parse("http://" + opt.URL[0])
 			}
-			urls = append(urls, u.String())
-			tasks = append(tasks, &Task{baseUrl: opt.URL[0]})
+			go opt.GenerateTasks(tasks, u.Hostname(), ports)
 			taskfrom = u.Host
+			r.Count = 1
 		} else if len(opt.URL) > 1 {
-			for _, u := range opt.URL {
-				urls = append(urls, u)
-				tasks = append(tasks, &Task{baseUrl: u})
-			}
+			go func() {
+				for _, u := range opt.URL {
+					opt.GenerateTasks(tasks, u, ports)
+				}
+				close(tasks)
+			}()
+
 			taskfrom = "cmd"
+			r.Count = len(opt.URL)
+		} else if opt.CIDRs != "" {
+			if len(ports) == 0 {
+				ports = []string{"80", "443"}
+			}
+
+			for _, cidr := range strings.Split(opt.CIDRs, ",") {
+				ips := utils.ParseCIDR(cidr)
+				if ips != nil {
+					r.Count += ips.Count()
+				}
+			}
+			go func() {
+				for _, cidr := range strings.Split(opt.CIDRs, ",") {
+					ips := utils.ParseCIDR(cidr)
+					if ips == nil {
+						logs.Log.Error("cidr format error: " + cidr)
+					}
+					for ip := range ips.Range() {
+						opt.GenerateTasks(tasks, ip.String(), ports)
+					}
+				}
+				close(tasks)
+			}()
+			taskfrom = "cidr"
 		} else if opt.URLFile != "" {
 			file, err = os.Open(opt.URLFile)
 			if err != nil {
-				return nil, err
+				logs.Log.Error(err.Error())
 			}
 			taskfrom = opt.URLFile
 		} else if pkg.HasStdin() {
@@ -368,21 +416,37 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if file != nil {
 			content, err := ioutil.ReadAll(file)
 			if err != nil {
-				return nil, err
+				logs.Log.Error(err.Error())
 			}
-			urls = strings.Split(strings.TrimSpace(string(content)), "\n")
-			for i, u := range urls {
-				urls[i] = strings.TrimSpace(u)
-				tasks = append(tasks, &Task{baseUrl: urls[i]})
+			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
+			for _, u := range urls {
+				if _, err := url.Parse(u); err != nil {
+					r.Count++
+				} else if ip := utils.ParseIP(u); ip != nil {
+					r.Count++
+				} else if cidr := utils.ParseCIDR(u); cidr != nil {
+					r.Count += cidr.Count()
+				}
 			}
-		}
 
-		if opt.CheckOnly {
-			r.URLList = urls
-			r.Total = len(r.URLList)
+			go func() {
+				for _, u := range urls {
+					if _, err := url.Parse(u); err != nil {
+						opt.GenerateTasks(tasks, u, ports)
+					} else if ip := utils.ParseIP(u); ip != nil {
+						opt.GenerateTasks(tasks, u, ports)
+					} else if cidr := utils.ParseCIDR(u); cidr != nil {
+						for ip := range cidr.Range() {
+							opt.GenerateTasks(tasks, ip.String(), ports)
+						}
+					}
+				}
+				close(tasks)
+			}()
 		}
 	}
 
+	r.Count = r.Count * len(ports)
 	r.Tasks = tasks
 	logs.Log.Importantf("Loaded %d urls from %s", len(tasks), taskfrom)
 
@@ -541,4 +605,34 @@ func (opt *Option) Validate() bool {
 		return false
 	}
 	return true
+}
+
+// Generate Tasks
+func (opt *Option) GenerateTasks(ch chan *Task, u string, ports []string) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		logs.Log.Warn(err.Error())
+		return
+	}
+
+	if parsed.Scheme == "" {
+		if parsed.Port() == "443" {
+			parsed.Scheme = "https"
+		} else {
+			parsed.Scheme = "http"
+		}
+	}
+
+	if len(ports) == 0 {
+		ch <- &Task{baseUrl: u}
+		return
+	}
+
+	for _, p := range ports {
+		if parsed.Host == "" {
+			ch <- &Task{baseUrl: fmt.Sprintf("%s://%s:%s", parsed.Scheme, parsed.Path, p)}
+		} else {
+			ch <- &Task{baseUrl: fmt.Sprintf("%s://%s:%s/%s", parsed.Scheme, parsed.Host, p, parsed.Path)}
+		}
+	}
 }
