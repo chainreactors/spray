@@ -36,8 +36,8 @@ type Runner struct {
 	bar      *uiprogress.Bar
 	finished int
 
-	Tasks           []*Task
-	URLList         []string
+	Tasks           chan *Task
+	Count           int // tasks total number
 	Wordlist        []string
 	Rules           *rule.Program
 	AppendRules     *rule.Program
@@ -66,7 +66,7 @@ type Runner struct {
 	Offset          int
 	Limit           int
 	RateLimit       int
-	Total           int
+	Total           int // wordlist total number
 	Deadline        int
 	CheckPeriod     int
 	ErrPeriod       int
@@ -132,16 +132,24 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				r.poolwg.Done()
 				return
 			}
-			pool.worder = words.NewWorder(r.URLList)
+
+			ch := make(chan string)
+			go func() {
+				for t := range r.Tasks {
+					ch <- t.baseUrl
+				}
+				close(ch)
+			}()
+			pool.worder = words.NewWorderWithChan(ch)
 			pool.worder.Fns = r.Fns
-			pool.bar = pkg.NewBar("check", r.Total-r.Offset, r.Progress)
-			pool.Run(ctx, r.Offset, r.Total)
+			pool.bar = pkg.NewBar("check", r.Count-r.Offset, r.Progress)
+			pool.Run(ctx, r.Offset, r.Count)
 			r.poolwg.Done()
 		})
 	} else {
 		// spray 完整探测模式
 		go func() {
-			for _, t := range r.Tasks {
+			for t := range r.Tasks {
 				r.taskCh <- t
 			}
 			close(r.taskCh)
@@ -151,7 +159,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			r.bar = r.Progress.AddBar(len(r.Tasks))
 			r.bar.PrependCompleted()
 			r.bar.PrependFunc(func(b *uiprogress.Bar) string {
-				return fmt.Sprintf("total progressive: %d/%d ", r.finished, len(r.Tasks))
+				return fmt.Sprintf("total progressive: %d/%d ", r.finished, r.Count)
 			})
 			r.bar.AppendElapsed()
 		}

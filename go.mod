@@ -6,10 +6,9 @@ require (
 	github.com/chainreactors/files v0.2.5-0.20221212083256-16ee4c1ae47e
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 	github.com/chainreactors/gogo/v2 v2.10.4
-	github.com/chainreactors/ipcs v0.0.13
 	github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580
 	github.com/chainreactors/parsers v0.3.1-0.20230208070438-6903b0d366c9
-	github.com/chainreactors/words v0.4.1-0.20230203115443-ca934844e361
+	github.com/chainreactors/words v0.4.1-0.20230327065326-448a905ac8c2
 )
 
 require (
@@ -24,6 +23,8 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/chainreactors/ipcs v0.0.13 // indirect
+	github.com/chainreactors/utils v0.0.14-0.20230314084720-a4d745cabc56 // indirect
 	github.com/go-dedup/megophone v0.0.0-20170830025436-f01be21026f5 // indirect
 	github.com/go-dedup/simhash v0.0.0-20170904020510-9ecaca7b509c // indirect
 	github.com/go-dedup/text v0.0.0-20170907015346-8bb1b95e3cb7 // indirect
