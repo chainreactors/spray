@@ -3,16 +3,18 @@ module github.com/chainreactors/spray
 go 1.17
 
 require (
-	github.com/chainreactors/files v0.2.5-0.20221212083256-16ee4c1ae47e
+	github.com/chainreactors/files v0.2.5-0.20230310102018-3d10f74c7d6b
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
-	github.com/chainreactors/gogo/v2 v2.10.4
-	github.com/chainreactors/logs v0.7.1-0.20221214153111-85f123ff6580
-	github.com/chainreactors/parsers v0.3.1-0.20230208070438-6903b0d366c9
+	github.com/chainreactors/gogo/v2 v2.11.1-0.20230327070928-b5ff67ac46c7
+	github.com/chainreactors/logs v0.7.1-0.20230316032643-ed7d85ca234f
+	github.com/chainreactors/parsers v0.3.1-0.20230327070646-7dbe644d2b3b
 	github.com/chainreactors/words v0.4.1-0.20230327065326-448a905ac8c2
 )
 
 require (
 	github.com/antonmedv/expr v1.9.0
+	github.com/chainreactors/ipcs v0.0.13
+	github.com/chainreactors/utils v0.0.14-0.20230314084720-a4d745cabc56
 	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.7.0
@@ -23,8 +25,6 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/chainreactors/ipcs v0.0.13 // indirect
-	github.com/chainreactors/utils v0.0.14-0.20230314084720-a4d745cabc56 // indirect
 	github.com/go-dedup/megophone v0.0.0-20170830025436-f01be21026f5 // indirect
 	github.com/go-dedup/simhash v0.0.0-20170904020510-9ecaca7b509c // indirect
 	github.com/go-dedup/text v0.0.0-20170907015346-8bb1b95e3cb7 // indirect

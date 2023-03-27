@@ -114,7 +114,7 @@ Loop:
 			}
 
 			p.wg.Add(1)
-			_ = p.pool.Invoke(newUnit(u, WordSource))
+			_ = p.pool.Invoke(newUnit(u, CheckSource))
 		case <-ctx.Done():
 			break Loop
 		case <-p.ctx.Done():

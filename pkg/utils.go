@@ -210,11 +210,11 @@ func LoadTemplates() error {
 	return nil
 }
 
-func FingerDetect(content string) parsers.Frameworks {
+func FingerDetect(content []byte) parsers.Frameworks {
 	frames := make(parsers.Frameworks)
 	for _, finger := range Fingers {
 		// sender置空, 所有的发包交给spray的pool
-		frame, _, ok := fingers.FingerMatcher(finger, content, 0, nil)
+		frame, _, ok := fingers.FingerMatcher(finger, map[string]interface{}{"content": content}, 0, nil)
 		if ok {
 			frames[frame.Name] = frame
 		}
