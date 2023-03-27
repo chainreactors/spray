@@ -121,12 +121,12 @@ func (bl *Baseline) IsDir() bool {
 func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
-		bl.Frameworks = FingerDetect(string(bl.Raw))
+		bl.Frameworks = FingerDetect(bl.Raw)
 	}
 
 	if len(bl.Body) > 0 {
 		if bl.ContentType == "html" {
-			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(string(bl.Body)))
+			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
 			if name, ok := Md5Fingers[parsers.Md5Hash(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
