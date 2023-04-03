@@ -224,17 +224,10 @@ func FormatURL(base, u string) string {
 		if err != nil {
 			return ""
 		}
-		if len(parsed.Path) <= 1 {
-			return ""
-		}
 		return parsed.Path
 	} else if strings.HasPrefix(u, "//") {
 		parsed, err := url.Parse(u)
 		if err != nil {
-			return ""
-		}
-		if len(parsed.Path) <= 1 {
-			// 跳过"/"与空目录
 			return ""
 		}
 		return parsed.Path

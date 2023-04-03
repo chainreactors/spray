@@ -169,6 +169,7 @@ func (pool *Pool) Run(ctx context.Context, offset, limit int) {
 	}
 
 	var done bool
+	// 挂起一个监控goroutine, 每100ms判断一次done, 如果已经done, 则关闭closeCh, 然后通过Loop中的select case closeCh去break, 实现退出
 	go func() {
 		for {
 			if done {
@@ -300,7 +301,7 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	// 手动处理重定向
 	if bl.IsValid && unit.source != CheckSource && bl.RedirectURL != "" {
-		pool.waiter.Add(1)
+		//pool.waiter.Add(1)
 		pool.doRedirect(bl, unit.depth)
 	}
 
@@ -590,19 +591,21 @@ func (pool *Pool) Upgrade(bl *pkg.Baseline) error {
 }
 
 func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
-	defer pool.waiter.Done()
 	if depth >= MaxRedirect {
 		return
 	}
 	reURL := FormatURL(bl.Url.Path, bl.RedirectURL)
 
 	pool.waiter.Add(1)
-	go pool.addAddition(&Unit{
-		path:     reURL,
-		source:   RedirectSource,
-		frontUrl: bl.UrlString,
-		depth:    depth + 1,
-	})
+	go func() {
+		defer pool.waiter.Done()
+		pool.addAddition(&Unit{
+			path:     reURL,
+			source:   RedirectSource,
+			frontUrl: bl.UrlString,
+			depth:    depth + 1,
+		})
+	}()
 }
 
 func (pool *Pool) doCrawl(bl *pkg.Baseline) {

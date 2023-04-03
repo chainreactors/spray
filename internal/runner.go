@@ -283,14 +283,12 @@ Loop:
 	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
 	for {
 		if len(r.OutputCh) == 0 {
-			close(r.OutputCh)
 			break
 		}
 	}
 
 	for {
 		if len(r.FuzzyCh) == 0 {
-			close(r.FuzzyCh)
 			break
 		}
 	}
@@ -322,7 +320,6 @@ Loop:
 
 	for {
 		if len(r.OutputCh) == 0 {
-			close(r.OutputCh)
 			break
 		}
 	}

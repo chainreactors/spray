@@ -536,6 +536,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Probes = strings.Split(opt.OutputProbe, ",")
 	}
 
+	// init output file
 	if opt.OutputFile != "" {
 		r.OutputFile, err = files.NewFile(opt.OutputFile, false, false, true)
 		if err != nil {
