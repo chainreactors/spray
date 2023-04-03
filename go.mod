@@ -7,7 +7,7 @@ require (
 	github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 	github.com/chainreactors/gogo/v2 v2.11.1-0.20230327070928-b5ff67ac46c7
 	github.com/chainreactors/logs v0.7.1-0.20230316032643-ed7d85ca234f
-	github.com/chainreactors/parsers v0.3.1-0.20230327070646-7dbe644d2b3b
+	github.com/chainreactors/parsers v0.3.1-0.20230403160559-9ed502452575
 	github.com/chainreactors/words v0.4.1-0.20230327065326-448a905ac8c2
 )
 

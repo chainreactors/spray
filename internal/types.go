@@ -53,6 +53,7 @@ const (
 	RuleSource
 	BakSource
 	CommonFileSource
+	UpgradeSource
 )
 
 func newUnit(path string, source int) *Unit {
