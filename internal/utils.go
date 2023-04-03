@@ -2,6 +2,9 @@ package internal
 
 import (
 	"bytes"
+	"github.com/antonmedv/expr"
+	"github.com/antonmedv/expr/vm"
+	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
@@ -248,4 +251,17 @@ func FormatURL(base, u string) string {
 
 func RandomUA() string {
 	return randomUserAgent[rand.Intn(uacount)]
+}
+
+func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
+	res, err := expr.Run(exp, params)
+	if err != nil {
+		logs.Log.Warn(err.Error())
+	}
+
+	if res == true {
+		return true
+	} else {
+		return false
+	}
 }
