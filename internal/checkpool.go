@@ -30,7 +30,7 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 		reqCount:    1,
 		failedCount: 1,
 	}
-
+	pool.Headers = map[string]string{"Connection": "close"}
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
 
 	pool.pool = p
@@ -124,7 +124,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	if err != nil {
 		logs.Log.Error(err.Error())
 	}
-
+	req.SetHeaders(pool.Headers)
 	start := time.Now()
 	var bl *pkg.Baseline
 	resp, reqerr := pool.client.Do(pool.ctx, req)
@@ -144,7 +144,13 @@ func (pool *CheckPool) Invoke(v interface{}) {
 				ReqDepth:  unit.depth,
 			},
 		}
-		pool.doUpgrade(bl)
+
+		if strings.Contains(reqerr.Error(), "timed out") || strings.Contains(reqerr.Error(), "actively refused") {
+
+		} else {
+			pool.doUpgrade(bl)
+		}
+
 	} else {
 		bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 		bl.Collect()
@@ -162,7 +168,12 @@ func (pool *CheckPool) Invoke(v interface{}) {
 			pool.doUpgrade(bl)
 			pool.FuzzyCh <- bl
 		} else {
-			pool.OutputCh <- bl
+			params := map[string]interface{}{
+				"current": bl,
+			}
+			if pool.MatchExpr == nil || CompareWithExpr(pool.MatchExpr, params) {
+				pool.OutputCh <- bl
+			}
 		}
 	}
 

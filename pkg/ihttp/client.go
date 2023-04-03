@@ -75,9 +75,9 @@ type Client struct {
 
 func (c *Client) TransToCheck() {
 	if c.fastClient != nil {
-		c.fastClient.MaxConnsPerHost = 1
+		c.fastClient.MaxConnsPerHost = -1 // disable keepalive
 	} else if c.standardClient != nil {
-
+		c.standardClient.Transport.(*http.Transport).DisableKeepAlives = true // disable keepalive
 	}
 }
 

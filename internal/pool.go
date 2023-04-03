@@ -3,8 +3,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"github.com/antonmedv/expr"
-	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/parsers/iutils"
@@ -559,19 +557,6 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	}
 
 	return true
-}
-
-func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
-	res, err := expr.Run(exp, params)
-	if err != nil {
-		logs.Log.Warn(err.Error())
-	}
-
-	if res == true {
-		return true
-	} else {
-		return false
-	}
 }
 
 func (pool *Pool) Upgrade(bl *pkg.Baseline) error {
