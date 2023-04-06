@@ -155,8 +155,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			close(r.taskCh)
 		}()
 
-		if len(r.Tasks) > 0 {
-			r.bar = r.Progress.AddBar(len(r.Tasks))
+		if r.Count > 0 {
+			r.bar = r.Progress.AddBar(r.Count)
 			r.bar.PrependCompleted()
 			r.bar.PrependFunc(func(b *uiprogress.Bar) string {
 				return fmt.Sprintf("total progressive: %d/%d ", r.finished, r.Count)
