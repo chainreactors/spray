@@ -365,7 +365,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			if err != nil {
 				u, _ = url.Parse("http://" + opt.URL[0])
 			}
-			go opt.GenerateTasks(tasks, u.Hostname(), ports)
+			go func() {
+				opt.GenerateTasks(tasks, u.Hostname(), ports)
+				close(tasks)
+			}()
 			taskfrom = u.Host
 			r.Count = 1
 		} else if len(opt.URL) > 1 {
@@ -446,7 +449,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 	}
 
-	r.Count = r.Count * len(ports)
+	if len(ports) > 0 {
+		r.Count = r.Count * len(ports)
+	}
+
 	r.Tasks = tasks
 	logs.Log.Importantf("Loaded %d urls from %s", len(tasks), taskfrom)
 
