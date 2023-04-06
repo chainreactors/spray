@@ -366,7 +366,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 				u, _ = url.Parse("http://" + opt.URL[0])
 			}
 			go func() {
-				opt.GenerateTasks(tasks, u.Hostname(), ports)
+				opt.GenerateTasks(tasks, u.String(), ports)
 				close(tasks)
 			}()
 			taskfrom = u.Host

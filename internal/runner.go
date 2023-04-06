@@ -108,7 +108,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		RandomUserAgent: r.RandomUserAgent,
 	}
 
-	if config.ClientType == 0 {
+	if config.ClientType == ihttp.Auto {
 		if config.Mod == pkg.PathSpray {
 			config.ClientType = ihttp.FAST
 		} else if config.Mod == pkg.HostSpray {

@@ -583,7 +583,6 @@ func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 
 	pool.waiter.Add(1)
 	go func() {
-		defer pool.waiter.Done()
 		pool.addAddition(&Unit{
 			path:     reURL,
 			source:   RedirectSource,
