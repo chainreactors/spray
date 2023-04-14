@@ -76,6 +76,7 @@ type Runner struct {
 	Force           bool
 	IgnoreWaf       bool
 	Crawl           bool
+	Scope           []string
 	Active          bool
 	Bak             bool
 	Common          bool
@@ -101,6 +102,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		AppendRule:      r.AppendRules,
 		IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.Crawl,
+		Scope:           r.Scope,
 		Active:          r.Active,
 		Bak:             r.Bak,
 		Common:          r.Common,
@@ -147,7 +149,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			r.poolwg.Done()
 		})
 	} else {
-		// spray 完整探测模式
+		// 完整探测模式
 		go func() {
 			for t := range r.Tasks {
 				r.taskCh <- t
@@ -183,27 +185,14 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 			if t.origin != nil && len(r.Wordlist) == 0 {
 				// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
-				pool.Statistor = pkg.NewStatistorFromStat(t.origin)
-				wl, err := loadWordlist(t.origin.Word, t.origin.Dictionaries)
+				pool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
+				pool.worder, err = t.origin.InitWorder(r.Fns)
 				if err != nil {
 					logs.Log.Error(err.Error())
 					r.Done()
 					return
 				}
-				pool.worder = words.NewWorder(wl)
-				pool.worder.Fns = r.Fns
-				rules, err := loadRuleWithFiles(t.origin.RuleFiles, t.origin.RuleFilter)
-				if err != nil {
-					logs.Log.Error(err.Error())
-					r.Done()
-					return
-				}
-				pool.worder.Rules = rules
-				if len(rules) > 0 {
-					pool.Statistor.Total = len(rules) * len(wl)
-				} else {
-					pool.Statistor.Total = len(wl)
-				}
+				pool.Statistor.Total = t.origin.sum
 			} else {
 				pool.Statistor = pkg.NewStatistor(t.baseUrl)
 				pool.worder = words.NewWorder(r.Wordlist)
@@ -230,7 +219,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			pool.Run(ctx, pool.Statistor.Offset, limit)
+			pool.Run(pool.Statistor.Offset, limit)
 
 			if pool.isFailed && len(pool.failedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
@@ -248,7 +237,19 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	return nil
 }
 
+func (r *Runner) AddRecursive(bl *pkg.Baseline) {
+	// 递归新任务
+	task := &Task{
+		baseUrl: bl.UrlString,
+		depth:   bl.RecuDepth + 1,
+		origin:  NewOrigin(pkg.NewStatistor(bl.UrlString)),
+	}
+
+	r.AddPool(task)
+}
+
 func (r *Runner) AddPool(task *Task) {
+	// 递归新任务
 	if _, ok := r.PoolName[task.baseUrl]; ok {
 		logs.Log.Importantf("already added pool, skip %s", task.baseUrl)
 		return
@@ -407,7 +408,7 @@ func (r *Runner) Output() {
 				if bl.IsValid {
 					saveFunc(bl)
 					if bl.Recu {
-						r.AddPool(&Task{baseUrl: bl.UrlString, depth: bl.RecuDepth + 1})
+						r.AddRecursive(bl)
 					}
 				} else {
 					debugPrint(bl)

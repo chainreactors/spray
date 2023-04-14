@@ -50,6 +50,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
 		baselines:   make(map[int]*pkg.Baseline),
 		urls:        make(map[string]struct{}),
+		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
 		tempCh:      make(chan *pkg.Baseline, 100),
 		checkCh:     make(chan int, 100),
@@ -70,8 +71,8 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		pool.dir = Dir(pool.url.Path)
 	}
 
-	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
-	pool.reqPool = p
+	pool.reqPool, _ = ants.NewPoolWithFunc(config.Thread, pool.Invoke)
+	pool.scopePool, _ = ants.NewPoolWithFunc(config.Thread, pool.NoScopeInvoke)
 
 	// 挂起一个异步的处理结果线程, 不干扰主线程的请求并发
 	go pool.Handler()
@@ -79,7 +80,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 }
 
 type Pool struct {
-	*pkg.Config
+	*pkg.Config            // read only
 	base            string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
 	dir             string
 	isDir           bool
@@ -87,12 +88,13 @@ type Pool struct {
 	Statistor       *pkg.Statistor
 	client          *ihttp.Client
 	reqPool         *ants.PoolWithFunc
+	scopePool       *ants.PoolWithFunc
 	bar             *pkg.Bar
 	ctx             context.Context
 	cancel          context.CancelFunc
 	tempCh          chan *pkg.Baseline // 待处理的baseline
 	checkCh         chan int           // 独立的check管道， 防止与redirect/crawl冲突
-	additionCh      chan *Unit
+	additionCh      chan *Unit         // 插件添加的任务, 待处理管道
 	closeCh         chan struct{}
 	closed          bool
 	wordOffset      int
@@ -103,13 +105,39 @@ type Pool struct {
 	index           *pkg.Baseline
 	baselines       map[int]*pkg.Baseline
 	urls            map[string]struct{}
+	scopeurls       map[string]struct{}
 	uniques         map[uint16]struct{}
 	analyzeDone     bool
 	worder          *words.Worder
 	limiter         *rate.Limiter
 	locker          sync.Mutex
+	scopeLocker     sync.Mutex
 	waiter          sync.WaitGroup
 	initwg          sync.WaitGroup // 初始化用, 之后改成锁
+}
+
+func (pool *Pool) checkRedirect(redirectURL string) bool {
+	if pool.random.RedirectURL == "" {
+		// 如果random的redirectURL为空, 此时该项
+		return true
+	}
+
+	if redirectURL == pool.random.RedirectURL {
+		// 相同的RedirectURL将被认为是无效数据
+		return false
+	} else {
+		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
+		return true
+	}
+}
+
+func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
+	if mod == pkg.HostSpray {
+		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
+	} else if mod == pkg.PathSpray {
+		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
+	}
+	return nil, fmt.Errorf("unknown mod")
 }
 
 func (pool *Pool) Init() error {
@@ -149,7 +177,7 @@ func (pool *Pool) Init() error {
 	return nil
 }
 
-func (pool *Pool) Run(ctx context.Context, offset, limit int) {
+func (pool *Pool) Run(offset, limit int) {
 	pool.worder.RunWithRules()
 	if pool.Active {
 		pool.waiter.Add(1)
@@ -227,7 +255,7 @@ Loop:
 			}
 		case <-pool.closeCh:
 			break Loop
-		case <-ctx.Done():
+		case <-pool.ctx.Done():
 			break Loop
 		case <-pool.ctx.Done():
 			break Loop
@@ -325,6 +353,8 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.locker.Unlock()
 		if bl.Status == 200 || (bl.Status/100) == 3 {
 			// 保留index输出结果
+			pool.waiter.Add(1)
+			pool.doCrawl(bl)
 			pool.OutputCh <- bl
 		}
 		pool.initwg.Done()
@@ -361,6 +391,37 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.tempCh <- bl
 	default:
 		pool.tempCh <- bl
+	}
+}
+
+func (pool *Pool) NoScopeInvoke(v interface{}) {
+	defer pool.waiter.Done()
+	unit := v.(*Unit)
+	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "")
+	if err != nil {
+		logs.Log.Error(err.Error())
+		return
+	}
+	req.SetHeaders(pool.Headers)
+	req.SetHeader("User-Agent", RandomUA())
+	resp, reqerr := pool.client.Do(pool.ctx, req)
+	if pool.ClientType == ihttp.FAST {
+		defer fasthttp.ReleaseResponse(resp.FastResponse)
+		defer fasthttp.ReleaseRequest(req.FastRequest)
+	}
+	if reqerr != nil {
+		logs.Log.Error(reqerr.Error())
+		return
+	}
+	if resp.StatusCode() == 200 {
+		bl := pkg.NewBaseline(req.URI(), req.Host(), resp)
+		bl.Source = unit.source
+		bl.ReqDepth = unit.depth
+		bl.Collect()
+		bl.CollectURL()
+		pool.waiter.Add(1)
+		pool.doScopeCrawl(bl)
+		pool.OutputCh <- bl
 	}
 }
 
@@ -452,30 +513,6 @@ func (pool *Pool) Handler() {
 	}
 
 	pool.analyzeDone = true
-}
-
-func (pool *Pool) checkRedirect(redirectURL string) bool {
-	if pool.random.RedirectURL == "" {
-		// 如果random的redirectURL为空, 此时该项
-		return true
-	}
-
-	if redirectURL == pool.random.RedirectURL {
-		// 相同的RedirectURL将被认为是无效数据
-		return false
-	} else {
-		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
-		return true
-	}
-}
-
-func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
-	if mod == pkg.HostSpray {
-		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if mod == pkg.PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
-	}
-	return nil, fmt.Errorf("unknown mod")
 }
 
 func (pool *Pool) PreCompare(resp *ihttp.Response) error {
@@ -603,14 +640,15 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 		return
 	}
 
+	pool.waiter.Add(1)
+	pool.doScopeCrawl(bl)
+
 	go func() {
 		defer pool.waiter.Done()
 		for _, u := range bl.URLs {
 			if u = FormatURL(bl.Url.Path, u); u == "" {
 				continue
 			}
-
-			// 通过map去重,  只有新的url才会进入到该逻辑
 			pool.waiter.Add(1)
 			pool.addAddition(&Unit{
 				path:   u,
@@ -620,6 +658,31 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 		}
 	}()
 
+}
+
+func (pool *Pool) doScopeCrawl(bl *pkg.Baseline) {
+	if bl.ReqDepth >= MaxCrawl {
+		pool.waiter.Done()
+		return
+	}
+
+	go func() {
+		defer pool.waiter.Done()
+		for _, u := range bl.URLs {
+			if strings.HasPrefix(u, "http") {
+				if v, _ := url.Parse(u); v == nil || !MatchWithGlobs(v.Host, pool.Scope) {
+					continue
+				}
+				pool.scopeLocker.Lock()
+				if _, ok := pool.scopeurls[u]; !ok {
+					pool.urls[u] = struct{}{}
+					pool.waiter.Add(1)
+					pool.scopePool.Invoke(&Unit{path: u, source: CrawlSource, depth: bl.ReqDepth + 1})
+				}
+				pool.scopeLocker.Unlock()
+			}
+		}
+	}()
 }
 
 func (pool *Pool) doRule(bl *pkg.Baseline) {
@@ -724,7 +787,7 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && (enableAllFuzzy || iutils.IntsContains(FuzzyStatus, bl.Status)) {
 		bl.Collect()
 		pool.waiter.Add(1)
-		pool.doCrawl(bl)
+		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
 		pool.baselines[bl.Status] = bl
 		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	}

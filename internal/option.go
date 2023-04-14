@@ -99,19 +99,21 @@ type PluginOptions struct {
 }
 
 type ModeOptions struct {
-	RateLimit      int    `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
-	Force          bool   `long:"force" description:"Bool, skip error break"`
-	CheckOnly      bool   `long:"check-only" description:"Bool, check only"`
-	Recursive      string `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
-	Depth          int    `long:"depth" default:"0" description:"Int, recursive depth"`
-	CheckPeriod    int    `long:"check-period" default:"200" description:"Int, check period when request"`
-	ErrPeriod      int    `long:"error-period" default:"10" description:"Int, check period when error"`
-	BreakThreshold int    `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
-	BlackStatus    string `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
-	WhiteStatus    string `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
-	FuzzyStatus    string `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
-	UniqueStatus   string `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
-	Unique         bool   `long:"unique" description:"Bool, unique response"`
+	RateLimit      int      `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
+	Force          bool     `long:"force" description:"Bool, skip error break"`
+	CheckOnly      bool     `long:"check-only" description:"Bool, check only"`
+	NoScope        bool     `long:"no-scope" description:"Bool, no scope"`
+	Scope          []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com"`
+	Recursive      string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
+	Depth          int      `long:"depth" default:"0" description:"Int, recursive depth"`
+	CheckPeriod    int      `long:"check-period" default:"200" description:"Int, check period when request"`
+	ErrPeriod      int      `long:"error-period" default:"10" description:"Int, check period when error"`
+	BreakThreshold int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
+	BlackStatus    string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
+	WhiteStatus    string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
+	FuzzyStatus    string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
+	UniqueStatus   string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
+	Unique         bool     `long:"unique" description:"Bool, unique response"`
 
 	SimhashDistance int `long:"distance" default:"5"`
 }
@@ -156,6 +158,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		ErrPeriod:       opt.ErrPeriod,
 		BreakThreshold:  opt.BreakThreshold,
 		Crawl:           opt.Crawl,
+		Scope:           opt.Scope,
 		Active:          opt.Active,
 		Bak:             opt.Bak,
 		Common:          opt.Common,
@@ -185,11 +188,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.ErrPeriod = max
 	}
 
+	// 选择client
 	if opt.Client == "auto" {
 		r.ClientType = ihttp.Auto
 	} else if opt.Client == "fast" {
 		r.ClientType = ihttp.FAST
-	} else if opt.Client == "standard" {
+	} else if opt.Client == "standard" || opt.Client == "base" || opt.Client == "http" {
 		r.ClientType = ihttp.STANDARD
 	}
 
@@ -232,6 +236,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	if s.Len() > 0 {
 		logs.Log.Important("Advance Mod: " + s.String())
+	}
+
+	if opt.NoScope {
+		r.Scope = []string{"*"}
 	}
 
 	BlackStatus = parseStatus(BlackStatus, opt.BlackStatus)
@@ -352,7 +360,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		taskfrom = "resume " + opt.ResumeFrom
 		go func() {
 			for _, stat := range stats {
-				tasks <- &Task{baseUrl: stat.BaseUrl, origin: stat}
+				tasks <- &Task{baseUrl: stat.BaseUrl, origin: NewOrigin(stat)}
 			}
 			close(tasks)
 		}()
@@ -509,17 +517,35 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.FilterExpr = exp
 	}
 
-	if opt.Recursive != "current.IsDir()" {
+	// 初始化递归
+	var express string
+	if opt.Recursive != "current.IsDir()" && opt.Depth != 0 {
+		// 默认不打开递归, 除非指定了非默认的递归表达式
 		MaxRecursion = 1
-		exp, err := expr.Compile(opt.Recursive)
+		express = opt.Recursive
+	}
+
+	if opt.Depth != 0 {
+		// 手动设置的depth优先级高于默认
+		MaxRecursion = opt.Depth
+		express = opt.Recursive
+	}
+
+	if express != "" {
+		exp, err := expr.Compile(express)
 		if err != nil {
 			return nil, err
 		}
 		r.RecursiveExpr = exp
 	}
-	if opt.Depth != 0 {
-		MaxRecursion = opt.Depth
-	}
+
+	// 自定义scope
+	//var scopeexpr string
+	//if opt.NoScope {
+	//	scopeexpr = "glob(current, '*')"
+	//} else if opt.Scope != "" {
+	//	scopeexpr = fmt.Sprintf("glob(current, '*%s*')", opt.Scope)
+	//}
 
 	// prepare header
 	for _, h := range opt.Headers {

@@ -12,7 +12,7 @@ require (
 )
 
 require (
-	github.com/antonmedv/expr v1.9.0
+	github.com/antonmedv/expr v1.12.5
 	github.com/chainreactors/ipcs v0.0.13
 	github.com/chainreactors/utils v0.0.14-0.20230314084720-a4d745cabc56
 	github.com/gosuri/uiprogress v0.0.1

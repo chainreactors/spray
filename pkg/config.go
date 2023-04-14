@@ -41,6 +41,7 @@ type Config struct {
 	Fuzzy           bool
 	IgnoreWaf       bool
 	Crawl           bool
+	Scope           []string
 	Active          bool
 	Bak             bool
 	Common          bool
