@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -264,4 +265,14 @@ func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
 	} else {
 		return false
 	}
+}
+
+func MatchWithGlobs(u string, globs []string) bool {
+	for _, glob := range globs {
+		ok, err := filepath.Match(glob, u)
+		if err == nil && ok {
+			return true
+		}
+	}
+	return false
 }
