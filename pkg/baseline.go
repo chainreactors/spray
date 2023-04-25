@@ -61,6 +61,8 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		}
 	} else {
 		bl.IsValid = false
+		bl.Reason = ErrUrlError.Error()
+		bl.ErrString = err.Error()
 	}
 	bl.Unique = UniqueHash(bl)
 	return bl
