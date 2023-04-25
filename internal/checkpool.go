@@ -140,7 +140,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 				UrlString: unit.path,
 				IsValid:   false,
 				ErrString: reqerr.Error(),
-				Reason:    ErrRequestFailed.Error(),
+				Reason:    pkg.ErrRequestFailed.Error(),
 				ReqDepth:  unit.depth,
 			},
 		}

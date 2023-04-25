@@ -306,7 +306,7 @@ func (pool *Pool) Invoke(v interface{}) {
 				UrlString: pool.base + unit.path,
 				IsValid:   false,
 				ErrString: reqerr.Error(),
-				Reason:    ErrRequestFailed.Error(),
+				Reason:    pkg.ErrRequestFailed.Error(),
 			},
 		}
 		pool.failedBaselines = append(pool.failedBaselines, bl)
@@ -475,7 +475,7 @@ func (pool *Pool) Handler() {
 				if _, ok := pool.uniques[bl.Unique]; ok {
 					bl.IsValid = false
 					bl.IsFuzzy = true
-					bl.Reason = ErrFuzzyNotUnique.Error()
+					bl.Reason = pkg.ErrFuzzyNotUnique.Error()
 				} else {
 					pool.uniques[bl.Unique] = struct{}{}
 				}
@@ -484,7 +484,7 @@ func (pool *Pool) Handler() {
 			// 对通过所有对比的有效数据进行再次filter
 			if bl.IsValid && pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
 				pool.Statistor.FilteredNumber++
-				bl.Reason = ErrCustomFilter.Error()
+				bl.Reason = pkg.ErrCustomFilter.Error()
 				bl.IsValid = false
 			}
 		} else {
@@ -522,19 +522,19 @@ func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 		return nil
 	}
 	if pool.random.Status != 200 && pool.random.Status == status {
-		return ErrSameStatus
+		return pkg.ErrSameStatus
 	}
 
 	if iutils.IntsContains(BlackStatus, status) {
-		return ErrBadStatus
+		return pkg.ErrBadStatus
 	}
 
 	if iutils.IntsContains(WAFStatus, status) {
-		return ErrWaf
+		return pkg.ErrWaf
 	}
 
 	if !pool.checkRedirect(resp.GetHeader("Location")) {
-		return ErrRedirect
+		return pkg.ErrRedirect
 	}
 
 	return nil
@@ -547,7 +547,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	var status = -1
 	// 30x状态码的特殊处理
 	if bl.RedirectURL != "" && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
-		bl.Reason = ErrFuzzyRedirect.Error()
+		bl.Reason = pkg.ErrFuzzyRedirect.Error()
 		pool.putToFuzzy(bl)
 		return false
 	}
@@ -568,7 +568,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 
 	if ok {
 		if status = base.Compare(bl); status == 1 {
-			bl.Reason = ErrCompareFailed.Error()
+			bl.Reason = pkg.ErrCompareFailed.Error()
 			return false
 		}
 	}
@@ -588,7 +588,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 
 	if ok && status == 0 && base.FuzzyCompare(bl) {
 		pool.Statistor.FuzzyNumber++
-		bl.Reason = ErrFuzzyCompareFailed.Error()
+		bl.Reason = pkg.ErrFuzzyCompareFailed.Error()
 		pool.putToFuzzy(bl)
 		return false
 	}
