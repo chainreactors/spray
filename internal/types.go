@@ -19,6 +19,7 @@ const (
 	BakSource
 	CommonFileSource
 	UpgradeSource
+	RetrySource
 )
 
 func newUnit(path string, source int) *Unit {
@@ -33,6 +34,7 @@ type Unit struct {
 	number   int
 	path     string
 	source   int
+	retry    int
 	frontUrl string
 	depth    int // redirect depth
 }

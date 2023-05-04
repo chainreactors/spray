@@ -310,6 +310,9 @@ func (pool *Pool) Invoke(v interface{}) {
 			},
 		}
 		pool.failedBaselines = append(pool.failedBaselines, bl)
+		// 自动重放失败请求, 默认为一次
+		pool.doRetry(bl)
+
 	} else {
 		if unit.source <= 3 || unit.source == CrawlSource || unit.source == CommonFileSource {
 			// 一些高优先级的source, 将跳过PreCompare
@@ -617,9 +620,9 @@ func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 		return
 	}
 	reURL := FormatURL(bl.Url.Path, bl.RedirectURL)
-
 	pool.waiter.Add(1)
 	go func() {
+		defer pool.waiter.Done()
 		pool.addAddition(&Unit{
 			path:     reURL,
 			source:   RedirectSource,
@@ -649,7 +652,6 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 			if u = FormatURL(bl.Url.Path, u); u == "" {
 				continue
 			}
-			pool.waiter.Add(1)
 			pool.addAddition(&Unit{
 				path:   u,
 				source: CrawlSource,
@@ -698,7 +700,6 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 	go func() {
 		defer pool.waiter.Done()
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
-			pool.waiter.Add(1)
 			pool.addAddition(&Unit{
 				path:   Dir(bl.Url.Path) + u,
 				source: RuleSource,
@@ -707,10 +708,24 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 	}()
 }
 
+func (pool *Pool) doRetry(bl *pkg.Baseline) {
+	if bl.Retry >= pool.Retry {
+		return
+	}
+	pool.waiter.Add(1)
+	go func() {
+		defer pool.waiter.Done()
+		pool.addAddition(&Unit{
+			path:   bl.Path,
+			source: RetrySource,
+			retry:  bl.Retry + 1,
+		})
+	}()
+}
+
 func (pool *Pool) doActive() {
 	defer pool.waiter.Done()
 	for _, u := range pkg.ActivePath {
-		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + u[1:],
 			source: ActiveSource,
@@ -726,7 +741,6 @@ func (pool *Pool) doBak() {
 	}
 	worder.Run()
 	for w := range worder.C {
-		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: BakSource,
@@ -739,7 +753,6 @@ func (pool *Pool) doBak() {
 	}
 	worder.Run()
 	for w := range worder.C {
-		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: BakSource,
@@ -750,7 +763,6 @@ func (pool *Pool) doBak() {
 func (pool *Pool) doCommonFile() {
 	defer pool.waiter.Done()
 	for _, u := range mask.SpecialWords["common_file"] {
-		pool.waiter.Add(1)
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
 			source: CommonFileSource,
@@ -776,6 +788,7 @@ func (pool *Pool) doCheck() {
 
 func (pool *Pool) addAddition(u *Unit) {
 	// 强行屏蔽报错, 防止goroutine泄露
+	pool.waiter.Add(1)
 	defer func() {
 		if err := recover(); err != nil {
 		}
