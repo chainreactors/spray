@@ -99,23 +99,23 @@ type PluginOptions struct {
 }
 
 type ModeOptions struct {
-	RateLimit      int      `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
-	Force          bool     `long:"force" description:"Bool, skip error break"`
-	CheckOnly      bool     `long:"check-only" description:"Bool, check only"`
-	NoScope        bool     `long:"no-scope" description:"Bool, no scope"`
-	Scope          []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com"`
-	Recursive      string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
-	Depth          int      `long:"depth" default:"0" description:"Int, recursive depth"`
-	CheckPeriod    int      `long:"check-period" default:"200" description:"Int, check period when request"`
-	ErrPeriod      int      `long:"error-period" default:"10" description:"Int, check period when error"`
-	BreakThreshold int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
-	BlackStatus    string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
-	WhiteStatus    string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
-	FuzzyStatus    string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
-	UniqueStatus   string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
-	Unique         bool     `long:"unique" description:"Bool, unique response"`
-
-	SimhashDistance int `long:"distance" default:"5"`
+	RateLimit       int      `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100"`
+	Force           bool     `long:"force" description:"Bool, skip error break"`
+	CheckOnly       bool     `long:"check-only" description:"Bool, check only"`
+	NoScope         bool     `long:"no-scope" description:"Bool, no scope"`
+	Scope           []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com"`
+	Recursive       string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
+	Depth           int      `long:"depth" default:"0" description:"Int, recursive depth"`
+	CheckPeriod     int      `long:"check-period" default:"200" description:"Int, check period when request"`
+	ErrPeriod       int      `long:"error-period" default:"10" description:"Int, check period when error"`
+	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
+	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
+	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
+	FuzzyStatus     string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
+	UniqueStatus    string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
+	Unique          bool     `long:"unique" description:"Bool, unique response"`
+	RetryCount      int      `long:"retry" default:"1" description:"Int, retry count"`
+	SimhashDistance int      `long:"distance" default:"5"`
 }
 
 type MiscOptions struct {
@@ -162,6 +162,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Active:          opt.Active,
 		Bak:             opt.Bak,
 		Common:          opt.Common,
+		RetryCount:      opt.RetryCount,
 		RandomUserAgent: opt.RandomUserAgent,
 	}
 
@@ -237,7 +238,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if s.Len() > 0 {
 		logs.Log.Important("Advance Mod: " + s.String())
 	}
-
+	logs.Log.Important("Retry Count: " + strconv.Itoa(r.RetryCount))
 	if opt.NoScope {
 		r.Scope = []string{"*"}
 	}
@@ -538,14 +539,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		}
 		r.RecursiveExpr = exp
 	}
-
-	// 自定义scope
-	//var scopeexpr string
-	//if opt.NoScope {
-	//	scopeexpr = "glob(current, '*')"
-	//} else if opt.Scope != "" {
-	//	scopeexpr = fmt.Sprintf("glob(current, '*%s*')", opt.Scope)
-	//}
 
 	// prepare header
 	for _, h := range opt.Headers {

@@ -80,6 +80,7 @@ type Runner struct {
 	Active          bool
 	Bak             bool
 	Common          bool
+	RetryCount      int
 	RandomUserAgent bool
 }
 
@@ -106,6 +107,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Active:          r.Active,
 		Bak:             r.Bak,
 		Common:          r.Common,
+		Retry:           r.RetryCount,
 		ClientType:      r.ClientType,
 		RandomUserAgent: r.RandomUserAgent,
 	}

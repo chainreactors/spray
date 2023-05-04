@@ -112,6 +112,7 @@ type Baseline struct {
 	RecuDepth int      `json:"-"`
 	URLs      []string `json:"-"`
 	Collected bool     `json:"-"`
+	Retry     int      `json:"-"`
 }
 
 func (bl *Baseline) IsDir() bool {
