@@ -1,0 +1,58 @@
+project_name: spray
+
+before:
+  hooks:
+    - go mod tidy
+    - go get sigs.k8s.io/yaml
+    - go generate
+
+builds:
+  -
+    main: .
+    binary: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    goos:
+      - windows
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - "386"
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: "386"
+    ldflags: "-s -w -X 'github.com/chainreactors/spray/cmd.ver=={{ .Tag }}'"
+    flags:
+      - -trimpath
+      - -tags=forceposix
+    asmflags:
+      - all=-trimpath={{.Env.GOPATH}}
+    gcflags:
+      - all=-trimpath={{.Env.GOPATH}}
+    no_unique_dist_dir: true
+
+archives:
+  -
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format: binary
+    replacements:
+      amd64_v1: amd64
+
+checksum:
+  name_template: "{{ .ProjectName }}_checksums.txt"
+
+changelog:
+  sort: desc
+  filters:
+    exclude:
+      - '^MERGE'
+      - "{{ .Tag }}"
+      - "^docs"
+
+release:
+  github:
+    owner: chainreactors
+    name: spray
+  draft: true

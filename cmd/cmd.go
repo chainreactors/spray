@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+var ver = ""
+
 func Spray() {
 	var option internal.Option
 	parser := flags.NewParser(&option, flags.Default)
@@ -46,6 +48,11 @@ func Spray() {
 		if err.(*flags.Error).Type != flags.ErrHelp {
 			fmt.Println(err.Error())
 		}
+		return
+	}
+
+	if option.Version {
+		fmt.Println(ver)
 		return
 	}
 
