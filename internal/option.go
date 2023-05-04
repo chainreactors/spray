@@ -124,6 +124,7 @@ type MiscOptions struct {
 	PoolSize int    `short:"P" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
+	Version  bool   `short:"v" long:"version" description:"Bool, show version"`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
 	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`

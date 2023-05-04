@@ -1,0 +1,51 @@
+name: goreleaser
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-20.04
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{secrets.TOKEN}}
+          submodules: recursive
+      -
+        name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+      -
+        name: Install upx
+        run: sudo apt install upx -y
+        continue-on-error: true
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --rm-dist --skip-validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          GOPATH: "/home/runner/go"
+
+      - name: upx
+        run:  upx dist/gogo*
+        continue-on-error: true
+
+      - name: Upload assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: gogo_archive
+          path: |
+            dist/gogo*
+            tools/*
+            README.md
