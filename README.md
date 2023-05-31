@@ -1,5 +1,13 @@
 # SPRAY
-下一代目录爆破工具. 一个完整的目录爆破解决方案
+
+![](https://socialify.git.ci/chainreactors/spray/image?description=1&font=Inter&forks=1&issues=1&language=1&name=1&owner=1&pattern=Circuit%20Board&pulls=1&stargazers=1&theme=Light)
+
+<p align="center">
+    <a href="#features">Features</a> •
+    <a href="#quickstart">QuickStart</a> •
+    <a href="#make">Make</a> •
+    <a href="https://chainreactors.github.io/wiki/spray/">Wiki</a>
+</p>
 
 ## Features
 
@@ -48,10 +56,11 @@ https://chainreactors.github.io/wiki/spray/
 ## Make
 
 ```
-git clone https://github.com/chainreactors/spray
+git clone --recurse-submodules https://github.com/chainreactors/spray
+
 cd spray
-git clone https://github.com/chainreactors/gogo-templates templates
-# 这里没用使用类似gogo的子模块的方式, 因为spray仅依赖其中的http指纹
+
+go mod tidy
 
 go generate
 
@@ -74,7 +83,10 @@ go build .
 4. [ ] 支持http2
 5. [ ] auto-tune, 自动调整并发数量
 6. [x] 可自定义的递归配置
-7. [x] 参考[fuzzuli](https://github.com/musana/fuzzuli), 实现备份文件字典生成器
-8. [x] 参考[feroxbuster](https://github.com/epi052/feroxbuster)的`--collect-backups`, 自动爆破有效目录的备份
+7. [x] 参考[feroxbuster](https://github.com/epi052/feroxbuster)的`--collect-backups`, 自动爆破有效目录的备份
 8. [ ] 支持socks/http代理, 不建议使用, 优先级较低. 代理的keep-alive会带来严重的性能下降
 9. [ ] 云函数化, chainreactors工具链的通用分布式解决方案.
+
+## Thanks
+
+* [fuzzuli](https://github.com/musana/fuzzuli) 提供了一个备份文件字典生成思路
