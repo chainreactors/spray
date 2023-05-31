@@ -58,6 +58,14 @@ go generate
 go build .  
 ```
 
+## Similar or related works
+
+* [ffuf](https://github.com/ffuf/ffuf) 一款优秀的http fuzz工具, 与spray的功能有一定重合但并不完全相同
+* [feroxbuster](https://github.com/epi052/feroxbuster) 在编写spray之前我最常使用的目录爆破工具, 但因为批量扫描与过滤配置不便的原因选择自行编写
+* [dirsearch](https://github.com/maurosoria/dirsearch) 较早的目录爆破工具, 参考了部分字典生成与配色
+* [httpx](https://github.com/projectdiscovery/httpx) http信息收集功能, 参考了通过脚本语言编写任意过滤条件的功能
+* [gobuster](https://github.com/OJ/gobuster) 一款统一是go编写的爆破工具, 但不仅限于目录爆破
+
 ## TODO
 
 1. [x] 模糊对比
