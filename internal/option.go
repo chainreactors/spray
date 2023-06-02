@@ -64,8 +64,8 @@ type FunctionOptions struct {
 }
 
 type OutputOptions struct {
-	Match       string `long:"match" description:"String, custom match function, e.g.: --match current.Status != 200" json:"match,omitempty"`
-	Filter      string `long:"filter" description:"String, custom filter function, e.g.: --filter current.Body contains 'hello'" json:"filter,omitempty"`
+	Match       string `long:"match" description:"String, custom match function, e.g.: --match 'current.Status != 200''" json:"match,omitempty"`
+	Filter      string `long:"filter" description:"String, custom filter function, e.g.: --filter 'current.Body contains \"hello\"'" json:"filter,omitempty"`
 	OutputFile  string `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty"`
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json"`
 	FuzzyFile   string `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty"`
@@ -95,7 +95,6 @@ type PluginOptions struct {
 	Common     bool     `long:"common" description:"Bool, enable common file found"`
 	Crawl      bool     `long:"crawl" description:"Bool, enable crawl"`
 	CrawlDepth int      `long:"crawl-depth" default:"3" description:"Int, crawl depth"`
-	CrawlScope string   `long:"crawl-scope" description:"Int, crawl scope (todo)"`
 }
 
 type ModeOptions struct {
