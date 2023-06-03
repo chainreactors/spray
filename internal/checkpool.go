@@ -194,7 +194,7 @@ func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
 		}
 		reURL = bl.RedirectURL
 	} else {
-		reURL = bl.BaseURL() + FormatURL(bl.BaseURL(), bl.RedirectURL)
+		reURL = BaseURL(bl.Url) + FormatURL(BaseURL(bl.Url), bl.RedirectURL)
 	}
 
 	pool.wg.Add(1)

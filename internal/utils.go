@@ -213,7 +213,6 @@ func Dir(u string) string {
 	// /a/ 	/a/
 	// a/ 	a/
 	// aaa 	/
-
 	if strings.HasSuffix(u, "/") {
 		return u
 	} else if i := strings.LastIndex(u, "/"); i == -1 {
@@ -249,6 +248,10 @@ func FormatURL(base, u string) string {
 		// 相对目录拼接
 		return relaPath(base, u)
 	}
+}
+
+func BaseURL(u *url.URL) string {
+	return u.Scheme + "://" + u.Host
 }
 
 func RandomUA() string {

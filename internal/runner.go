@@ -82,6 +82,8 @@ type Runner struct {
 	Common          bool
 	RetryCount      int
 	RandomUserAgent bool
+	Random          string
+	Index           string
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
@@ -110,6 +112,8 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		Retry:           r.RetryCount,
 		ClientType:      r.ClientType,
 		RandomUserAgent: r.RandomUserAgent,
+		Random:          r.Random,
+		Index:           r.Index,
 	}
 
 	if config.ClientType == ihttp.Auto {
