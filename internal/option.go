@@ -505,7 +505,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	logs.Log.Importantf("Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {
-		exp, err := expr.Compile(opt.Match)
+		exp, err := expr.Compile(opt.Match, expr.Patch(&bytesPatcher{}))
 		if err != nil {
 			return nil, err
 		}
@@ -513,7 +513,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Filter != "" {
-		exp, err := expr.Compile(opt.Filter)
+		exp, err := expr.Compile(opt.Filter, expr.Patch(&bytesPatcher{}))
 		if err != nil {
 			return nil, err
 		}
@@ -535,7 +535,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if express != "" {
-		exp, err := expr.Compile(express)
+		exp, err := expr.Compile(express, expr.Patch(&bytesPatcher{}))
 		if err != nil {
 			return nil, err
 		}
