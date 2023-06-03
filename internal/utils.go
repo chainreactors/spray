@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"github.com/antonmedv/expr"
+	"github.com/antonmedv/expr/ast"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
@@ -275,4 +276,19 @@ func MatchWithGlobs(u string, globs []string) bool {
 		}
 	}
 	return false
+}
+
+type bytesPatcher struct{}
+
+func (p *bytesPatcher) Visit(node *ast.Node) {
+	switch (*node).(type) {
+	case *ast.MemberNode:
+		ast.Patch(node, &ast.CallNode{
+			Callee: &ast.MemberNode{
+				Node:     *node,
+				Name:     "String",
+				Property: &ast.StringNode{Value: "String"},
+			},
+		})
+	}
 }
