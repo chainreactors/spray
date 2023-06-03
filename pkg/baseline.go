@@ -122,10 +122,6 @@ func (bl *Baseline) IsDir() bool {
 	return false
 }
 
-func (bl *Baseline) BaseURL() string {
-	return bl.Url.Scheme + "://" + bl.Url.Host
-}
-
 // Collect 深度收集信息
 func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {

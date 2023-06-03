@@ -105,6 +105,8 @@ type ModeOptions struct {
 	Scope           []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com"`
 	Recursive       string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int      `long:"depth" default:"0" description:"Int, recursive depth"`
+	Index           string   `long:"index" default:"" description:"String, custom index path"`
+	Random          string   `long:"random" default:"" description:"String, custom random path"`
 	CheckPeriod     int      `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int      `long:"error-period" default:"10" description:"Int, check period when error"`
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
@@ -164,6 +166,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Common:          opt.Common,
 		RetryCount:      opt.RetryCount,
 		RandomUserAgent: opt.RandomUserAgent,
+		Random:          opt.Random,
+		Index:           opt.Index,
 	}
 
 	// log and bar
