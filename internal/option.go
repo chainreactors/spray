@@ -428,11 +428,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		if file != nil {
 			content, err := ioutil.ReadAll(file)
 			if err != nil {
-				logs.Log.Error(err.Error())
+				return nil, err
 			}
 			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
 			for _, u := range urls {
-				if _, err := url.Parse(u); err != nil {
+				u = strings.TrimSpace(u)
+				if _, err := url.Parse(u); err == nil {
 					r.Count++
 				} else if ip := utils.ParseIP(u); ip != nil {
 					r.Count++
@@ -443,7 +444,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 			go func() {
 				for _, u := range urls {
-					if _, err := url.Parse(u); err != nil {
+					u = strings.TrimSpace(u)
+					if _, err := url.Parse(u); err == nil {
 						opt.GenerateTasks(tasks, u, ports)
 					} else if ip := utils.ParseIP(u); ip != nil {
 						opt.GenerateTasks(tasks, u, ports)
