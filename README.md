@@ -47,6 +47,10 @@
 
 `spray --resume stat.json`
 
+被动url收集
+
+参见: https://github.com/chainreactors/urlfounder
+
 ## Wiki
 
 详细用法请见[wiki](https://chainreactors.github.io/wiki/spray/)
