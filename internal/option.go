@@ -115,7 +115,7 @@ type ModeOptions struct {
 	FuzzyStatus     string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
 	UniqueStatus    string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response"`
-	RetryCount      int      `long:"retry" default:"1" description:"Int, retry count"`
+	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count"`
 	SimhashDistance int      `long:"distance" default:"5"`
 }
 
@@ -242,7 +242,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if s.Len() > 0 {
 		logs.Log.Important("Advance Mod: " + s.String())
 	}
-	logs.Log.Important("Retry Count: " + strconv.Itoa(r.RetryCount))
+
+	if r.RetryCount > 0 {
+		logs.Log.Important("Retry Count: " + strconv.Itoa(r.RetryCount))
+	}
+
 	if opt.NoScope {
 		r.Scope = []string{"*"}
 	}
