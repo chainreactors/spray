@@ -37,12 +37,12 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom   string   `long:"resume"`
-	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
-	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
-	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
-	CIDRs        string   `short:"c" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
-	Raw          string   `long:"raw" description:"File, input raw request filename"`
+	ResumeFrom string   `long:"resume"`
+	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
+	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
+	PortRange  string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
+	CIDRs      string   `short:"c" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	//Raw          string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
 	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
@@ -136,7 +136,7 @@ type MiscOptions struct {
 func (opt *Option) PrepareRunner() (*Runner, error) {
 	ok := opt.Validate()
 	if !ok {
-		return nil, fmt.Errorf("validate failed")
+		return nil, fmt.Errorf("options validate failed")
 	}
 	var err error
 	r := &Runner{
@@ -638,6 +638,11 @@ func (opt *Option) Validate() bool {
 	if opt.Depth > 0 && opt.ResumeFrom != "" {
 		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
 		logs.Log.Error("--resume and --depth cannot be used at the same time")
+		return false
+	}
+
+	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" {
+		logs.Log.Error("without any target, please use -u/-l/-c/--resume to set targets")
 		return false
 	}
 	return true
