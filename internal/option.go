@@ -479,7 +479,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.RemoveExtensions != "" {
-		rexts := strings.Split(opt.ExcludeExtensions, ",")
+		rexts := strings.Split(opt.RemoveExtensions, ",")
 		r.Fns = append(r.Fns, func(s string) string {
 			if ext := parseExtension(s); iutils.StringsContains(rexts, ext) {
 				return strings.TrimSuffix(s, "."+ext)
