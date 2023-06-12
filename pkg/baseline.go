@@ -105,9 +105,9 @@ type Baseline struct {
 	Url       *url.URL `json:"-"`
 	Dir       bool     `json:"-"`
 	Chunked   bool     `json:"-"`
-	Body      []byte   `json:"-"`
-	Header    []byte   `json:"-"`
-	Raw       []byte   `json:"-"`
+	Body      BS       `json:"-"`
+	Header    BS       `json:"-"`
+	Raw       BS       `json:"-"`
 	Recu      bool     `json:"-"`
 	RecuDepth int      `json:"-"`
 	URLs      []string `json:"-"`
@@ -120,10 +120,6 @@ func (bl *Baseline) IsDir() bool {
 		return true
 	}
 	return false
-}
-
-func (bl *Baseline) BaseURL() string {
-	return bl.Url.Scheme + "://" + bl.Url.Host
 }
 
 // Collect 深度收集信息

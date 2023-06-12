@@ -47,4 +47,6 @@ type Config struct {
 	Common          bool
 	Retry           int
 	RandomUserAgent bool
+	Random          string
+	Index           string
 }

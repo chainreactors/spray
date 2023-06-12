@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"github.com/antonmedv/expr"
+	"github.com/antonmedv/expr/ast"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
@@ -212,7 +213,6 @@ func Dir(u string) string {
 	// /a/ 	/a/
 	// a/ 	a/
 	// aaa 	/
-
 	if strings.HasSuffix(u, "/") {
 		return u
 	} else if i := strings.LastIndex(u, "/"); i == -1 {
@@ -250,6 +250,10 @@ func FormatURL(base, u string) string {
 	}
 }
 
+func BaseURL(u *url.URL) string {
+	return u.Scheme + "://" + u.Host
+}
+
 func RandomUA() string {
 	return randomUserAgent[rand.Intn(uacount)]
 }
@@ -275,4 +279,19 @@ func MatchWithGlobs(u string, globs []string) bool {
 		}
 	}
 	return false
+}
+
+type bytesPatcher struct{}
+
+func (p *bytesPatcher) Visit(node *ast.Node) {
+	switch (*node).(type) {
+	case *ast.MemberNode:
+		ast.Patch(node, &ast.CallNode{
+			Callee: &ast.MemberNode{
+				Node:     *node,
+				Name:     "String",
+				Property: &ast.StringNode{Value: "String"},
+			},
+		})
+	}
 }

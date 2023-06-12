@@ -143,8 +143,20 @@ func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
 func (pool *Pool) Init() error {
 	// 分成两步是为了避免闭包的线程安全问题
 	pool.initwg.Add(2)
-	pool.reqPool.Invoke(newUnit(pool.url.Path, InitIndexSource))
-	pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
+	if pool.Index != "" {
+		logs.Log.Importantf("custom index url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Index))
+		pool.reqPool.Invoke(newUnit(pool.Index, InitIndexSource))
+	} else {
+		pool.reqPool.Invoke(newUnit(pool.url.Path, InitIndexSource))
+	}
+
+	if pool.Random != "" {
+		logs.Log.Importantf("custom random url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Random))
+		pool.reqPool.Invoke(newUnit(pool.Random, InitRandomSource))
+	} else {
+		pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
+	}
+
 	pool.initwg.Wait()
 	if pool.index.ErrString != "" {
 		logs.Log.Error(pool.index.String())
