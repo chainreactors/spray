@@ -47,7 +47,7 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 		url:         u,
 		ctx:         pctx,
 		cancel:      cancel,
-		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
+		client:      ihttp.NewClient(config.Thread, config.Timeout, config.ClientType),
 		baselines:   make(map[int]*pkg.Baseline),
 		urls:        make(map[string]struct{}),
 		scopeurls:   make(map[string]struct{}),
