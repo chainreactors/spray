@@ -90,16 +90,16 @@ func Spray() {
 	pkg.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
 	internal.MaxCrawl = option.CrawlDepth
-	if option.ReadAll {
-		ihttp.DefaultMaxBodySize = 0
-	}
+
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {
 		runner, err = option.PrepareRunner()
 	} else {
 		runner, err = option.PrepareRunner()
 	}
-
+	if option.ReadAll || runner.Crawl {
+		ihttp.DefaultMaxBodySize = 0
+	}
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return
