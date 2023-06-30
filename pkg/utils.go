@@ -251,6 +251,8 @@ func filterUrl(u string) bool {
 
 func formatURL(u string) string {
 	// 去掉frag与params, 节约url.parse性能, 防止带参数造成意外的影响
+	u = strings.Trim(u, "\"")
+	u = strings.Trim(u, "'")
 	if strings.Contains(u, "2f") || strings.Contains(u, "2F") {
 		u = strings.ReplaceAll(u, "\\u002F", "/")
 		u = strings.ReplaceAll(u, "\\u002f", "/")
