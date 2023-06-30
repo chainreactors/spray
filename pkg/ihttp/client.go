@@ -51,10 +51,9 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 						Renegotiation:      tls.RenegotiateOnceAsClient,
 						InsecureSkipVerify: true,
 					},
-					TLSHandshakeTimeout: time.Duration(timeout) * time.Second,
-					MaxConnsPerHost:     thread * 3 / 2,
-					IdleConnTimeout:     time.Duration(timeout) * time.Second,
-					ReadBufferSize:      16384, // 16k
+					MaxConnsPerHost: thread * 3 / 2,
+					IdleConnTimeout: time.Duration(timeout) * time.Second,
+					ReadBufferSize:  16384, // 16k
 				},
 				Timeout: time.Second * time.Duration(timeout),
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {

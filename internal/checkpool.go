@@ -23,7 +23,7 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 		Config:      config,
 		ctx:         pctx,
 		cancel:      cancel,
-		client:      ihttp.NewClient(config.Thread, 2, config.ClientType),
+		client:      ihttp.NewClient(config.Thread, config.Timeout, config.ClientType),
 		wg:          sync.WaitGroup{},
 		additionCh:  make(chan *Unit, 100),
 		closeCh:     make(chan struct{}),
