@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
@@ -50,7 +50,6 @@ func Spray() {
 		}
 		return
 	}
-
 	if option.Version {
 		fmt.Println(ver)
 		return
@@ -82,7 +81,7 @@ func Spray() {
 	}
 	// 一些全局变量初始化
 	if option.Debug {
-		logs.Log.Level = logs.Debug
+		logs.Log.SetLevel(logs.Debug)
 	}
 
 	logs.DefaultColorMap[logs.Info] = logs.PurpleBold
@@ -97,12 +96,12 @@ func Spray() {
 	} else {
 		runner, err = option.PrepareRunner()
 	}
-	if option.ReadAll || runner.Crawl {
-		ihttp.DefaultMaxBodySize = 0
-	}
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return
+	}
+	if option.ReadAll || runner.Crawl {
+		ihttp.DefaultMaxBodySize = 0
 	}
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)

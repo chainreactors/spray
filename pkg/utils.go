@@ -3,13 +3,12 @@ package pkg
 import (
 	"encoding/json"
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
-	"github.com/chainreactors/ipcs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
+	"github.com/chainreactors/utils"
+	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"math/rand"
 	"net/url"
-	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -68,19 +67,6 @@ func RemoveDuplication(arr []string) []string {
 	}
 
 	return arr[:j]
-}
-
-// 判断是否存在标准输入数据
-func HasStdin() bool {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-
-	isPipedFromChrDev := (stat.Mode() & os.ModeCharDevice) == 0
-	isPipedFromFIFO := (stat.Mode() & os.ModeNamedPipe) != 0
-
-	return isPipedFromChrDev || isPipedFromFIFO
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -142,7 +128,7 @@ func LoadTemplates() error {
 	}
 
 	for _, finger := range Fingers {
-		err := finger.Compile(ipcs.ParsePorts)
+		err := finger.Compile(utils.ParsePorts)
 		if err != nil {
 			return err
 		}
