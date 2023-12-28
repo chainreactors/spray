@@ -116,7 +116,7 @@ type ModeOptions struct {
 	FuzzyStatus     string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
 	UniqueStatus    string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response"`
-	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count"`
+	RetryCount      int      `long:"retry" default:"1" description:"Int, retry count"`
 	SimhashDistance int      `long:"distance" default:"5"`
 }
 
