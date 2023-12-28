@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
@@ -190,7 +190,7 @@ func (pool *Pool) Init() error {
 }
 
 func (pool *Pool) Run(offset, limit int) {
-	pool.worder.RunWithRules()
+	pool.worder.Run()
 	if pool.Active {
 		pool.waiter.Add(1)
 		go pool.doActive()

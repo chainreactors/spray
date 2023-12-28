@@ -1,14 +1,15 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/utils"
+	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
@@ -134,11 +135,10 @@ type MiscOptions struct {
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
-	ok := opt.Validate()
-	if !ok {
-		return nil, fmt.Errorf("options validate failed")
+	err := opt.Validate()
+	if err != nil {
+		return nil, err
 	}
-	var err error
 	r := &Runner{
 		Progress:        uiprogress.New(),
 		Threads:         opt.Threads,
@@ -172,17 +172,17 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	// log and bar
 	if !opt.NoColor {
-		logs.Log.Color = true
+		logs.Log.SetColor(true)
 		r.Color = true
 	}
 	if opt.Quiet {
-		logs.Log.Quiet = true
-		logs.Log.Color = false
+		logs.Log.SetQuiet(true)
+		logs.Log.SetColor(false)
 		r.Color = false
 	}
 	if !(opt.Quiet || opt.NoBar) {
 		r.Progress.Start()
-		logs.Log.Writer = r.Progress.Bypass()
+		logs.Log.SetOutput(r.Progress.Bypass())
 	}
 
 	// configuration
@@ -428,7 +428,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 				logs.Log.Error(err.Error())
 			}
 			taskfrom = opt.URLFile
-		} else if pkg.HasStdin() {
+		} else if files.HasStdin() {
 			file = os.Stdin
 			taskfrom = "stdin"
 		}
@@ -623,29 +623,26 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	return r, nil
 }
 
-func (opt *Option) Validate() bool {
+func (opt *Option) Validate() error {
 	if opt.Uppercase && opt.Lowercase {
-		logs.Log.Error("Cannot set -U and -L at the same time")
-		return false
+		return errors.New("cannot set -U and -L at the same time")
 	}
 
 	if (opt.Offset != 0 || opt.Limit != 0) && opt.Depth > 0 {
 		// 偏移和上限与递归同时使用时也会造成混淆.
-		logs.Log.Error("--offset and --limit cannot be used with --depth at the same time")
-		return false
+		return errors.New("--offset and --limit cannot be used with --depth at the same time")
 	}
 
 	if opt.Depth > 0 && opt.ResumeFrom != "" {
 		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
-		logs.Log.Error("--resume and --depth cannot be used at the same time")
-		return false
+
+		return errors.New("--resume and --depth cannot be used at the same time")
 	}
 
 	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" {
-		logs.Log.Error("without any target, please use -u/-l/-c/--resume to set targets")
-		return false
+		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
 	}
-	return true
+	return nil
 }
 
 // Generate Tasks

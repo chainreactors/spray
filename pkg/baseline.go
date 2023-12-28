@@ -3,8 +3,9 @@ package pkg
 import (
 	"bytes"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/utils/encode"
+	"github.com/chainreactors/utils/iutils"
 	"net/url"
 	"strings"
 )
@@ -133,9 +134,9 @@ func (bl *Baseline) Collect() {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
-			if name, ok := Md5Fingers[parsers.Md5Hash(bl.Body)]; ok {
+			if name, ok := Md5Fingers[encode.Md5Hash(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
-			} else if name, ok := Mmh3Fingers[parsers.Mmh3Hash32(bl.Body)]; ok {
+			} else if name, ok := Mmh3Fingers[encode.Mmh3Hash32(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
 			}
 		}
@@ -225,7 +226,7 @@ var Distance uint8 = 5 // 数字越小越相似, 数字为0则为完全一致.
 
 func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
 	// 这里使用rawsimhash, 是为了保证一定数量的字符串, 否则超短的body会导致simhash偏差指较大
-	if other.Distance = parsers.SimhashCompare(other.RawSimhash, bl.RawSimhash); other.Distance < Distance {
+	if other.Distance = encode.SimhashCompare(other.RawSimhash, bl.RawSimhash); other.Distance < Distance {
 		return true
 	}
 	return false
