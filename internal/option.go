@@ -269,27 +269,28 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
-	for i, f := range opt.Dictionaries {
-		dicts[i], err = loadFileToSlice(f)
-		if opt.ResumeFrom != "" {
-			dictCache[f] = dicts[i]
+	if len(opt.Dictionaries) == 0 {
+		dicts = append(dicts, pkg.LoadDefaultDict())
+		logs.Log.Warn("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
+	} else {
+		for i, f := range opt.Dictionaries {
+			dicts[i], err = loadFileToSlice(f)
+			if opt.ResumeFrom != "" {
+				dictCache[f] = dicts[i]
+			}
+			if err != nil {
+				return nil, err
+			}
+			logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
 		}
-		if err != nil {
-			return nil, err
-		}
-		logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
 	}
 
 	if opt.Word == "" {
-		if len(opt.Dictionaries) == 0 {
-			opt.Word = "/"
-		} else {
-			opt.Word = "{?"
-			for i, _ := range dicts {
-				opt.Word += strconv.Itoa(i)
-			}
-			opt.Word += "}"
+		opt.Word = "{?"
+		for i, _ := range dicts {
+			opt.Word += strconv.Itoa(i)
 		}
+		opt.Word += "}"
 	}
 
 	if opt.Suffixes != nil {
