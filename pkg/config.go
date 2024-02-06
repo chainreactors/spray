@@ -21,6 +21,7 @@ var ModMap = map[string]SprayMod{
 
 type Config struct {
 	BaseURL         string
+	ProxyAddr       string
 	Thread          int
 	Wordlist        []string
 	Timeout         int

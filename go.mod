@@ -16,6 +16,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.7.0
 	github.com/valyala/fasthttp v1.43.0
+	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
 	golang.org/x/time v0.3.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -31,4 +32,5 @@ require (
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	golang.org/x/sys v0.2.0 // indirect
+	golang.org/x/text v0.3.7 // indirect
 )
