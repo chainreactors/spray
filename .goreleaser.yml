@@ -32,11 +32,11 @@ builds:
     gcflags:
       - all=-trimpath={{.Env.GOPATH}}
     no_unique_dist_dir: true
+
 upx:
-  - # Whether to enable it or not.
-    #
-    # Templates: allowed (since v1.21)
+  -
     enabled: true
+    goos: [linux, windows]
 
 archives:
   -
