@@ -121,6 +121,8 @@ type ModeOptions struct {
 }
 
 type MiscOptions struct {
+	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
+	Client   string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
 	Deadline int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)"` // todo 总的超时时间,适配云函数的deadline
 	Timeout  int    `long:"timeout" default:"5" description:"Int, timeout with request (seconds)"`
 	PoolSize int    `short:"P" long:"pool" default:"5" description:"Int, Pool size"`
@@ -130,8 +132,6 @@ type MiscOptions struct {
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
 	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`
-	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray"`
-	Client   string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type"`
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
