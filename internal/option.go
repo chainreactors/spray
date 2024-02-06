@@ -241,13 +241,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if len(opt.AppendRule) > 0 {
 		s.WriteString("file bak enable; ")
 	}
-	if s.Len() > 0 {
-		logs.Log.Important("Advance Mod: " + s.String())
-	}
-
 	if r.RetryCount > 0 {
-		logs.Log.Important("Retry Count: " + strconv.Itoa(r.RetryCount))
+		s.WriteString("Retry Count: " + strconv.Itoa(r.RetryCount))
 	}
+	logs.Log.Important(s.String())
 
 	if opt.NoScope {
 		r.Scope = []string{"*"}
@@ -301,6 +298,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.Word = "{@prefix}" + opt.Word
 	}
 
+	//  类似dirsearch中的
 	if opt.Extensions != "" {
 		exts := strings.Split(opt.Extensions, ",")
 		for i, e := range exts {

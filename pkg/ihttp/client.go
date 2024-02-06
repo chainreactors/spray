@@ -118,6 +118,11 @@ func (c *Client) Do(ctx context.Context, req *Request) (*Response, error) {
 }
 
 func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
+	if proxyAddr == "" {
+		return func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, timeout)
+		}
+	}
 	u, err := url.Parse(proxyAddr)
 	if err != nil {
 		logs.Log.Error(err.Error())
