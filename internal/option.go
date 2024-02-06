@@ -55,6 +55,7 @@ type InputOptions struct {
 
 type FunctionOptions struct {
 	Extensions        string            `short:"e" long:"extension" description:"String, add extensions (separated by commas), e.g.: -e jsp,jspx"`
+	ForceExtension    bool              `long:"force-extension" description:"Bool, force add extensions"`
 	ExcludeExtensions string            `long:"exclude-extension" description:"String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx"`
 	RemoveExtensions  string            `long:"remove-extension" description:"String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx"`
 	Uppercase         bool              `short:"U" long:"uppercase" description:"Bool, upper wordlist, e.g.: --uppercase"`
@@ -62,6 +63,8 @@ type FunctionOptions struct {
 	Prefixes          []string          `long:"prefix" description:"Strings, add prefix, e.g.: --prefix aaa --prefix bbb"`
 	Suffixes          []string          `long:"suffix" description:"Strings, add suffix, e.g.: --suffix aaa --suffix bbb"`
 	Replaces          map[string]string `long:"replace" description:"Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd"`
+	Skips             []string          `long:"skip" description:"String, skip word when generate. rule, e.g.: --skip aaa"`
+	//SkipEval          string            `long:"skip-eval" description:"String, skip word when generate. rule, e.g.: --skip-eval 'current.Length < 4'"`
 }
 
 type OutputOptions struct {
@@ -298,8 +301,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.Word = "{@prefix}" + opt.Word
 	}
 
-	//  类似dirsearch中的
-	if opt.Extensions != "" {
+	if opt.ForceExtension && opt.Extensions != "" {
 		exts := strings.Split(opt.Extensions, ",")
 		for i, e := range exts {
 			if !strings.HasPrefix(e, ".") {
@@ -475,41 +477,81 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	r.Tasks = tasks
 	logs.Log.Importantf("Loaded %d urls from %s", len(tasks), taskfrom)
 
+	//  类似dirsearch中的
+	if opt.Extensions != "" {
+		r.AppendFunction(func(s string) []string {
+			exts := strings.Split(opt.Extensions, ",")
+			ss := make([]string, len(exts))
+			for i, e := range exts {
+				if strings.Contains(s, "%EXT%") {
+					ss[i] = strings.Replace(s, "%EXT%", e, -1)
+				}
+			}
+			return ss
+		})
+	} else {
+		r.AppendFunction(func(s string) []string {
+			if strings.Contains(s, "%EXT%") {
+				return nil
+			}
+			return []string{s}
+		})
+	}
+
 	if opt.Uppercase {
-		r.Fns = append(r.Fns, strings.ToUpper)
+		r.AppendFunction(wrapWordsFunc(strings.ToUpper))
 	}
 	if opt.Lowercase {
-		r.Fns = append(r.Fns, strings.ToLower)
+		r.AppendFunction(wrapWordsFunc(strings.ToLower))
 	}
 
 	if opt.RemoveExtensions != "" {
 		rexts := strings.Split(opt.ExcludeExtensions, ",")
-		r.Fns = append(r.Fns, func(s string) string {
+		r.AppendFunction(func(s string) []string {
 			if ext := parseExtension(s); iutils.StringsContains(rexts, ext) {
-				return strings.TrimSuffix(s, "."+ext)
+				return []string{strings.TrimSuffix(s, "."+ext)}
 			}
-			return s
+			return []string{s}
 		})
 	}
 
 	if opt.ExcludeExtensions != "" {
 		exexts := strings.Split(opt.ExcludeExtensions, ",")
-		r.Fns = append(r.Fns, func(s string) string {
+		r.AppendFunction(func(s string) []string {
 			if ext := parseExtension(s); iutils.StringsContains(exexts, ext) {
-				return ""
+				return nil
 			}
-			return s
+			return []string{s}
 		})
 	}
 
 	if len(opt.Replaces) > 0 {
-		r.Fns = append(r.Fns, func(s string) string {
+		r.AppendFunction(func(s string) []string {
 			for k, v := range opt.Replaces {
 				s = strings.Replace(s, k, v, -1)
 			}
-			return s
+			return []string{s}
 		})
 	}
+
+	// default skip function, skip %EXT%
+	r.AppendFunction(func(s string) []string {
+		if strings.Contains(s, "%EXT%") {
+			return nil
+		}
+		return []string{s}
+	})
+	if len(opt.Skips) > 0 {
+		r.AppendFunction(func(s string) []string {
+			for _, skip := range opt.Skips {
+				if strings.Contains(s, skip) {
+					return nil
+				}
+			}
+			return []string{s}
+		})
+	}
+
 	logs.Log.Importantf("Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {

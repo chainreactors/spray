@@ -295,3 +295,9 @@ func (p *bytesPatcher) Visit(node *ast.Node) {
 		})
 	}
 }
+
+func wrapWordsFunc(f func(string) string) func(string) []string {
+	return func(s string) []string {
+		return []string{f(s)}
+	}
+}
