@@ -383,11 +383,11 @@ func (pool *Pool) Invoke(v interface{}) {
 		} else if i := pool.random.Compare(bl); i < 1 {
 			if i == 0 {
 				if pool.Fuzzy {
-					logs.Log.Warn("[check.fuzzy] maybe trigger risk control, " + bl.String())
+					logs.Log.Debug("[check.fuzzy] maybe trigger risk control, " + bl.String())
 				}
 			} else {
 				atomic.AddInt32(&pool.failedCount, 1) //
-				logs.Log.Warn("[check.failed] maybe trigger risk control, " + bl.String())
+				logs.Log.Debug("[check.failed] maybe trigger risk control, " + bl.String())
 				pool.failedBaselines = append(pool.failedBaselines, bl)
 			}
 		} else {
