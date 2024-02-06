@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/valyala/fasthttp"
+	"net"
 	"net/http"
 	"time"
 )
@@ -21,17 +22,21 @@ const (
 
 func NewClient(thread int, timeout int, clientType int) *Client {
 	if clientType == FAST {
+		dialfunc := func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Duration(timeout)*time.Second)
+		}
 		return &Client{
 			fastClient: &fasthttp.Client{
 				TLSConfig: &tls.Config{
 					Renegotiation:      tls.RenegotiateOnceAsClient,
 					InsecureSkipVerify: true,
 				},
-				MaxConnsPerHost:               thread * 3 / 2,
-				MaxIdleConnDuration:           time.Duration(timeout) * time.Second,
-				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
-				ReadTimeout:                   time.Duration(timeout) * time.Second,
-				WriteTimeout:                  time.Duration(timeout) * time.Second,
+				Dial:                dialfunc,
+				MaxConnsPerHost:     thread * 3 / 2,
+				MaxIdleConnDuration: time.Duration(timeout) * time.Second,
+				//MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
+				//ReadTimeout:                   time.Duration(timeout) * time.Second,
+				//WriteTimeout:                  time.Duration(timeout) * time.Second,
 				ReadBufferSize:                16384, // 16k
 				MaxResponseBodySize:           DefaultMaxBodySize,
 				NoDefaultUserAgentHeader:      true,

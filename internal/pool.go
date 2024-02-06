@@ -141,7 +141,6 @@ func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
 }
 
 func (pool *Pool) Init() error {
-	// 分成两步是为了避免闭包的线程安全问题
 	pool.initwg.Add(2)
 	if pool.Index != "" {
 		logs.Log.Importantf("custom index url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Index))
