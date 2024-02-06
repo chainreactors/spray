@@ -42,7 +42,7 @@ type Runner struct {
 	Rules           *rule.Program
 	AppendRules     *rule.Program
 	Headers         map[string]string
-	Fns             []func(string) string
+	Fns             []func(string) []string
 	FilterExpr      *vm.Program
 	MatchExpr       *vm.Program
 	RecursiveExpr   *vm.Program
@@ -126,6 +126,10 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		}
 	}
 	return config
+}
+
+func (r *Runner) AppendFunction(fn func(string) []string) {
+	r.Fns = append(r.Fns, fn)
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {

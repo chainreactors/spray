@@ -55,7 +55,7 @@ type Origin struct {
 	sum int
 }
 
-func (o *Origin) InitWorder(fns []func(string) string) (*words.Worder, error) {
+func (o *Origin) InitWorder(fns []func(string) []string) (*words.Worder, error) {
 	var worder *words.Worder
 	wl, err := loadWordlist(o.Word, o.Dictionaries)
 	if err != nil {
