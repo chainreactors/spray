@@ -84,6 +84,7 @@ type RequestOptions struct {
 	Cookie          []string `long:"cookie" description:"Strings, custom cookie"`
 	ReadAll         bool     `long:"read-all" description:"Bool, read all response body"`
 	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000"`
+	Proxy           string   `long:"proxy" default:"" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080"`
 }
 
 type PluginOptions struct {
@@ -168,6 +169,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		RandomUserAgent: opt.RandomUserAgent,
 		Random:          opt.Random,
 		Index:           opt.Index,
+		Proxy:           opt.Proxy,
 	}
 
 	// log and bar

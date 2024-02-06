@@ -20,10 +20,15 @@ import (
 func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &CheckPool{
-		Config:      config,
-		ctx:         pctx,
-		cancel:      cancel,
-		client:      ihttp.NewClient(config.Thread, config.Timeout, config.ClientType),
+		Config: config,
+		ctx:    pctx,
+		cancel: cancel,
+		client: ihttp.NewClient(&ihttp.ClientConfig{
+			Thread:    config.Thread,
+			Type:      config.ClientType,
+			Timeout:   time.Duration(config.Timeout) * time.Second,
+			ProxyAddr: config.ProxyAddr,
+		}),
 		wg:          sync.WaitGroup{},
 		additionCh:  make(chan *Unit, 100),
 		closeCh:     make(chan struct{}),

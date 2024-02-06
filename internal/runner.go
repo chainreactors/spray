@@ -84,6 +84,7 @@ type Runner struct {
 	RandomUserAgent bool
 	Random          string
 	Index           string
+	Proxy           string
 }
 
 func (r *Runner) PrepareConfig() *pkg.Config {
@@ -114,6 +115,7 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		RandomUserAgent: r.RandomUserAgent,
 		Random:          r.Random,
 		Index:           r.Index,
+		ProxyAddr:       r.Proxy,
 	}
 
 	if config.ClientType == ihttp.Auto {

@@ -41,13 +41,18 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	}
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
-		Config:      config,
-		base:        u.Scheme + "://" + u.Host,
-		isDir:       strings.HasSuffix(u.Path, "/"),
-		url:         u,
-		ctx:         pctx,
-		cancel:      cancel,
-		client:      ihttp.NewClient(config.Thread, config.Timeout, config.ClientType),
+		Config: config,
+		base:   u.Scheme + "://" + u.Host,
+		isDir:  strings.HasSuffix(u.Path, "/"),
+		url:    u,
+		ctx:    pctx,
+		cancel: cancel,
+		client: ihttp.NewClient(&ihttp.ClientConfig{
+			Thread:    config.Thread,
+			Type:      config.ClientType,
+			Timeout:   time.Duration(config.Timeout) * time.Second,
+			ProxyAddr: config.ProxyAddr,
+		}),
 		baselines:   make(map[int]*pkg.Baseline),
 		urls:        make(map[string]struct{}),
 		scopeurls:   make(map[string]struct{}),
