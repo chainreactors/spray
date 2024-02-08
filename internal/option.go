@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/antonmedv/expr"
@@ -49,6 +50,7 @@ type InputOptions struct {
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt"`
 	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'"`
+	AppendFile   []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path"`
 }
 
 type FunctionOptions struct {
@@ -108,7 +110,7 @@ type ModeOptions struct {
 	Scope           []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com"`
 	Recursive       string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()"`
 	Depth           int      `long:"depth" default:"0" description:"Int, recursive depth"`
-	Index           string   `long:"index" default:"" description:"String, custom index path"`
+	Index           string   `long:"index" default:"/" description:"String, custom index path"`
 	Random          string   `long:"random" default:"" description:"String, custom random path"`
 	CheckPeriod     int      `long:"check-period" default:"200" description:"Int, check period when request"`
 	ErrPeriod       int      `long:"error-period" default:"10" description:"Int, check period when error"`
@@ -187,9 +189,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if !(opt.Quiet || opt.NoBar) {
 		r.Progress.Start()
 		logs.Log.SetOutput(r.Progress.Bypass())
-	}
-	if len(opt.Verbose) == 1 {
-		logs.Log.SetLevel(LogVerbose)
 	}
 
 	// configuration
@@ -328,7 +327,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Rules != nil {
-		rules, err := loadFileAndCombine(opt.Rules)
+		rules, err := loadRuleAndCombine(opt.Rules)
 		if err != nil {
 			return nil, err
 		}
@@ -357,11 +356,28 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.AppendRule != nil {
-		content, err := loadFileAndCombine(opt.AppendRule)
+		content, err := loadRuleAndCombine(opt.AppendRule)
 		if err != nil {
 			return nil, err
 		}
 		r.AppendRules = rule.Compile(string(content), "")
+	}
+
+	if opt.AppendFile != nil {
+		var bs bytes.Buffer
+		for _, f := range opt.AppendFile {
+			content, err := ioutil.ReadFile(f)
+			if err != nil {
+				return nil, err
+			}
+			bs.Write(bytes.TrimSpace(content))
+			bs.WriteString("\n")
+		}
+		lines := strings.Split(bs.String(), "\n")
+		for i, line := range lines {
+			lines[i] = strings.TrimSpace(line)
+		}
+		r.AppendWords = lines
 	}
 
 	ports := utils.ParsePort(opt.PortRange)

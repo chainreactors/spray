@@ -37,6 +37,7 @@ type Config struct {
 	FilterExpr      *vm.Program
 	RecuExpr        *vm.Program
 	AppendRule      *rule.Program
+	AppendWords     []string
 	OutputCh        chan *Baseline
 	FuzzyCh         chan *Baseline
 	Fuzzy           bool
