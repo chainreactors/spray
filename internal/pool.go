@@ -30,7 +30,6 @@ var (
 	MaxRecursion    = 0
 	enableAllFuzzy  = false
 	enableAllUnique = false
-	nilBaseline     = &Baseline{}
 )
 
 func NewPool(ctx context.Context, config *Config) (*Pool, error) {
@@ -54,12 +53,11 @@ func NewPool(ctx context.Context, config *Config) (*Pool, error) {
 			Timeout:   time.Duration(config.Timeout) * time.Second,
 			ProxyAddr: config.ProxyAddr,
 		}),
-		urls:        make(map[string]struct{}),
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
-		tempCh:      make(chan *Baseline, 100),
-		checkCh:     make(chan int, 100),
-		additionCh:  make(chan *Unit, 100),
+		handlerCh:   make(chan *Baseline, config.Thread),
+		checkCh:     make(chan int, config.Thread),
+		additionCh:  make(chan *Unit, config.Thread),
 		closeCh:     make(chan struct{}),
 		waiter:      sync.WaitGroup{},
 		initwg:      sync.WaitGroup{},
@@ -98,7 +96,7 @@ type Pool struct {
 	bar         *pkg.Bar
 	ctx         context.Context
 	cancel      context.CancelFunc
-	tempCh      chan *Baseline // 待处理的baseline
+	handlerCh   chan *Baseline // 待处理的baseline
 	checkCh     chan int       // 独立的check管道， 防止与redirect/crawl冲突
 	additionCh  chan *Unit     // 插件添加的任务, 待处理管道
 	closeCh     chan struct{}
@@ -106,7 +104,7 @@ type Pool struct {
 	wordOffset  int
 	failedCount int32
 	isFailed    bool
-	urls        map[string]struct{}
+	urls        sync.Map
 	scopeurls   map[string]struct{}
 	uniques     map[uint16]struct{}
 	analyzeDone bool
@@ -260,11 +258,11 @@ Loop:
 			if !ok || pool.closed {
 				continue
 			}
-			if _, ok := pool.urls[unit.path]; ok {
+			if _, ok := pool.urls.Load(unit.path); ok {
 				logs.Log.Debugf("[%s] duplicate path: %s, skipped", parsers.GetSpraySourceName(unit.source), pool.base+unit.path)
 				pool.waiter.Done()
 			} else {
-				pool.urls[unit.path] = struct{}{}
+				pool.urls.Store(unit.path, nil)
 				unit.number = pool.wordOffset
 				pool.reqPool.Invoke(unit)
 			}
@@ -394,7 +392,7 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	case WordSource:
 		// 异步进行性能消耗较大的深度对比
-		pool.tempCh <- bl
+		pool.handlerCh <- bl
 		if int(pool.Statistor.ReqTotal)%pool.CheckPeriod == 0 {
 			pool.doCheck()
 		} else if pool.failedCount%pool.ErrPeriod == 0 {
@@ -404,9 +402,9 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.bar.Done()
 	case RedirectSource:
 		bl.FrontURL = unit.frontUrl
-		pool.tempCh <- bl
+		pool.handlerCh <- bl
 	default:
-		pool.tempCh <- bl
+		pool.handlerCh <- bl
 	}
 }
 
@@ -442,7 +440,7 @@ func (pool *Pool) NoScopeInvoke(v interface{}) {
 }
 
 func (pool *Pool) Handler() {
-	for bl := range pool.tempCh {
+	for bl := range pool.handlerCh {
 		if bl.IsValid {
 			pool.addFuzzyBaseline(bl)
 		}
@@ -508,12 +506,13 @@ func (pool *Pool) Handler() {
 		}
 
 		if bl.IsValid || bl.IsFuzzy {
-			pool.waiter.Add(3)
+			pool.waiter.Add(2)
 			pool.doCrawl(bl)
 			pool.doRule(bl)
-			if _, ok := pool.urls[Dir(bl.Url.Path)]; !ok {
-				pool.doAppendWords(bl)
-			}
+		}
+		if iutils.IntsContains(WhiteStatus, bl.Status) || iutils.IntsContains([]int{403, 500, 502}, bl.Status) {
+			pool.waiter.Add(1)
+			pool.doAppendWords(bl)
 		}
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
@@ -570,7 +569,6 @@ func (pool *Pool) BaseCompare(bl *Baseline) bool {
 		pool.putToFuzzy(bl)
 		return false
 	}
-
 	// 使用与baseline相同状态码, 需要在fuzzystatus中提前配置
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
 	if !ok {
@@ -693,7 +691,7 @@ func (pool *Pool) doScopeCrawl(bl *Baseline) {
 				}
 				pool.scopeLocker.Lock()
 				if _, ok := pool.scopeurls[u]; !ok {
-					pool.urls[u] = struct{}{}
+					pool.urls.Store(u, nil)
 					pool.waiter.Add(1)
 					pool.scopePool.Invoke(&Unit{path: u, source: CrawlSource, depth: bl.ReqDepth + 1})
 				}

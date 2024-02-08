@@ -21,7 +21,7 @@ var (
 	BlackStatus  = []int{400, 410}
 	FuzzyStatus  = []int{403, 404, 500, 501, 502, 503}
 	WAFStatus    = []int{493, 418, 1020, 406}
-	UniqueStatus = []int{403}
+	UniqueStatus = []int{403, 200} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
 )
 
 var (
