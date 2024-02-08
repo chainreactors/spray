@@ -1,4 +1,4 @@
-package pkg
+package internal
 
 type ErrorType uint
 
@@ -36,10 +36,4 @@ var ErrMap = map[ErrorType]string{
 
 func (e ErrorType) Error() string {
 	return ErrMap[e]
-}
-
-type BS []byte
-
-func (b BS) String() string {
-	return string(b)
 }

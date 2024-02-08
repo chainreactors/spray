@@ -301,3 +301,9 @@ func wrapWordsFunc(f func(string) string) func(string) []string {
 		return []string{f(s)}
 	}
 }
+
+func UniqueHash(bl *Baseline) uint16 {
+	// 由host+状态码+重定向url+content-type+title+length舍去个位与十位组成的hash
+	// body length可能会导致一些误报, 目前没有更好的解决办法
+	return pkg.CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/100*100)))
+}

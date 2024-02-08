@@ -6,8 +6,8 @@ import (
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
@@ -55,8 +55,8 @@ type Runner struct {
 	Timeout         int
 	Mod             string
 	Probes          []string
-	OutputCh        chan *pkg.Baseline
-	FuzzyCh         chan *pkg.Baseline
+	OutputCh        chan *Baseline
+	FuzzyCh         chan *Baseline
 	Fuzzy           bool
 	OutputFile      *files.File
 	FuzzyFile       *files.File
@@ -87,13 +87,13 @@ type Runner struct {
 	Proxy           string
 }
 
-func (r *Runner) PrepareConfig() *pkg.Config {
-	config := &pkg.Config{
+func (r *Runner) PrepareConfig() *Config {
+	config := &Config{
 		Thread:          r.Threads,
 		Timeout:         r.Timeout,
 		RateLimit:       r.RateLimit,
 		Headers:         r.Headers,
-		Mod:             pkg.ModMap[r.Mod],
+		Mod:             ModMap[r.Mod],
 		OutputCh:        r.OutputCh,
 		FuzzyCh:         r.FuzzyCh,
 		Fuzzy:           r.Fuzzy,
@@ -119,9 +119,9 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 	}
 
 	if config.ClientType == ihttp.Auto {
-		if config.Mod == pkg.PathSpray {
+		if config.Mod == PathSpray {
 			config.ClientType = ihttp.FAST
-		} else if config.Mod == pkg.HostSpray {
+		} else if config.Mod == HostSpray {
 			config.ClientType = ihttp.STANDARD
 		}
 	}
@@ -250,7 +250,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) AddRecursive(bl *pkg.Baseline) {
+func (r *Runner) AddRecursive(bl *Baseline) {
 	// 递归新任务
 	task := &Task{
 		baseUrl: bl.UrlString,
@@ -369,7 +369,7 @@ func (r *Runner) PrintStat(pool *Pool) {
 }
 
 func (r *Runner) Output() {
-	debugPrint := func(bl *pkg.Baseline) {
+	debugPrint := func(bl *Baseline) {
 		if r.Color {
 			logs.Log.Debug(bl.ColorString())
 		} else {
@@ -377,31 +377,31 @@ func (r *Runner) Output() {
 		}
 	}
 	go func() {
-		var saveFunc func(*pkg.Baseline)
+		var saveFunc func(*Baseline)
 
 		if r.OutputFile != nil {
-			saveFunc = func(bl *pkg.Baseline) {
+			saveFunc = func(bl *Baseline) {
 				r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
 				r.OutputFile.SafeSync()
 			}
 		} else {
 			if len(r.Probes) > 0 {
 				if r.Color {
-					saveFunc = func(bl *pkg.Baseline) {
+					saveFunc = func(bl *Baseline) {
 						logs.Log.Console(logs.GreenBold("[+] " + bl.Format(r.Probes) + "\n"))
 					}
 				} else {
-					saveFunc = func(bl *pkg.Baseline) {
+					saveFunc = func(bl *Baseline) {
 						logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
 					}
 				}
 			} else {
 				if r.Color {
-					saveFunc = func(bl *pkg.Baseline) {
+					saveFunc = func(bl *Baseline) {
 						logs.Log.Console(logs.GreenBold("[+] " + bl.ColorString() + "\n"))
 					}
 				} else {
-					saveFunc = func(bl *pkg.Baseline) {
+					saveFunc = func(bl *Baseline) {
 						logs.Log.Console("[+] " + bl.String() + "\n")
 					}
 				}
@@ -431,18 +431,18 @@ func (r *Runner) Output() {
 	}()
 
 	go func() {
-		var fuzzySaveFunc func(*pkg.Baseline)
+		var fuzzySaveFunc func(*Baseline)
 		if r.FuzzyFile != nil {
-			fuzzySaveFunc = func(bl *pkg.Baseline) {
+			fuzzySaveFunc = func(bl *Baseline) {
 				r.FuzzyFile.SafeWrite(bl.Jsonify() + "\n")
 			}
 		} else {
 			if r.Color {
-				fuzzySaveFunc = func(bl *pkg.Baseline) {
+				fuzzySaveFunc = func(bl *Baseline) {
 					logs.Log.Console(logs.GreenBold("[fuzzy] " + bl.ColorString() + "\n"))
 				}
 			} else {
-				fuzzySaveFunc = func(bl *pkg.Baseline) {
+				fuzzySaveFunc = func(bl *Baseline) {
 					logs.Log.Console("[fuzzy] " + bl.String() + "\n")
 				}
 			}
