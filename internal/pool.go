@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
+	ihttp2 "github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/mask"
@@ -30,10 +30,10 @@ var (
 	MaxRecursion    = 0
 	enableAllFuzzy  = false
 	enableAllUnique = false
-	nilBaseline     = &pkg.Baseline{}
+	nilBaseline     = &Baseline{}
 )
 
-func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
+func NewPool(ctx context.Context, config *Config) (*Pool, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(config.BaseURL); err != nil {
@@ -41,23 +41,23 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 	}
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &Pool{
-		Config: config,
-		base:   u.Scheme + "://" + u.Host,
-		isDir:  strings.HasSuffix(u.Path, "/"),
-		url:    u,
-		ctx:    pctx,
-		cancel: cancel,
-		client: ihttp.NewClient(&ihttp.ClientConfig{
+		Config:    config,
+		Baselines: NewBaselines(),
+		base:      u.Scheme + "://" + u.Host,
+		isDir:     strings.HasSuffix(u.Path, "/"),
+		url:       u,
+		ctx:       pctx,
+		cancel:    cancel,
+		client: ihttp2.NewClient(&ihttp2.ClientConfig{
 			Thread:    config.Thread,
 			Type:      config.ClientType,
 			Timeout:   time.Duration(config.Timeout) * time.Second,
 			ProxyAddr: config.ProxyAddr,
 		}),
-		baselines:   make(map[int]*pkg.Baseline),
 		urls:        make(map[string]struct{}),
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
-		tempCh:      make(chan *pkg.Baseline, 100),
+		tempCh:      make(chan *Baseline, 100),
 		checkCh:     make(chan int, 100),
 		additionCh:  make(chan *Unit, 100),
 		closeCh:     make(chan struct{}),
@@ -85,40 +85,37 @@ func NewPool(ctx context.Context, config *pkg.Config) (*Pool, error) {
 }
 
 type Pool struct {
-	*pkg.Config            // read only
-	base            string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
-	dir             string
-	isDir           bool
-	url             *url.URL
-	Statistor       *pkg.Statistor
-	client          *ihttp.Client
-	reqPool         *ants.PoolWithFunc
-	scopePool       *ants.PoolWithFunc
-	bar             *pkg.Bar
-	ctx             context.Context
-	cancel          context.CancelFunc
-	tempCh          chan *pkg.Baseline // 待处理的baseline
-	checkCh         chan int           // 独立的check管道， 防止与redirect/crawl冲突
-	additionCh      chan *Unit         // 插件添加的任务, 待处理管道
-	closeCh         chan struct{}
-	closed          bool
-	wordOffset      int
-	failedCount     int32
-	isFailed        bool
-	failedBaselines []*pkg.Baseline
-	random          *pkg.Baseline
-	index           *pkg.Baseline
-	baselines       map[int]*pkg.Baseline
-	urls            map[string]struct{}
-	scopeurls       map[string]struct{}
-	uniques         map[uint16]struct{}
-	analyzeDone     bool
-	worder          *words.Worder
-	limiter         *rate.Limiter
-	locker          sync.Mutex
-	scopeLocker     sync.Mutex
-	waiter          sync.WaitGroup
-	initwg          sync.WaitGroup // 初始化用, 之后改成锁
+	*Config // read only
+	*Baselines
+	base        string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
+	dir         string
+	isDir       bool
+	url         *url.URL
+	Statistor   *pkg.Statistor
+	client      *ihttp2.Client
+	reqPool     *ants.PoolWithFunc
+	scopePool   *ants.PoolWithFunc
+	bar         *pkg.Bar
+	ctx         context.Context
+	cancel      context.CancelFunc
+	tempCh      chan *Baseline // 待处理的baseline
+	checkCh     chan int       // 独立的check管道， 防止与redirect/crawl冲突
+	additionCh  chan *Unit     // 插件添加的任务, 待处理管道
+	closeCh     chan struct{}
+	closed      bool
+	wordOffset  int
+	failedCount int32
+	isFailed    bool
+	urls        map[string]struct{}
+	scopeurls   map[string]struct{}
+	uniques     map[uint16]struct{}
+	analyzeDone bool
+	worder      *words.Worder
+	limiter     *rate.Limiter
+	locker      sync.Mutex
+	scopeLocker sync.Mutex
+	waiter      sync.WaitGroup
+	initwg      sync.WaitGroup // 初始化用, 之后改成锁
 }
 
 func (pool *Pool) checkRedirect(redirectURL string) bool {
@@ -136,11 +133,11 @@ func (pool *Pool) checkRedirect(redirectURL string) bool {
 	}
 }
 
-func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
-	if mod == pkg.HostSpray {
-		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if mod == pkg.PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
+func (pool *Pool) genReq(mod SprayMod, s string) (*ihttp2.Request, error) {
+	if mod == HostSpray {
+		return ihttp2.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
+	} else if mod == PathSpray {
+		return ihttp2.BuildPathRequest(pool.ClientType, pool.base, s)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
@@ -166,7 +163,7 @@ func (pool *Pool) Init() error {
 		logs.Log.Error(pool.index.String())
 		return fmt.Errorf(pool.index.ErrString)
 	}
-	if pool.index.Chunked && pool.ClientType == ihttp.FAST {
+	if pool.index.Chunked && pool.ClientType == ihttp2.FAST {
 		logs.Log.Warn("chunk encoding! buf current client FASTHTTP not support chunk decode")
 	}
 	logs.Log.Logf(LogVerbose, "[baseline.index] "+pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
@@ -243,7 +240,7 @@ Loop:
 			}
 
 			pool.waiter.Add(1)
-			if pool.Mod == pkg.HostSpray {
+			if pool.Mod == HostSpray {
 				pool.reqPool.Invoke(newUnitWithNumber(w, WordSource, pool.wordOffset))
 			} else {
 				// 原样的目录拼接, 输入了几个"/"就是几个, 适配/有语义的中间件
@@ -252,9 +249,9 @@ Loop:
 
 		case source := <-pool.checkCh:
 			pool.Statistor.CheckNumber++
-			if pool.Mod == pkg.HostSpray {
+			if pool.Mod == HostSpray {
 				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), source, pool.wordOffset))
-			} else if pool.Mod == pkg.PathSpray {
+			} else if pool.Mod == PathSpray {
 				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(pkg.RandPath()), source, pool.wordOffset))
 			}
 		case unit, ok := <-pool.additionCh:
@@ -289,12 +286,12 @@ func (pool *Pool) Invoke(v interface{}) {
 	atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 	unit := v.(*Unit)
 
-	var req *ihttp.Request
+	var req *ihttp2.Request
 	var err error
 	if unit.source == WordSource {
 		req, err = pool.genReq(pool.Mod, unit.path)
 	} else {
-		req, err = pool.genReq(pkg.PathSpray, unit.path)
+		req, err = pool.genReq(PathSpray, unit.path)
 	}
 
 	if err != nil {
@@ -307,40 +304,39 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	start := time.Now()
 	resp, reqerr := pool.client.Do(pool.ctx, req)
-	if pool.ClientType == ihttp.FAST {
+	if pool.ClientType == ihttp2.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
 	}
 
 	// compare与各种错误处理
-	var bl *pkg.Baseline
+	var bl *Baseline
 	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 		atomic.AddInt32(&pool.failedCount, 1)
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
-		bl = &pkg.Baseline{
+		bl = &Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: pool.base + unit.path,
 				IsValid:   false,
 				ErrString: reqerr.Error(),
-				Reason:    pkg.ErrRequestFailed.Error(),
+				Reason:    ErrRequestFailed.Error(),
 			},
 		}
 		pool.failedBaselines = append(pool.failedBaselines, bl)
-		// 自动重放失败请求, 默认为一次
+		// 自动重放失败请求
 		pool.doRetry(bl)
-
-	} else {
+	} else { // 特定场景优化
 		if unit.source <= 3 || unit.source == CrawlSource || unit.source == CommonFileSource {
 			// 一些高优先级的source, 将跳过PreCompare
-			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+			bl = NewBaseline(req.URI(), req.Host(), resp)
 		} else if pool.MatchExpr != nil {
 			// 如果自定义了match函数, 则所有数据送入tempch中
-			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+			bl = NewBaseline(req.URI(), req.Host(), resp)
 		} else if err = pool.PreCompare(resp); err == nil {
 			// 通过预对比跳过一些无用数据, 减少性能消耗
-			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+			bl = NewBaseline(req.URI(), req.Host(), resp)
 		} else {
-			bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
+			bl = NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
 		}
 	}
 
@@ -350,7 +346,7 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.doRedirect(bl, unit.depth)
 	}
 
-	if ihttp.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp.DefaultMaxBodySize {
+	if ihttp2.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp2.DefaultMaxBodySize {
 		bl.ExceedLength = true
 	}
 	bl.Source = unit.source
@@ -416,7 +412,7 @@ func (pool *Pool) Invoke(v interface{}) {
 func (pool *Pool) NoScopeInvoke(v interface{}) {
 	defer pool.waiter.Done()
 	unit := v.(*Unit)
-	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "")
+	req, err := ihttp2.BuildPathRequest(pool.ClientType, unit.path, "")
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -424,7 +420,7 @@ func (pool *Pool) NoScopeInvoke(v interface{}) {
 	req.SetHeaders(pool.Headers)
 	req.SetHeader("User-Agent", RandomUA())
 	resp, reqerr := pool.client.Do(pool.ctx, req)
-	if pool.ClientType == ihttp.FAST {
+	if pool.ClientType == ihttp2.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
 	}
@@ -433,7 +429,7 @@ func (pool *Pool) NoScopeInvoke(v interface{}) {
 		return
 	}
 	if resp.StatusCode() == 200 {
-		bl := pkg.NewBaseline(req.URI(), req.Host(), resp)
+		bl := NewBaseline(req.URI(), req.Host(), resp)
 		bl.Source = unit.source
 		bl.ReqDepth = unit.depth
 		bl.Collect()
@@ -494,7 +490,7 @@ func (pool *Pool) Handler() {
 				if _, ok := pool.uniques[bl.Unique]; ok {
 					bl.IsValid = false
 					bl.IsFuzzy = true
-					bl.Reason = pkg.ErrFuzzyNotUnique.Error()
+					bl.Reason = ErrFuzzyNotUnique.Error()
 				} else {
 					pool.uniques[bl.Unique] = struct{}{}
 				}
@@ -503,7 +499,7 @@ func (pool *Pool) Handler() {
 			// 对通过所有对比的有效数据进行再次filter
 			if bl.IsValid && pool.FilterExpr != nil && CompareWithExpr(pool.FilterExpr, params) {
 				pool.Statistor.FilteredNumber++
-				bl.Reason = pkg.ErrCustomFilter.Error()
+				bl.Reason = ErrCustomFilter.Error()
 				bl.IsValid = false
 			}
 		} else {
@@ -534,39 +530,39 @@ func (pool *Pool) Handler() {
 	pool.analyzeDone = true
 }
 
-func (pool *Pool) PreCompare(resp *ihttp.Response) error {
+func (pool *Pool) PreCompare(resp *ihttp2.Response) error {
 	status := resp.StatusCode()
 	if iutils.IntsContains(WhiteStatus, status) {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
 	if pool.random.Status != 200 && pool.random.Status == status {
-		return pkg.ErrSameStatus
+		return ErrSameStatus
 	}
 
 	if iutils.IntsContains(BlackStatus, status) {
-		return pkg.ErrBadStatus
+		return ErrBadStatus
 	}
 
 	if iutils.IntsContains(WAFStatus, status) {
-		return pkg.ErrWaf
+		return ErrWaf
 	}
 
 	if !pool.checkRedirect(resp.GetHeader("Location")) {
-		return pkg.ErrRedirect
+		return ErrRedirect
 	}
 
 	return nil
 }
 
-func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
+func (pool *Pool) BaseCompare(bl *Baseline) bool {
 	if !bl.IsValid {
 		return false
 	}
 	var status = -1
 	// 30x状态码的特殊处理
 	if bl.RedirectURL != "" && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
-		bl.Reason = pkg.ErrFuzzyRedirect.Error()
+		bl.Reason = ErrFuzzyRedirect.Error()
 		pool.putToFuzzy(bl)
 		return false
 	}
@@ -587,7 +583,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 
 	if ok {
 		if status = base.Compare(bl); status == 1 {
-			bl.Reason = pkg.ErrCompareFailed.Error()
+			bl.Reason = ErrCompareFailed.Error()
 			return false
 		}
 	}
@@ -607,7 +603,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 
 	if ok && status == 0 && base.FuzzyCompare(bl) {
 		pool.Statistor.FuzzyNumber++
-		bl.Reason = pkg.ErrFuzzyCompareFailed.Error()
+		bl.Reason = ErrFuzzyCompareFailed.Error()
 		pool.putToFuzzy(bl)
 		return false
 	}
@@ -615,7 +611,7 @@ func (pool *Pool) BaseCompare(bl *pkg.Baseline) bool {
 	return true
 }
 
-func (pool *Pool) Upgrade(bl *pkg.Baseline) error {
+func (pool *Pool) Upgrade(bl *Baseline) error {
 	rurl, err := url.Parse(bl.RedirectURL)
 	if err == nil && rurl.Hostname() == bl.Url.Hostname() && bl.Url.Scheme == "http" && rurl.Scheme == "https" {
 		logs.Log.Infof("baseurl %s upgrade http to https, reinit", pool.BaseURL)
@@ -631,7 +627,7 @@ func (pool *Pool) Upgrade(bl *pkg.Baseline) error {
 	return nil
 }
 
-func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
+func (pool *Pool) doRedirect(bl *Baseline, depth int) {
 	if depth >= MaxRedirect {
 		return
 	}
@@ -648,7 +644,7 @@ func (pool *Pool) doRedirect(bl *pkg.Baseline, depth int) {
 	}()
 }
 
-func (pool *Pool) doCrawl(bl *pkg.Baseline) {
+func (pool *Pool) doCrawl(bl *Baseline) {
 	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
 		pool.waiter.Done()
 		return
@@ -678,7 +674,7 @@ func (pool *Pool) doCrawl(bl *pkg.Baseline) {
 
 }
 
-func (pool *Pool) doScopeCrawl(bl *pkg.Baseline) {
+func (pool *Pool) doScopeCrawl(bl *Baseline) {
 	if bl.ReqDepth >= MaxCrawl {
 		pool.waiter.Done()
 		return
@@ -703,7 +699,7 @@ func (pool *Pool) doScopeCrawl(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *Pool) doRule(bl *pkg.Baseline) {
+func (pool *Pool) doRule(bl *Baseline) {
 	if pool.AppendRule == nil {
 		pool.waiter.Done()
 		return
@@ -724,7 +720,7 @@ func (pool *Pool) doRule(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *Pool) doRetry(bl *pkg.Baseline) {
+func (pool *Pool) doRetry(bl *Baseline) {
 	if bl.Retry >= pool.Retry {
 		return
 	}
@@ -795,9 +791,9 @@ func (pool *Pool) doCheck() {
 		return
 	}
 
-	if pool.Mod == pkg.HostSpray {
+	if pool.Mod == HostSpray {
 		pool.checkCh <- CheckSource
-	} else if pool.Mod == pkg.PathSpray {
+	} else if pool.Mod == PathSpray {
 		pool.checkCh <- CheckSource
 	}
 }
@@ -812,7 +808,7 @@ func (pool *Pool) addAddition(u *Unit) {
 	pool.additionCh <- u
 }
 
-func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
+func (pool *Pool) addFuzzyBaseline(bl *Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && (enableAllFuzzy || iutils.IntsContains(FuzzyStatus, bl.Status)) {
 		bl.Collect()
 		pool.waiter.Add(1)
@@ -822,12 +818,12 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 	}
 }
 
-func (pool *Pool) putToInvalid(bl *pkg.Baseline, reason string) {
+func (pool *Pool) putToInvalid(bl *Baseline, reason string) {
 	bl.IsValid = false
 	pool.OutputCh <- bl
 }
 
-func (pool *Pool) putToFuzzy(bl *pkg.Baseline) {
+func (pool *Pool) putToFuzzy(bl *Baseline) {
 	bl.IsFuzzy = true
 	pool.FuzzyCh <- bl
 }
@@ -871,4 +867,17 @@ func (pool *Pool) safePath(u string) string {
 			return pool.url.Path + "/" + u
 		}
 	}
+}
+
+func NewBaselines() *Baselines {
+	return &Baselines{
+		baselines: map[int]*Baseline{},
+	}
+}
+
+type Baselines struct {
+	failedBaselines []*Baseline
+	random          *Baseline
+	index           *Baseline
+	baselines       map[int]*Baseline
 }

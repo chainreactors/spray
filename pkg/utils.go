@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -50,20 +49,10 @@ var (
 	}
 )
 
-func RemoveDuplication(arr []string) []string {
-	set := make(map[string]struct{}, len(arr))
-	j := 0
-	for _, v := range arr {
-		_, ok := set[v]
-		if ok {
-			continue
-		}
-		set[v] = struct{}{}
-		arr[j] = v
-		j++
-	}
+type BS []byte
 
-	return arr[:j]
+func (b BS) String() string {
+	return string(b)
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -128,7 +117,7 @@ func FingerDetect(content []byte) parsers.Frameworks {
 	return frames
 }
 
-func filterJs(u string) bool {
+func FilterJs(u string) bool {
 	if commonFilter(u) {
 		return true
 	}
@@ -136,7 +125,7 @@ func filterJs(u string) bool {
 	return false
 }
 
-func filterUrl(u string) bool {
+func FilterUrl(u string) bool {
 	if commonFilter(u) {
 		return true
 	}
@@ -155,7 +144,7 @@ func filterUrl(u string) bool {
 	return false
 }
 
-func formatURL(u string) string {
+func CleanURL(u string) string {
 	// 去掉frag与params, 节约url.parse性能, 防止带参数造成意外的影响
 	u = strings.Trim(u, "\"")
 	u = strings.Trim(u, "'")
@@ -247,10 +236,4 @@ func CRC16Hash(data []byte) uint16 {
 		crc16 ^= MbTable[n]
 	}
 	return crc16
-}
-
-func UniqueHash(bl *Baseline) uint16 {
-	// 由host+状态码+重定向url+content-type+title+length舍去个位与十位组成的hash
-	// body length可能会导致一些误报, 目前没有更好的解决办法
-	return CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/100*100)))
 }

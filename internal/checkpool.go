@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
+	ihttp2 "github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
@@ -17,13 +17,13 @@ import (
 )
 
 // 类似httpx的无状态, 无scope, 无并发池的检测模式
-func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
+func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &CheckPool{
 		Config: config,
 		ctx:    pctx,
 		cancel: cancel,
-		client: ihttp.NewClient(&ihttp.ClientConfig{
+		client: ihttp2.NewClient(&ihttp2.ClientConfig{
 			Thread:    config.Thread,
 			Type:      config.ClientType,
 			Timeout:   time.Duration(config.Timeout) * time.Second,
@@ -43,8 +43,8 @@ func NewCheckPool(ctx context.Context, config *pkg.Config) (*CheckPool, error) {
 }
 
 type CheckPool struct {
-	*pkg.Config
-	client      *ihttp.Client
+	*Config
+	client      *ihttp2.Client
 	pool        *ants.PoolWithFunc
 	bar         *pkg.Bar
 	ctx         context.Context
@@ -61,11 +61,11 @@ func (pool *CheckPool) Close() {
 	pool.bar.Close()
 }
 
-func (pool *CheckPool) genReq(s string) (*ihttp.Request, error) {
-	if pool.Mod == pkg.HostSpray {
-		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if pool.Mod == pkg.PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.BaseURL, s)
+func (pool *CheckPool) genReq(s string) (*ihttp2.Request, error) {
+	if pool.Mod == HostSpray {
+		return ihttp2.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
+	} else if pool.Mod == PathSpray {
+		return ihttp2.BuildPathRequest(pool.ClientType, pool.BaseURL, s)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
@@ -131,21 +131,21 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	}
 	req.SetHeaders(pool.Headers)
 	start := time.Now()
-	var bl *pkg.Baseline
+	var bl *Baseline
 	resp, reqerr := pool.client.Do(pool.ctx, req)
-	if pool.ClientType == ihttp.FAST {
+	if pool.ClientType == ihttp2.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
 	}
 
 	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
 		pool.failedCount++
-		bl = &pkg.Baseline{
+		bl = &Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: unit.path,
 				IsValid:   false,
 				ErrString: reqerr.Error(),
-				Reason:    pkg.ErrRequestFailed.Error(),
+				Reason:    ErrRequestFailed.Error(),
 				ReqDepth:  unit.depth,
 			},
 		}
@@ -157,7 +157,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		}
 
 	} else {
-		bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+		bl = NewBaseline(req.URI(), req.Host(), resp)
 		bl.Collect()
 	}
 	bl.ReqDepth = unit.depth
@@ -187,7 +187,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	pool.bar.Done()
 }
 
-func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
+func (pool *CheckPool) doRedirect(bl *Baseline, depth int) {
 	if depth >= MaxRedirect {
 		return
 	}
@@ -214,7 +214,7 @@ func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
 }
 
 // tcp与400进行协议转换
-func (pool *CheckPool) doUpgrade(bl *pkg.Baseline) {
+func (pool *CheckPool) doUpgrade(bl *Baseline) {
 	if bl.ReqDepth >= 1 {
 		return
 	}

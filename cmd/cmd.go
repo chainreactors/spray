@@ -6,8 +6,8 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal"
+	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
 	"os"
@@ -92,7 +92,7 @@ func Spray() {
 	})
 
 	// 初始化全局变量
-	pkg.Distance = uint8(option.SimhashDistance)
+	internal.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
 	internal.MaxCrawl = option.CrawlDepth
 

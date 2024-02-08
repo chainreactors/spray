@@ -6,8 +6,8 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
@@ -154,8 +154,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Offset:          opt.Offset,
 		Total:           opt.Limit,
 		taskCh:          make(chan *Task),
-		OutputCh:        make(chan *pkg.Baseline, 100),
-		FuzzyCh:         make(chan *pkg.Baseline, 100),
+		OutputCh:        make(chan *Baseline, 100),
+		FuzzyCh:         make(chan *Baseline, 100),
 		Fuzzy:           opt.Fuzzy,
 		Force:           opt.Force,
 		CheckOnly:       opt.CheckOnly,
