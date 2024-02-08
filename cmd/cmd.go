@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var ver = ""
+var ver = "v0.9.3"
 
 func Spray() {
 	var option internal.Option
@@ -79,13 +79,19 @@ func Spray() {
 			}
 		}
 	}
-	// 一些全局变量初始化
+	// logs
+	logs.AddLevel(internal.LogVerbose, "verbose", "[=] %s {{suffix}}")
 	if option.Debug {
 		logs.Log.SetLevel(logs.Debug)
 	}
 
-	logs.DefaultColorMap[logs.Info] = logs.PurpleBold
-	logs.DefaultColorMap[logs.Important] = logs.GreenBold
+	logs.Log.SetColorMap(map[logs.Level]func(string) string{
+		logs.Info:           logs.PurpleBold,
+		logs.Important:      logs.GreenBold,
+		internal.LogVerbose: logs.Green,
+	})
+
+	// 初始化全局变量
 	pkg.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
 	internal.MaxCrawl = option.CrawlDepth

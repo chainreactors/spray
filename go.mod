@@ -8,7 +8,7 @@ require (
 	github.com/antonmedv/expr v1.12.5
 	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
 	github.com/chainreactors/gogo/v2 v2.11.12-0.20231228061950-116583962e30
-	github.com/chainreactors/logs v0.0.0-20231220102821-19f082ce37c1
+	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
 	github.com/chainreactors/parsers v0.0.0-20231227070753-8cda94b96b6c
 	github.com/chainreactors/utils v0.0.0-20231031063336-9477f1b23886
 	github.com/chainreactors/words v0.4.1-0.20240206181137-09f7a0bc8f50

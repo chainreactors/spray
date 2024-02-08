@@ -148,14 +148,14 @@ func (pool *Pool) genReq(mod pkg.SprayMod, s string) (*ihttp.Request, error) {
 func (pool *Pool) Init() error {
 	pool.initwg.Add(2)
 	if pool.Index != "" {
-		logs.Log.Importantf("custom index url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Index))
+		logs.Log.Logf(LogVerbose, "custom index url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Index))
 		pool.reqPool.Invoke(newUnit(pool.Index, InitIndexSource))
 	} else {
 		pool.reqPool.Invoke(newUnit(pool.url.Path, InitIndexSource))
 	}
 
 	if pool.Random != "" {
-		logs.Log.Importantf("custom random url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Random))
+		logs.Log.Logf(LogVerbose, "custom random url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Random))
 		pool.reqPool.Invoke(newUnit(pool.Random, InitRandomSource))
 	} else {
 		pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
@@ -169,13 +169,13 @@ func (pool *Pool) Init() error {
 	if pool.index.Chunked && pool.ClientType == ihttp.FAST {
 		logs.Log.Warn("chunk encoding! buf current client FASTHTTP not support chunk decode")
 	}
-	logs.Log.Info("[baseline.index] " + pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+	logs.Log.Logf(LogVerbose, "[baseline.index] "+pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	// 检测基本访问能力
 	if pool.random.ErrString != "" {
 		logs.Log.Error(pool.index.String())
 		return fmt.Errorf(pool.index.ErrString)
 	}
-	logs.Log.Info("[baseline.random] " + pool.random.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+	logs.Log.Logf(LogVerbose, "[baseline.random] "+pool.random.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 
 	// 某些网站http会重定向到https, 如果发现随机目录出现这种情况, 则自定将baseurl升级为https
 	if pool.url.Scheme == "http" {
@@ -818,7 +818,7 @@ func (pool *Pool) addFuzzyBaseline(bl *pkg.Baseline) {
 		pool.waiter.Add(1)
 		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
 		pool.baselines[bl.Status] = bl
-		logs.Log.Infof("[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+		logs.Log.Logf(LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	}
 }
 

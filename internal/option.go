@@ -22,9 +22,7 @@ import (
 
 var (
 	DefaultThreads = 20
-	//DefaultTimeout = 5
-	//DefaultPoolSize = 5
-	//DefaultRateLimit = 0
+	LogVerbose     = logs.Warn - 1
 )
 
 type Option struct {
@@ -120,7 +118,7 @@ type ModeOptions struct {
 	FuzzyStatus     string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
 	UniqueStatus    string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response"`
-	RetryCount      int      `long:"retry" default:"1" description:"Int, retry count"`
+	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count"`
 	SimhashDistance int      `long:"distance" default:"5"`
 }
 
@@ -132,7 +130,8 @@ type MiscOptions struct {
 	PoolSize int    `short:"P" long:"pool" default:"5" description:"Int, Pool size"`
 	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool"`
 	Debug    bool   `long:"debug" description:"Bool, output debug info"`
-	Version  bool   `short:"v" long:"version" description:"Bool, show version"`
+	Version  bool   `long:"version" description:"Bool, show version"`
+	Verbose  []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv "`
 	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet"`
 	NoColor  bool   `long:"no-color" description:"Bool, no color"`
 	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar"`
@@ -189,6 +188,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Progress.Start()
 		logs.Log.SetOutput(r.Progress.Bypass())
 	}
+	if len(opt.Verbose) == 1 {
+		logs.Log.SetLevel(LogVerbose)
+	}
 
 	// configuration
 	if opt.Force {
@@ -244,10 +246,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if len(opt.AppendRule) > 0 {
 		s.WriteString("file bak enable; ")
 	}
+
 	if r.RetryCount > 0 {
 		s.WriteString("Retry Count: " + strconv.Itoa(r.RetryCount))
 	}
-	logs.Log.Important(s.String())
+	if s.Len() > 0 {
+		logs.Log.Important(s.String())
+	}
 
 	if opt.NoScope {
 		r.Scope = []string{"*"}
@@ -281,7 +286,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			if err != nil {
 				return nil, err
 			}
-			logs.Log.Importantf("Loaded %d word from %s", len(dicts[i]), f)
+
+			logs.Log.Logf(LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
 		}
 	}
 
@@ -318,7 +324,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, fmt.Errorf("%s %w", opt.Word, err)
 	}
 	if len(r.Wordlist) > 0 {
-		logs.Log.Importantf("Parsed %d words by %s", len(r.Wordlist), opt.Word)
+		logs.Log.Logf(LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
 	}
 
 	if opt.Rules != nil {
@@ -476,7 +482,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	r.Tasks = tasks
-	logs.Log.Importantf("Loaded %d urls from %s", len(tasks), taskfrom)
+	logs.Log.Logf(LogVerbose, "Loaded %d urls from %s", len(tasks), taskfrom)
 
 	//  类似dirsearch中的
 	if opt.Extensions != "" {
@@ -553,7 +559,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		})
 	}
 
-	logs.Log.Importantf("Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
+	logs.Log.Logf(LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {
 		exp, err := expr.Compile(opt.Match, expr.Patch(&bytesPatcher{}))
