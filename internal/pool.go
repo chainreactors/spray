@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	ihttp2 "github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words"
@@ -48,7 +48,7 @@ func NewPool(ctx context.Context, config *Config) (*Pool, error) {
 		url:       u,
 		ctx:       pctx,
 		cancel:    cancel,
-		client: ihttp2.NewClient(&ihttp2.ClientConfig{
+		client: ihttp.NewClient(&ihttp.ClientConfig{
 			Thread:    config.Thread,
 			Type:      config.ClientType,
 			Timeout:   time.Duration(config.Timeout) * time.Second,
@@ -92,7 +92,7 @@ type Pool struct {
 	isDir       bool
 	url         *url.URL
 	Statistor   *pkg.Statistor
-	client      *ihttp2.Client
+	client      *ihttp.Client
 	reqPool     *ants.PoolWithFunc
 	scopePool   *ants.PoolWithFunc
 	bar         *pkg.Bar
@@ -133,22 +133,24 @@ func (pool *Pool) checkRedirect(redirectURL string) bool {
 	}
 }
 
-func (pool *Pool) genReq(mod SprayMod, s string) (*ihttp2.Request, error) {
+func (pool *Pool) genReq(mod SprayMod, s string) (*ihttp.Request, error) {
 	if mod == HostSpray {
-		return ihttp2.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
+		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
 	} else if mod == PathSpray {
-		return ihttp2.BuildPathRequest(pool.ClientType, pool.base, s)
+		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
 
 func (pool *Pool) Init() error {
 	pool.initwg.Add(2)
-	if pool.Index != "" {
+	if pool.Index != "/" {
 		logs.Log.Logf(LogVerbose, "custom index url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Index))
 		pool.reqPool.Invoke(newUnit(pool.Index, InitIndexSource))
+		//pool.urls[Dir(pool.Index)] = struct{}{}
 	} else {
 		pool.reqPool.Invoke(newUnit(pool.url.Path, InitIndexSource))
+		//pool.urls[Dir(pool.url.Path)] = struct{}{}
 	}
 
 	if pool.Random != "" {
@@ -163,7 +165,7 @@ func (pool *Pool) Init() error {
 		logs.Log.Error(pool.index.String())
 		return fmt.Errorf(pool.index.ErrString)
 	}
-	if pool.index.Chunked && pool.ClientType == ihttp2.FAST {
+	if pool.index.Chunked && pool.ClientType == ihttp.FAST {
 		logs.Log.Warn("chunk encoding! buf current client FASTHTTP not support chunk decode")
 	}
 	logs.Log.Logf(LogVerbose, "[baseline.index] "+pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
@@ -286,7 +288,7 @@ func (pool *Pool) Invoke(v interface{}) {
 	atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 	unit := v.(*Unit)
 
-	var req *ihttp2.Request
+	var req *ihttp.Request
 	var err error
 	if unit.source == WordSource {
 		req, err = pool.genReq(pool.Mod, unit.path)
@@ -304,7 +306,7 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	start := time.Now()
 	resp, reqerr := pool.client.Do(pool.ctx, req)
-	if pool.ClientType == ihttp2.FAST {
+	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
 	}
@@ -317,7 +319,6 @@ func (pool *Pool) Invoke(v interface{}) {
 		bl = &Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: pool.base + unit.path,
-				IsValid:   false,
 				ErrString: reqerr.Error(),
 				Reason:    ErrRequestFailed.Error(),
 			},
@@ -346,7 +347,7 @@ func (pool *Pool) Invoke(v interface{}) {
 		pool.doRedirect(bl, unit.depth)
 	}
 
-	if ihttp2.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp2.DefaultMaxBodySize {
+	if ihttp.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp.DefaultMaxBodySize {
 		bl.ExceedLength = true
 	}
 	bl.Source = unit.source
@@ -412,7 +413,7 @@ func (pool *Pool) Invoke(v interface{}) {
 func (pool *Pool) NoScopeInvoke(v interface{}) {
 	defer pool.waiter.Done()
 	unit := v.(*Unit)
-	req, err := ihttp2.BuildPathRequest(pool.ClientType, unit.path, "")
+	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "")
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -420,7 +421,7 @@ func (pool *Pool) NoScopeInvoke(v interface{}) {
 	req.SetHeaders(pool.Headers)
 	req.SetHeader("User-Agent", RandomUA())
 	resp, reqerr := pool.client.Do(pool.ctx, req)
-	if pool.ClientType == ihttp2.FAST {
+	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
 	}
@@ -507,9 +508,12 @@ func (pool *Pool) Handler() {
 		}
 
 		if bl.IsValid || bl.IsFuzzy {
-			pool.waiter.Add(2)
+			pool.waiter.Add(3)
 			pool.doCrawl(bl)
 			pool.doRule(bl)
+			if _, ok := pool.urls[Dir(bl.Url.Path)]; !ok {
+				pool.doAppendWords(bl)
+			}
 		}
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
@@ -530,7 +534,7 @@ func (pool *Pool) Handler() {
 	pool.analyzeDone = true
 }
 
-func (pool *Pool) PreCompare(resp *ihttp2.Response) error {
+func (pool *Pool) PreCompare(resp *ihttp.Response) error {
 	status := resp.StatusCode()
 	if iutils.IntsContains(WhiteStatus, status) {
 		// 如果为白名单状态码则直接返回
@@ -715,6 +719,27 @@ func (pool *Pool) doRule(bl *Baseline) {
 			pool.addAddition(&Unit{
 				path:   Dir(bl.Url.Path) + u,
 				source: RuleSource,
+			})
+		}
+	}()
+}
+
+func (pool *Pool) doAppendWords(bl *Baseline) {
+	if pool.AppendWords == nil {
+		pool.waiter.Done()
+		return
+	}
+	if bl.Source == AppendSource {
+		pool.waiter.Done()
+		return
+	}
+
+	go func() {
+		defer pool.waiter.Done()
+		for _, u := range pool.AppendWords {
+			pool.addAddition(&Unit{
+				path:   Dir(bl.Url.Path) + u,
+				source: AppendSource,
 			})
 		}
 	}()

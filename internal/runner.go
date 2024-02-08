@@ -41,6 +41,7 @@ type Runner struct {
 	Wordlist        []string
 	Rules           *rule.Program
 	AppendRules     *rule.Program
+	AppendWords     []string
 	Headers         map[string]string
 	Fns             []func(string) []string
 	FilterExpr      *vm.Program
@@ -104,6 +105,7 @@ func (r *Runner) PrepareConfig() *Config {
 		FilterExpr:      r.FilterExpr,
 		RecuExpr:        r.RecursiveExpr,
 		AppendRule:      r.AppendRules,
+		AppendWords:     r.AppendWords,
 		IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.Crawl,
 		Scope:           r.Scope,

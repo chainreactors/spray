@@ -83,6 +83,8 @@ func Spray() {
 	logs.AddLevel(internal.LogVerbose, "verbose", "[=] %s {{suffix}}")
 	if option.Debug {
 		logs.Log.SetLevel(logs.Debug)
+	} else if len(option.Verbose) > 0 {
+		logs.Log.SetLevel(internal.LogVerbose)
 	}
 
 	logs.Log.SetColorMap(map[logs.Level]func(string) string{

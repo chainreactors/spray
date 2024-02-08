@@ -20,6 +20,7 @@ const (
 	CommonFileSource
 	UpgradeSource
 	RetrySource
+	AppendSource
 )
 
 func newUnit(path string, source int) *Unit {

@@ -97,7 +97,7 @@ func loadFileToSlice(filename string) ([]string, error) {
 	return ss, nil
 }
 
-func loadFileAndCombine(filename []string) (string, error) {
+func loadRuleAndCombine(filename []string) (string, error) {
 	var bs bytes.Buffer
 	for _, f := range filename {
 		if data, ok := pkg.Rules[f]; ok {
