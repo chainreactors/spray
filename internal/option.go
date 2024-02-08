@@ -94,7 +94,7 @@ type PluginOptions struct {
 	Advance    bool     `short:"a" long:"advance" description:"Bool, enable crawl and active"`
 	Extracts   []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)"`
 	Recon      bool     `long:"recon" description:"Bool, enable recon"`
-	Active     bool     `long:"active" description:"Bool, enable active finger detect"`
+	Finger     bool     `long:"finger" description:"Bool, enable active finger detect"`
 	Bak        bool     `long:"bak" description:"Bool, enable bak found"`
 	FileBak    bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt"`
 	Common     bool     `long:"common" description:"Bool, enable common file found"`
@@ -166,7 +166,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		BreakThreshold:  opt.BreakThreshold,
 		Crawl:           opt.Crawl,
 		Scope:           opt.Scope,
-		Active:          opt.Active,
+		Finger:          opt.Finger,
 		Bak:             opt.Bak,
 		Common:          opt.Common,
 		RetryCount:      opt.RetryCount,
@@ -217,7 +217,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	if opt.Advance {
 		r.Crawl = true
-		r.Active = true
+		r.Finger = true
 		r.Bak = true
 		r.Common = true
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
@@ -230,13 +230,15 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if r.Crawl {
 		s.WriteString("crawl enable; ")
 	}
-	if r.Active {
+	if r.Finger {
+		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
 		s.WriteString("active fingerprint enable; ")
 	}
 	if r.Bak {
 		s.WriteString("bak file enable; ")
 	}
 	if r.Common {
+		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
 		s.WriteString("common file enable; ")
 	}
 	if opt.Recon {
@@ -377,7 +379,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		for i, line := range lines {
 			lines[i] = strings.TrimSpace(line)
 		}
-		r.AppendWords = lines
+		r.AppendWords = append(r.AppendWords, lines...)
 	}
 
 	ports := utils.ParsePort(opt.PortRange)

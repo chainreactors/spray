@@ -738,7 +738,7 @@ func (pool *Pool) doAppendWords(bl *Baseline) {
 		defer pool.waiter.Done()
 		for _, u := range pool.AppendWords {
 			pool.addAddition(&Unit{
-				path:   Dir(bl.Url.Path) + u,
+				path:   relaPath(Dir(bl.Url.Path), u),
 				source: AppendSource,
 			})
 		}

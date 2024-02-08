@@ -78,7 +78,7 @@ type Runner struct {
 	IgnoreWaf       bool
 	Crawl           bool
 	Scope           []string
-	Active          bool
+	Finger          bool
 	Bak             bool
 	Common          bool
 	RetryCount      int
@@ -109,7 +109,7 @@ func (r *Runner) PrepareConfig() *Config {
 		IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.Crawl,
 		Scope:           r.Scope,
-		Active:          r.Active,
+		Active:          r.Finger,
 		Bak:             r.Bak,
 		Common:          r.Common,
 		Retry:           r.RetryCount,
