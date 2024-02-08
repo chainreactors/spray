@@ -219,6 +219,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				limit = pool.Statistor.Total
 			}
 			pool.bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
+			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", pool.BaseURL, limit-pool.Statistor.Offset, pool.Thread, pool.ProxyAddr)
 			err = pool.Init()
 			if err != nil {
 				pool.Statistor.Error = err.Error()
@@ -350,14 +351,14 @@ func (r *Runner) PrintStat(pool *Pool) {
 	if r.Color {
 		logs.Log.Important(pool.Statistor.ColorString())
 		if pool.Statistor.Error == "" {
-			logs.Log.Important(pool.Statistor.ColorCountString())
-			logs.Log.Important(pool.Statistor.ColorSourceString())
+			pool.Statistor.PrintColorCount()
+			pool.Statistor.PrintColorSource()
 		}
 	} else {
 		logs.Log.Important(pool.Statistor.String())
 		if pool.Statistor.Error == "" {
-			logs.Log.Important(pool.Statistor.CountString())
-			logs.Log.Important(pool.Statistor.SourceString())
+			pool.Statistor.PrintCount()
+			pool.Statistor.PrintSource()
 		}
 	}
 

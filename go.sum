@@ -14,6 +14,12 @@ github.com/chainreactors/gogo/v2 v2.11.12-0.20231228061950-116583962e30/go.mod h
 github.com/chainreactors/logs v0.0.0-20231027080134-7a11bb413460/go.mod h1:VZFqkFDGmp7/JOMeraW+YI7kTGcgz9fgc/HArVFnrGQ=
 github.com/chainreactors/logs v0.0.0-20231220102821-19f082ce37c1 h1:y4xbdWsmBu1aAyYez1rBN5mgFdAtPViNrsObu1aWbuk=
 github.com/chainreactors/logs v0.0.0-20231220102821-19f082ce37c1/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
+github.com/chainreactors/logs v0.0.0-20240207114427-8450f3309979 h1:y3xOkts71C7nyzjE05lcOK7YlHuPdnZgES6by7+FeIg=
+github.com/chainreactors/logs v0.0.0-20240207114427-8450f3309979/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
+github.com/chainreactors/logs v0.0.0-20240207115900-a28fc4021dad h1:43Xu1WaPWqeawpUSPlv7OYrEvOOEi0euQuOikgIvDRc=
+github.com/chainreactors/logs v0.0.0-20240207115900-a28fc4021dad/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
+github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f h1:tcfp+CEdgiMvjyUzWab5edJtxUwRMSMEIkLybupIx0k=
+github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
 github.com/chainreactors/neutron v0.0.0-20231221064706-fd6aaac9c50b/go.mod h1:Q6xCl+KaPtCDIziAHegFxdHOvg6DgpA6hcUWRnQKDPk=
 github.com/chainreactors/parsers v0.0.0-20231218072716-fb441aff745f/go.mod h1:ZHEkgxKf9DXoley2LUjdJkiSw08MC3vcJTxfqwYt2LU=
 github.com/chainreactors/parsers v0.0.0-20231220104848-3a0b5a5bd8dc/go.mod h1:V2w16sBSSiBlmsDR4A0Q9PIk9+TP/6coTXv6olvTI6M=
