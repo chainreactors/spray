@@ -7,6 +7,7 @@ import (
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
@@ -80,23 +81,23 @@ func Spray() {
 		}
 	}
 	// logs
-	logs.AddLevel(internal.LogVerbose, "verbose", "[=] %s {{suffix}}")
+	logs.AddLevel(pkg.LogVerbose, "verbose", "[=] %s {{suffix}}")
 	if option.Debug {
 		logs.Log.SetLevel(logs.Debug)
 	} else if len(option.Verbose) > 0 {
-		logs.Log.SetLevel(internal.LogVerbose)
+		logs.Log.SetLevel(pkg.LogVerbose)
 	}
 
 	logs.Log.SetColorMap(map[logs.Level]func(string) string{
-		logs.Info:           logs.PurpleBold,
-		logs.Important:      logs.GreenBold,
-		internal.LogVerbose: logs.Green,
+		logs.Info:      logs.PurpleBold,
+		logs.Important: logs.GreenBold,
+		pkg.LogVerbose: logs.Green,
 	})
 
 	// 初始化全局变量
-	internal.Distance = uint8(option.SimhashDistance)
+	pkg.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
-	internal.MaxCrawl = option.CrawlDepth
+	pool.MaxCrawl = option.CrawlDepth
 
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {

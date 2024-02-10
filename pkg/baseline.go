@@ -1,10 +1,9 @@
-package internal
+package pkg
 
 import (
 	"bytes"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal/ihttp"
-	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/encode"
 	"github.com/chainreactors/utils/iutils"
 	"net/url"
@@ -21,7 +20,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		},
 	}
 
-	if t, ok := pkg.ContentTypeMap[resp.ContentType()]; ok {
+	if t, ok := ContentTypeMap[resp.ContentType()]; ok {
 		bl.ContentType = t
 		bl.Title = t + " data"
 	} else {
@@ -106,9 +105,9 @@ type Baseline struct {
 	Url       *url.URL `json:"-"`
 	Dir       bool     `json:"-"`
 	Chunked   bool     `json:"-"`
-	Body      pkg.BS   `json:"-"`
-	Header    pkg.BS   `json:"-"`
-	Raw       pkg.BS   `json:"-"`
+	Body      BS       `json:"-"`
+	Header    BS       `json:"-"`
+	Raw       BS       `json:"-"`
 	Recu      bool     `json:"-"`
 	RecuDepth int      `json:"-"`
 	URLs      []string `json:"-"`
@@ -127,23 +126,23 @@ func (bl *Baseline) IsDir() bool {
 func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
-		bl.Frameworks = pkg.FingerDetect(bl.Raw)
+		bl.Frameworks = FingerDetect(bl.Raw)
 	}
 
 	if len(bl.Body) > 0 {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
-			if name, ok := pkg.Md5Fingers[encode.Md5Hash(bl.Body)]; ok {
+			if name, ok := Md5Fingers[encode.Md5Hash(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
-			} else if name, ok := pkg.Mmh3Fingers[encode.Mmh3Hash32(bl.Body)]; ok {
+			} else if name, ok := Mmh3Fingers[encode.Mmh3Hash32(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
 			}
 		}
 	}
 
 	bl.Hashes = parsers.NewHashes(bl.Raw)
-	bl.Extracteds = pkg.Extractors.Extract(string(bl.Raw))
+	bl.Extracteds = Extractors.Extract(string(bl.Raw))
 	bl.Unique = UniqueHash(bl)
 }
 
@@ -158,21 +157,21 @@ func (bl *Baseline) CollectURL() {
 	if len(bl.Body) == 0 {
 		return
 	}
-	for _, reg := range pkg.ExtractRegexps["js"][0].CompiledRegexps {
+	for _, reg := range ExtractRegexps["js"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			u[1] = pkg.CleanURL(u[1])
-			if u[1] != "" && !pkg.FilterJs(u[1]) {
+			u[1] = CleanURL(u[1])
+			if u[1] != "" && !FilterJs(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
 	}
 
-	for _, reg := range pkg.ExtractRegexps["url"][0].CompiledRegexps {
+	for _, reg := range ExtractRegexps["url"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			u[1] = pkg.CleanURL(u[1])
-			if u[1] != "" && !pkg.FilterUrl(u[1]) {
+			u[1] = CleanURL(u[1])
+			if u[1] != "" && !FilterUrl(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
