@@ -7,6 +7,7 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
@@ -17,11 +18,7 @@ import (
 )
 
 var (
-	WhiteStatus  = []int{} // cmd input, 200
-	BlackStatus  = []int{} // cmd input, 400,410
-	FuzzyStatus  = []int{} // cmd input, 500,501,502,503
-	WAFStatus    = []int{493, 418, 1020, 406}
-	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
+	max = 2147483647
 )
 
 var (
@@ -33,6 +30,9 @@ var (
 type Runner struct {
 	taskCh   chan *Task
 	poolwg   sync.WaitGroup
+	outwg    *sync.WaitGroup
+	outputCh chan *pkg.Baseline
+	fuzzyCh  chan *pkg.Baseline
 	bar      *uiprogress.Bar
 	finished int
 
@@ -56,8 +56,6 @@ type Runner struct {
 	Timeout         int
 	Mod             string
 	Probes          []string
-	OutputCh        chan *Baseline
-	FuzzyCh         chan *Baseline
 	Fuzzy           bool
 	OutputFile      *files.File
 	FuzzyFile       *files.File
@@ -88,15 +86,16 @@ type Runner struct {
 	Proxy           string
 }
 
-func (r *Runner) PrepareConfig() *Config {
-	config := &Config{
+func (r *Runner) PrepareConfig() *pool.Config {
+	config := &pool.Config{
 		Thread:          r.Threads,
 		Timeout:         r.Timeout,
 		RateLimit:       r.RateLimit,
 		Headers:         r.Headers,
-		Mod:             ModMap[r.Mod],
-		OutputCh:        r.OutputCh,
-		FuzzyCh:         r.FuzzyCh,
+		Mod:             pool.ModMap[r.Mod],
+		OutputCh:        r.outputCh,
+		FuzzyCh:         r.fuzzyCh,
+		OutLocker:       r.outwg,
 		Fuzzy:           r.Fuzzy,
 		CheckPeriod:     r.CheckPeriod,
 		ErrPeriod:       int32(r.ErrPeriod),
@@ -121,9 +120,9 @@ func (r *Runner) PrepareConfig() *Config {
 	}
 
 	if config.ClientType == ihttp.Auto {
-		if config.Mod == PathSpray {
+		if config.Mod == pool.PathSpray {
 			config.ClientType = ihttp.FAST
-		} else if config.Mod == HostSpray {
+		} else if config.Mod == pool.HostSpray {
 			config.ClientType = ihttp.STANDARD
 		}
 	}
@@ -141,10 +140,10 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
 			config := r.PrepareConfig()
 
-			pool, err := NewCheckPool(ctx, config)
+			pool, err := pool.NewCheckPool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
-				pool.cancel()
+				pool.Cancel()
 				r.poolwg.Done()
 				return
 			}
@@ -156,9 +155,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 				close(ch)
 			}()
-			pool.worder = words.NewWorderWithChan(ch)
-			pool.worder.Fns = r.Fns
-			pool.bar = pkg.NewBar("check", r.Count-r.Offset, r.Progress)
+			pool.Worder = words.NewWorderWithChan(ch)
+			pool.Worder.Fns = r.Fns
+			pool.Bar = pkg.NewBar("check", r.Count-r.Offset, r.Progress)
 			pool.Run(ctx, r.Offset, r.Count)
 			r.poolwg.Done()
 		})
@@ -190,17 +189,17 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			config := r.PrepareConfig()
 			config.BaseURL = t.baseUrl
 
-			pool, err := NewPool(ctx, config)
+			pool, err := pool.NewBrutePool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
-				pool.cancel()
+				pool.Cancel()
 				r.Done()
 				return
 			}
 			if t.origin != nil && len(r.Wordlist) == 0 {
 				// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
 				pool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
-				pool.worder, err = t.origin.InitWorder(r.Fns)
+				pool.Worder, err = t.origin.InitWorder(r.Fns)
 				if err != nil {
 					logs.Log.Error(err.Error())
 					r.Done()
@@ -209,9 +208,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				pool.Statistor.Total = t.origin.sum
 			} else {
 				pool.Statistor = pkg.NewStatistor(t.baseUrl)
-				pool.worder = words.NewWorder(r.Wordlist)
-				pool.worder.Fns = r.Fns
-				pool.worder.Rules = r.Rules.Expressions
+				pool.Worder = words.NewWorder(r.Wordlist)
+				pool.Worder.Fns = r.Fns
+				pool.Worder.Rules = r.Rules.Expressions
 			}
 
 			var limit int
@@ -220,7 +219,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			} else {
 				limit = pool.Statistor.Total
 			}
-			pool.bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
+			pool.Bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
 			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", pool.BaseURL, limit-pool.Statistor.Offset, pool.Thread, pool.ProxyAddr)
 			err = pool.Init()
 			if err != nil {
@@ -236,9 +235,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 
 			pool.Run(pool.Statistor.Offset, limit)
 
-			if pool.isFailed && len(pool.failedBaselines) > 0 {
+			if pool.IsFailed && len(pool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
-				pool.Statistor.End = pool.failedBaselines[0].Number
+				pool.Statistor.End = pool.FailedBaselines[0].Number
 			}
 			r.PrintStat(pool)
 			r.Done()
@@ -248,11 +247,11 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.Output()
+	r.OutputHandler()
 	return nil
 }
 
-func (r *Runner) AddRecursive(bl *Baseline) {
+func (r *Runner) AddRecursive(bl *pkg.Baseline) {
 	// 递归新任务
 	task := &Task{
 		baseUrl: bl.UrlString,
@@ -296,19 +295,7 @@ Loop:
 	}
 
 	r.poolwg.Wait()
-	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
-	for {
-		if len(r.OutputCh) == 0 {
-			break
-		}
-	}
-
-	for {
-		if len(r.FuzzyCh) == 0 {
-			break
-		}
-	}
-	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
+	r.outwg.Wait()
 }
 
 func (r *Runner) RunWithCheck(ctx context.Context) {
@@ -335,7 +322,7 @@ Loop:
 	}
 
 	for {
-		if len(r.OutputCh) == 0 {
+		if len(r.outputCh) == 0 {
 			break
 		}
 	}
@@ -349,7 +336,7 @@ func (r *Runner) Done() {
 	r.poolwg.Done()
 }
 
-func (r *Runner) PrintStat(pool *Pool) {
+func (r *Runner) PrintStat(pool *pool.BrutePool) {
 	if r.Color {
 		logs.Log.Important(pool.Statistor.ColorString())
 		if pool.Statistor.Error == "" {
@@ -370,8 +357,8 @@ func (r *Runner) PrintStat(pool *Pool) {
 	}
 }
 
-func (r *Runner) Output() {
-	debugPrint := func(bl *Baseline) {
+func (r *Runner) OutputHandler() {
+	debugPrint := func(bl *pkg.Baseline) {
 		if r.Color {
 			logs.Log.Debug(bl.ColorString())
 		} else {
@@ -379,31 +366,31 @@ func (r *Runner) Output() {
 		}
 	}
 	go func() {
-		var saveFunc func(*Baseline)
+		var saveFunc func(*pkg.Baseline)
 
 		if r.OutputFile != nil {
-			saveFunc = func(bl *Baseline) {
+			saveFunc = func(bl *pkg.Baseline) {
 				r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
 				r.OutputFile.SafeSync()
 			}
 		} else {
 			if len(r.Probes) > 0 {
 				if r.Color {
-					saveFunc = func(bl *Baseline) {
+					saveFunc = func(bl *pkg.Baseline) {
 						logs.Log.Console(logs.GreenBold("[+] " + bl.Format(r.Probes) + "\n"))
 					}
 				} else {
-					saveFunc = func(bl *Baseline) {
+					saveFunc = func(bl *pkg.Baseline) {
 						logs.Log.Console("[+] " + bl.Format(r.Probes) + "\n")
 					}
 				}
 			} else {
 				if r.Color {
-					saveFunc = func(bl *Baseline) {
+					saveFunc = func(bl *pkg.Baseline) {
 						logs.Log.Console(logs.GreenBold("[+] " + bl.ColorString() + "\n"))
 					}
 				} else {
-					saveFunc = func(bl *Baseline) {
+					saveFunc = func(bl *pkg.Baseline) {
 						logs.Log.Console("[+] " + bl.String() + "\n")
 					}
 				}
@@ -412,7 +399,7 @@ func (r *Runner) Output() {
 
 		for {
 			select {
-			case bl, ok := <-r.OutputCh:
+			case bl, ok := <-r.outputCh:
 				if !ok {
 					return
 				}
@@ -428,23 +415,24 @@ func (r *Runner) Output() {
 				} else {
 					debugPrint(bl)
 				}
+				r.outwg.Done()
 			}
 		}
 	}()
 
 	go func() {
-		var fuzzySaveFunc func(*Baseline)
+		var fuzzySaveFunc func(*pkg.Baseline)
 		if r.FuzzyFile != nil {
-			fuzzySaveFunc = func(bl *Baseline) {
+			fuzzySaveFunc = func(bl *pkg.Baseline) {
 				r.FuzzyFile.SafeWrite(bl.Jsonify() + "\n")
 			}
 		} else {
 			if r.Color {
-				fuzzySaveFunc = func(bl *Baseline) {
+				fuzzySaveFunc = func(bl *pkg.Baseline) {
 					logs.Log.Console(logs.GreenBold("[fuzzy] " + bl.ColorString() + "\n"))
 				}
 			} else {
-				fuzzySaveFunc = func(bl *Baseline) {
+				fuzzySaveFunc = func(bl *pkg.Baseline) {
 					logs.Log.Console("[fuzzy] " + bl.String() + "\n")
 				}
 			}
@@ -452,15 +440,16 @@ func (r *Runner) Output() {
 
 		for {
 			select {
-			case bl, ok := <-r.FuzzyCh:
+			case bl, ok := <-r.fuzzyCh:
 				if !ok {
 					return
 				}
 				if r.Fuzzy {
 					fuzzySaveFunc(bl)
-				} else {
-					debugPrint(bl)
+					//} else {
+					//	debugPrint(bl)
 				}
+				r.outwg.Done()
 			}
 		}
 	}()

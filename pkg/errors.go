@@ -1,4 +1,4 @@
-package internal
+package pkg
 
 type ErrorType uint
 

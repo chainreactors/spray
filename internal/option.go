@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
@@ -19,11 +20,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var (
 	DefaultThreads = 20
-	LogVerbose     = logs.Warn - 1
 )
 
 type Option struct {
@@ -156,8 +157,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Offset:          opt.Offset,
 		Total:           opt.Limit,
 		taskCh:          make(chan *Task),
-		OutputCh:        make(chan *Baseline, 100),
-		FuzzyCh:         make(chan *Baseline, 100),
+		outputCh:        make(chan *pkg.Baseline, 100),
+		outwg:           &sync.WaitGroup{},
+		fuzzyCh:         make(chan *pkg.Baseline, 100),
 		Fuzzy:           opt.Fuzzy,
 		Force:           opt.Force,
 		CheckOnly:       opt.CheckOnly,
@@ -259,18 +261,18 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Scope = []string{"*"}
 	}
 
-	BlackStatus = parseStatus(BlackStatus, opt.BlackStatus)
-	WhiteStatus = parseStatus(WhiteStatus, opt.WhiteStatus)
+	pkg.BlackStatus = parseStatus(pkg.BlackStatus, opt.BlackStatus)
+	pkg.WhiteStatus = parseStatus(pkg.WhiteStatus, opt.WhiteStatus)
 	if opt.FuzzyStatus == "all" {
-		enableAllFuzzy = true
+		pool.EnableAllFuzzy = true
 	} else {
-		FuzzyStatus = parseStatus(FuzzyStatus, opt.FuzzyStatus)
+		pkg.FuzzyStatus = parseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
 	}
 
 	if opt.Unique {
-		enableAllUnique = true
+		pool.EnableAllUnique = true
 	} else {
-		UniqueStatus = parseStatus(UniqueStatus, opt.UniqueStatus)
+		pkg.UniqueStatus = parseStatus(pkg.UniqueStatus, opt.UniqueStatus)
 	}
 
 	// prepare word
@@ -288,7 +290,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 				return nil, err
 			}
 
-			logs.Log.Logf(LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
+			logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
 		}
 	}
 
@@ -325,7 +327,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, fmt.Errorf("%s %w", opt.Word, err)
 	}
 	if len(r.Wordlist) > 0 {
-		logs.Log.Logf(LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
+		logs.Log.Logf(pkg.LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
 	}
 
 	if opt.Rules != nil {
@@ -500,7 +502,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	r.Tasks = tasks
-	logs.Log.Logf(LogVerbose, "Loaded %d urls from %s", len(tasks), taskfrom)
+	logs.Log.Logf(pkg.LogVerbose, "Loaded %d urls from %s", len(tasks), taskfrom)
 
 	//  类似dirsearch中的
 	if opt.Extensions != "" {
@@ -577,7 +579,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		})
 	}
 
-	logs.Log.Logf(LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
+	logs.Log.Logf(pkg.LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {
 		exp, err := expr.Compile(opt.Match, expr.Patch(&bytesPatcher{}))
@@ -599,13 +601,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	var express string
 	if opt.Recursive != "current.IsDir()" && opt.Depth != 0 {
 		// 默认不打开递归, 除非指定了非默认的递归表达式
-		MaxRecursion = 1
+		pool.MaxRecursion = 1
 		express = opt.Recursive
 	}
 
 	if opt.Depth != 0 {
 		// 手动设置的depth优先级高于默认
-		MaxRecursion = opt.Depth
+		pool.MaxRecursion = opt.Depth
 		express = opt.Recursive
 	}
 
