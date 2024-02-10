@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	WhiteStatus  = []int{200}
-	BlackStatus  = []int{400, 410}
-	FuzzyStatus  = []int{403, 404, 500, 501, 502, 503}
+	WhiteStatus  = []int{} // cmd input, 200
+	BlackStatus  = []int{} // cmd input, 400,410
+	FuzzyStatus  = []int{} // cmd input, 500,501,502,503
 	WAFStatus    = []int{493, 418, 1020, 406}
-	UniqueStatus = []int{403, 200} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
+	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
 )
 
 var (

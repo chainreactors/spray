@@ -105,7 +105,7 @@ Loop:
 			}
 
 			pool.wg.Add(1)
-			_ = pool.pool.Invoke(newUnit(u, CheckSource))
+			_ = pool.pool.Invoke(newUnit(u, parsers.CheckSource))
 		case u, ok := <-pool.additionCh:
 			if !ok {
 				continue
@@ -206,7 +206,7 @@ func (pool *CheckPool) doRedirect(bl *Baseline, depth int) {
 	go func() {
 		pool.additionCh <- &Unit{
 			path:     reURL,
-			source:   RedirectSource,
+			source:   parsers.RedirectSource,
 			frontUrl: bl.UrlString,
 			depth:    depth + 1,
 		}
@@ -228,7 +228,7 @@ func (pool *CheckPool) doUpgrade(bl *Baseline) {
 	go func() {
 		pool.additionCh <- &Unit{
 			path:   reurl,
-			source: UpgradeSource,
+			source: parsers.UpgradeSource,
 			depth:  bl.ReqDepth + 1,
 		}
 	}()

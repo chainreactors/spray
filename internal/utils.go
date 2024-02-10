@@ -171,6 +171,15 @@ func loadRuleWithFiles(ruleFiles []string, filter string) ([]rule.Expression, er
 	return rule.Compile(rules.String(), filter).Expressions, nil
 }
 
+func safePath(dir, u string) string {
+	hasSlash := strings.HasPrefix(u, "/")
+	if hasSlash {
+		return path.Join(dir, u[1:])
+	} else {
+		return path.Join(dir, u)
+	}
+}
+
 func relaPath(base, u string) string {
 	// 拼接相对目录, 不使用path.join的原因是, 如果存在"////"这样的情况, 可能真的是有意义的路由, 不能随意去掉.
 	// ""	/a 	/a
@@ -200,14 +209,14 @@ func relaPath(base, u string) string {
 		}
 	} else {
 		if pathSlash {
-			return Dir(base) + u[1:]
+			return dir(base) + u[1:]
 		} else {
-			return Dir(base) + u
+			return dir(base) + u
 		}
 	}
 }
 
-func Dir(u string) string {
+func dir(u string) string {
 	// 安全的获取目录, 不会额外处理多个"//", 并非用来获取上级目录
 	// /a 	/
 	// /a/ 	/a/
@@ -243,7 +252,7 @@ func FormatURL(base, u string) string {
 		// "./"相对目录拼接
 		return relaPath(base, u[2:])
 	} else if strings.HasPrefix(u, "../") {
-		return path.Join(Dir(base), u)
+		return path.Join(dir(base), u)
 	} else {
 		// 相对目录拼接
 		return relaPath(base, u)
@@ -303,7 +312,7 @@ func wrapWordsFunc(f func(string) string) func(string) []string {
 }
 
 func UniqueHash(bl *Baseline) uint16 {
-	// 由host+状态码+重定向url+content-type+title+length舍去个位与十位组成的hash
+	// 由host+状态码+重定向url+content-type+title+length舍去个位组成的hash
 	// body length可能会导致一些误报, 目前没有更好的解决办法
-	return pkg.CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/100*100)))
+	return pkg.CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/10*10)))
 }

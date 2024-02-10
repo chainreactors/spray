@@ -9,9 +9,9 @@ require (
 	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
 	github.com/chainreactors/gogo/v2 v2.11.12-0.20231228061950-116583962e30
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
-	github.com/chainreactors/parsers v0.0.0-20240208083828-d2abbaa66a9c
+	github.com/chainreactors/parsers v0.0.0-20240208143911-65866d5bbc6d
 	github.com/chainreactors/utils v0.0.0-20231031063336-9477f1b23886
-	github.com/chainreactors/words v0.4.1-0.20240206181137-09f7a0bc8f50
+	github.com/chainreactors/words v0.4.1-0.20240208114042-a1c5053345b0
 	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.7.0
