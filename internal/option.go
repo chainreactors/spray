@@ -117,8 +117,8 @@ type ModeOptions struct {
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold "`
 	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status, "`
 	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status"`
-	FuzzyStatus     string   `long:"fuzzy-status" default:"404,403,500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
-	UniqueStatus    string   `long:"unique-status" default:"403" description:"Strings (comma split), custom unique status"`
+	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503" description:"Strings (comma split), custom fuzzy status"`
+	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count"`
 	SimhashDistance int      `long:"distance" default:"5"`

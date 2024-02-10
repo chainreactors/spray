@@ -18,7 +18,7 @@ func NewStatistor(url string) *Statistor {
 	stat := DefaultStatistor
 	stat.StartTime = time.Now().Unix()
 	stat.Counts = make(map[int]int)
-	stat.Sources = make(map[int]int)
+	stat.Sources = make(map[parsers.SpraySource]int)
 	stat.BaseUrl = url
 	return &stat
 }
@@ -32,33 +32,33 @@ func NewStatistorFromStat(origin *Statistor) *Statistor {
 		RuleFiles:    origin.RuleFiles,
 		RuleFilter:   origin.RuleFilter,
 		Counts:       make(map[int]int),
-		Sources:      map[int]int{},
+		Sources:      map[parsers.SpraySource]int{},
 		StartTime:    time.Now().Unix(),
 	}
 }
 
 type Statistor struct {
-	BaseUrl        string      `json:"url"`
-	Error          string      `json:"error"`
-	Counts         map[int]int `json:"counts"`
-	Sources        map[int]int `json:"sources"`
-	FailedNumber   int32       `json:"failed"`
-	ReqTotal       int32       `json:"req_total"`
-	CheckNumber    int         `json:"check"`
-	FoundNumber    int         `json:"found"`
-	FilteredNumber int         `json:"filtered"`
-	FuzzyNumber    int         `json:"fuzzy"`
-	WafedNumber    int         `json:"wafed"`
-	End            int         `json:"end"`
-	Offset         int         `json:"offset"`
-	Total          int         `json:"total"`
-	StartTime      int64       `json:"start_time"`
-	EndTime        int64       `json:"end_time"`
-	WordCount      int         `json:"word_count"`
-	Word           string      `json:"word"`
-	Dictionaries   []string    `json:"dictionaries"`
-	RuleFiles      []string    `json:"rule_files"`
-	RuleFilter     string      `json:"rule_filter"`
+	BaseUrl        string                      `json:"url"`
+	Error          string                      `json:"error"`
+	Counts         map[int]int                 `json:"counts"`
+	Sources        map[parsers.SpraySource]int `json:"sources"`
+	FailedNumber   int32                       `json:"failed"`
+	ReqTotal       int32                       `json:"req_total"`
+	CheckNumber    int                         `json:"check"`
+	FoundNumber    int                         `json:"found"`
+	FilteredNumber int                         `json:"filtered"`
+	FuzzyNumber    int                         `json:"fuzzy"`
+	WafedNumber    int                         `json:"wafed"`
+	End            int                         `json:"end"`
+	Offset         int                         `json:"offset"`
+	Total          int                         `json:"total"`
+	StartTime      int64                       `json:"start_time"`
+	EndTime        int64                       `json:"end_time"`
+	WordCount      int                         `json:"word_count"`
+	Word           string                      `json:"word"`
+	Dictionaries   []string                    `json:"dictionaries"`
+	RuleFiles      []string                    `json:"rule_files"`
+	RuleFilter     string                      `json:"rule_filter"`
 }
 
 func (stat *Statistor) ColorString() string {
@@ -116,7 +116,7 @@ func (stat *Statistor) PrintSource() {
 	s.WriteString("[stat] ")
 	s.WriteString(stat.BaseUrl)
 	for k, v := range stat.Sources {
-		s.WriteString(fmt.Sprintf(" %s: %d,", parsers.GetSpraySourceName(k), v))
+		s.WriteString(fmt.Sprintf(" %s: %d,", k.Name(), v))
 	}
 	logs.Log.Important(s.String())
 }
@@ -145,7 +145,7 @@ func (stat *Statistor) PrintColorSource() {
 	s.WriteString("[stat] ")
 	s.WriteString(stat.BaseUrl)
 	for k, v := range stat.Sources {
-		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(parsers.GetSpraySourceName(k)), logs.YellowBold(strconv.Itoa(v))))
+		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(k.Name()), logs.YellowBold(strconv.Itoa(v))))
 	}
 	logs.Log.Important(s.String())
 }

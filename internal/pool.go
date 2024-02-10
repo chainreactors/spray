@@ -56,7 +56,7 @@ func NewPool(ctx context.Context, config *Config) (*Pool, error) {
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
 		handlerCh:   make(chan *Baseline, config.Thread),
-		checkCh:     make(chan int, config.Thread),
+		checkCh:     make(chan struct{}, config.Thread),
 		additionCh:  make(chan *Unit, config.Thread),
 		closeCh:     make(chan struct{}),
 		waiter:      sync.WaitGroup{},
@@ -71,7 +71,7 @@ func NewPool(ctx context.Context, config *Config) (*Pool, error) {
 	} else if pool.url.Path == "" {
 		pool.dir = "/"
 	} else {
-		pool.dir = Dir(pool.url.Path)
+		pool.dir = dir(pool.url.Path)
 	}
 
 	pool.reqPool, _ = ants.NewPoolWithFunc(config.Thread, pool.Invoke)
@@ -97,7 +97,7 @@ type Pool struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	handlerCh   chan *Baseline // 待处理的baseline
-	checkCh     chan int       // 独立的check管道， 防止与redirect/crawl冲突
+	checkCh     chan struct{}  // 独立的check管道， 防止与redirect/crawl冲突
 	additionCh  chan *Unit     // 插件添加的任务, 待处理管道
 	closeCh     chan struct{}
 	closed      bool
@@ -144,18 +144,18 @@ func (pool *Pool) Init() error {
 	pool.initwg.Add(2)
 	if pool.Index != "/" {
 		logs.Log.Logf(LogVerbose, "custom index url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Index))
-		pool.reqPool.Invoke(newUnit(pool.Index, InitIndexSource))
-		//pool.urls[Dir(pool.Index)] = struct{}{}
+		pool.reqPool.Invoke(newUnit(pool.Index, parsers.InitIndexSource))
+		//pool.urls[dir(pool.Index)] = struct{}{}
 	} else {
-		pool.reqPool.Invoke(newUnit(pool.url.Path, InitIndexSource))
-		//pool.urls[Dir(pool.url.Path)] = struct{}{}
+		pool.reqPool.Invoke(newUnit(pool.url.Path, parsers.InitIndexSource))
+		//pool.urls[dir(pool.url.Path)] = struct{}{}
 	}
 
 	if pool.Random != "" {
 		logs.Log.Logf(LogVerbose, "custom random url: %s", BaseURL(pool.url)+FormatURL(BaseURL(pool.url), pool.Random))
-		pool.reqPool.Invoke(newUnit(pool.Random, InitRandomSource))
+		pool.reqPool.Invoke(newUnit(pool.Random, parsers.InitRandomSource))
 	} else {
-		pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), InitRandomSource))
+		pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), parsers.InitRandomSource))
 	}
 
 	pool.initwg.Wait()
@@ -241,25 +241,25 @@ Loop:
 
 			pool.waiter.Add(1)
 			if pool.Mod == HostSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(w, WordSource, pool.wordOffset))
+				pool.reqPool.Invoke(newUnitWithNumber(w, parsers.WordSource, pool.wordOffset))
 			} else {
 				// 原样的目录拼接, 输入了几个"/"就是几个, 适配/有语义的中间件
-				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(w), WordSource, pool.wordOffset))
+				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(w), parsers.WordSource, pool.wordOffset))
 			}
 
-		case source := <-pool.checkCh:
+		case <-pool.checkCh:
 			pool.Statistor.CheckNumber++
 			if pool.Mod == HostSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), source, pool.wordOffset))
+				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), parsers.CheckSource, pool.wordOffset))
 			} else if pool.Mod == PathSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(pkg.RandPath()), source, pool.wordOffset))
+				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(pkg.RandPath()), parsers.CheckSource, pool.wordOffset))
 			}
 		case unit, ok := <-pool.additionCh:
 			if !ok || pool.closed {
 				continue
 			}
 			if _, ok := pool.urls.Load(unit.path); ok {
-				logs.Log.Debugf("[%s] duplicate path: %s, skipped", parsers.GetSpraySourceName(unit.source), pool.base+unit.path)
+				logs.Log.Debugf("[%s] duplicate path: %s, skipped", unit.source.Name(), pool.base+unit.path)
 				pool.waiter.Done()
 			} else {
 				pool.urls.Store(unit.path, nil)
@@ -288,7 +288,7 @@ func (pool *Pool) Invoke(v interface{}) {
 
 	var req *ihttp.Request
 	var err error
-	if unit.source == WordSource {
+	if unit.source == parsers.WordSource {
 		req, err = pool.genReq(pool.Mod, unit.path)
 	} else {
 		req, err = pool.genReq(PathSpray, unit.path)
@@ -325,7 +325,7 @@ func (pool *Pool) Invoke(v interface{}) {
 		// 自动重放失败请求
 		pool.doRetry(bl)
 	} else { // 特定场景优化
-		if unit.source <= 3 || unit.source == CrawlSource || unit.source == CommonFileSource {
+		if unit.source <= 3 || unit.source == parsers.CrawlSource || unit.source == parsers.CommonFileSource {
 			// 一些高优先级的source, 将跳过PreCompare
 			bl = NewBaseline(req.URI(), req.Host(), resp)
 		} else if pool.MatchExpr != nil {
@@ -340,7 +340,7 @@ func (pool *Pool) Invoke(v interface{}) {
 	}
 
 	// 手动处理重定向
-	if bl.IsValid && unit.source != CheckSource && bl.RedirectURL != "" {
+	if bl.IsValid && unit.source != parsers.CheckSource && bl.RedirectURL != "" {
 		//pool.waiter.Add(1)
 		pool.doRedirect(bl, unit.depth)
 	}
@@ -353,14 +353,14 @@ func (pool *Pool) Invoke(v interface{}) {
 	bl.Number = unit.number
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
-	case InitRandomSource:
+	case parsers.InitRandomSource:
 		bl.Collect()
 		pool.locker.Lock()
 		pool.random = bl
 		pool.addFuzzyBaseline(bl)
 		pool.locker.Unlock()
 		pool.initwg.Done()
-	case InitIndexSource:
+	case parsers.InitIndexSource:
 		bl.Collect()
 		pool.locker.Lock()
 		pool.index = bl
@@ -372,7 +372,7 @@ func (pool *Pool) Invoke(v interface{}) {
 			pool.OutputCh <- bl
 		}
 		pool.initwg.Done()
-	case CheckSource:
+	case parsers.CheckSource:
 		if bl.ErrString != "" {
 			logs.Log.Warnf("[check.error] %s maybe ip had banned, break (%d/%d), error: %s", pool.BaseURL, pool.failedCount, pool.BreakThreshold, bl.ErrString)
 		} else if i := pool.random.Compare(bl); i < 1 {
@@ -390,7 +390,7 @@ func (pool *Pool) Invoke(v interface{}) {
 			logs.Log.Debug("[check.pass] " + bl.String())
 		}
 
-	case WordSource:
+	case parsers.WordSource:
 		// 异步进行性能消耗较大的深度对比
 		pool.handlerCh <- bl
 		if int(pool.Statistor.ReqTotal)%pool.CheckPeriod == 0 {
@@ -400,7 +400,7 @@ func (pool *Pool) Invoke(v interface{}) {
 			pool.doCheck()
 		}
 		pool.bar.Done()
-	case RedirectSource:
+	case parsers.RedirectSource:
 		bl.FrontURL = unit.frontUrl
 		pool.handlerCh <- bl
 	default:
@@ -463,25 +463,25 @@ func (pool *Pool) Handler() {
 				"random":  pool.random,
 				"current": bl,
 			}
-			//for _, status := range FuzzyStatus {
-			//	if bl, ok := pool.baselines[status]; ok {
-			//		params["bl"+strconv.Itoa(status)] = bl
+			//for _, ok := range FuzzyStatus {
+			//	if bl, ok := pool.baselines[ok]; ok {
+			//		params["bl"+strconv.Itoa(ok)] = bl
 			//	} else {
-			//		params["bl"+strconv.Itoa(status)] = nilBaseline
+			//		params["bl"+strconv.Itoa(ok)] = nilBaseline
 			//	}
 			//}
 		}
 
-		var status bool
+		var ok bool
 		if pool.MatchExpr != nil {
 			if CompareWithExpr(pool.MatchExpr, params) {
-				status = true
+				ok = true
 			}
 		} else {
-			status = pool.BaseCompare(bl)
+			ok = pool.BaseCompare(bl)
 		}
 
-		if status {
+		if ok {
 			pool.Statistor.FoundNumber++
 
 			// unique判断
@@ -509,11 +509,12 @@ func (pool *Pool) Handler() {
 			pool.waiter.Add(2)
 			pool.doCrawl(bl)
 			pool.doRule(bl)
+			if iutils.IntsContains(WhiteStatus, bl.Status) || iutils.IntsContains(UniqueStatus, bl.Status) {
+				pool.waiter.Add(1)
+				pool.doAppendWords(bl)
+			}
 		}
-		if iutils.IntsContains(WhiteStatus, bl.Status) || iutils.IntsContains([]int{403, 500, 502}, bl.Status) {
-			pool.waiter.Add(1)
-			pool.doAppendWords(bl)
-		}
+
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
 			if bl.RecuDepth < MaxRecursion {
@@ -639,7 +640,7 @@ func (pool *Pool) doRedirect(bl *Baseline, depth int) {
 		defer pool.waiter.Done()
 		pool.addAddition(&Unit{
 			path:     reURL,
-			source:   RedirectSource,
+			source:   parsers.RedirectSource,
 			frontUrl: bl.UrlString,
 			depth:    depth + 1,
 		})
@@ -668,7 +669,7 @@ func (pool *Pool) doCrawl(bl *Baseline) {
 			}
 			pool.addAddition(&Unit{
 				path:   u,
-				source: CrawlSource,
+				source: parsers.CrawlSource,
 				depth:  bl.ReqDepth + 1,
 			})
 		}
@@ -693,7 +694,7 @@ func (pool *Pool) doScopeCrawl(bl *Baseline) {
 				if _, ok := pool.scopeurls[u]; !ok {
 					pool.urls.Store(u, nil)
 					pool.waiter.Add(1)
-					pool.scopePool.Invoke(&Unit{path: u, source: CrawlSource, depth: bl.ReqDepth + 1})
+					pool.scopePool.Invoke(&Unit{path: u, source: parsers.CrawlSource, depth: bl.ReqDepth + 1})
 				}
 				pool.scopeLocker.Unlock()
 			}
@@ -706,7 +707,7 @@ func (pool *Pool) doRule(bl *Baseline) {
 		pool.waiter.Done()
 		return
 	}
-	if bl.Source == RuleSource {
+	if bl.Source == parsers.RuleSource {
 		pool.waiter.Done()
 		return
 	}
@@ -715,8 +716,8 @@ func (pool *Pool) doRule(bl *Baseline) {
 		defer pool.waiter.Done()
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
 			pool.addAddition(&Unit{
-				path:   Dir(bl.Url.Path) + u,
-				source: RuleSource,
+				path:   dir(bl.Url.Path) + u,
+				source: parsers.RuleSource,
 			})
 		}
 	}()
@@ -727,7 +728,7 @@ func (pool *Pool) doAppendWords(bl *Baseline) {
 		pool.waiter.Done()
 		return
 	}
-	if bl.Source == AppendSource {
+	if bl.Source == parsers.AppendSource {
 		pool.waiter.Done()
 		return
 	}
@@ -736,8 +737,8 @@ func (pool *Pool) doAppendWords(bl *Baseline) {
 		defer pool.waiter.Done()
 		for _, u := range pool.AppendWords {
 			pool.addAddition(&Unit{
-				path:   relaPath(Dir(bl.Url.Path), u),
-				source: AppendSource,
+				path:   safePath(bl.Path, u),
+				source: parsers.AppendSource,
 			})
 		}
 	}()
@@ -752,7 +753,7 @@ func (pool *Pool) doRetry(bl *Baseline) {
 		defer pool.waiter.Done()
 		pool.addAddition(&Unit{
 			path:   bl.Path,
-			source: RetrySource,
+			source: parsers.RetrySource,
 			retry:  bl.Retry + 1,
 		})
 	}()
@@ -763,7 +764,7 @@ func (pool *Pool) doActive() {
 	for _, u := range pkg.ActivePath {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u[1:],
-			source: ActiveSource,
+			source: parsers.FingerSource,
 		})
 	}
 }
@@ -778,7 +779,7 @@ func (pool *Pool) doBak() {
 	for w := range worder.C {
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
-			source: BakSource,
+			source: parsers.BakSource,
 		})
 	}
 
@@ -790,7 +791,7 @@ func (pool *Pool) doBak() {
 	for w := range worder.C {
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
-			source: BakSource,
+			source: parsers.BakSource,
 		})
 	}
 }
@@ -800,7 +801,7 @@ func (pool *Pool) doCommonFile() {
 	for _, u := range mask.SpecialWords["common_file"] {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
-			source: CommonFileSource,
+			source: parsers.CommonFileSource,
 		})
 	}
 }
@@ -815,9 +816,9 @@ func (pool *Pool) doCheck() {
 	}
 
 	if pool.Mod == HostSpray {
-		pool.checkCh <- CheckSource
+		pool.checkCh <- struct{}{}
 	} else if pool.Mod == PathSpray {
-		pool.checkCh <- CheckSource
+		pool.checkCh <- struct{}{}
 	}
 }
 
@@ -876,19 +877,10 @@ func (pool *Pool) Close() {
 
 func (pool *Pool) safePath(u string) string {
 	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
-	hasSlash := strings.HasPrefix(u, "/")
-	if hasSlash {
-		if pool.isDir {
-			return pool.dir + u[1:]
-		} else {
-			return pool.url.Path + u
-		}
+	if pool.isDir {
+		return safePath(pool.dir, u)
 	} else {
-		if pool.isDir {
-			return pool.url.Path + u
-		} else {
-			return pool.url.Path + "/" + u
-		}
+		return safePath(pool.url.Path+"/", u)
 	}
 }
 

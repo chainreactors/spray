@@ -33,7 +33,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	copy(bl.Header, header)
 	bl.HeaderLength = len(bl.Header)
 
-	if i := resp.ContentLength(); i != 0 && bl.ContentType != "bin" {
+	if i := resp.ContentLength(); i != 0 && i <= ihttp.DefaultMaxBodySize {
 		body := resp.Body()
 		bl.Body = make([]byte, len(body))
 		copy(bl.Body, body)
@@ -103,7 +103,6 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 type Baseline struct {
 	*parsers.SprayResult
-	Unique    uint16   `json:"-"`
 	Url       *url.URL `json:"-"`
 	Dir       bool     `json:"-"`
 	Chunked   bool     `json:"-"`
