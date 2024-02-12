@@ -51,6 +51,30 @@ func Spray() {
 		}
 		return
 	}
+
+	// logs
+	logs.AddLevel(pkg.LogVerbose, "verbose", "[=] %s {{suffix}}")
+	if option.Debug {
+		logs.Log.SetLevel(logs.Debug)
+	} else if len(option.Verbose) > 0 {
+		logs.Log.SetLevel(pkg.LogVerbose)
+	}
+
+	logs.Log.SetColorMap(map[logs.Level]func(string) string{
+		logs.Info:      logs.PurpleBold,
+		logs.Important: logs.GreenBold,
+		pkg.LogVerbose: logs.Green,
+	})
+
+	// check $home/.config/spray/config.yaml exist, if not, create it
+	if option.Config != "" {
+		err := internal.LoadConfig(option.Config, &option)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
+		}
+	}
+
 	if option.Version {
 		fmt.Println(ver)
 		return
@@ -58,7 +82,7 @@ func Spray() {
 
 	if option.Format != "" {
 		internal.Format(option.Format, !option.NoColor)
-		os.Exit(0)
+		return
 	}
 
 	err = pkg.LoadTemplates()
@@ -80,19 +104,6 @@ func Spray() {
 			}
 		}
 	}
-	// logs
-	logs.AddLevel(pkg.LogVerbose, "verbose", "[=] %s {{suffix}}")
-	if option.Debug {
-		logs.Log.SetLevel(logs.Debug)
-	} else if len(option.Verbose) > 0 {
-		logs.Log.SetLevel(pkg.LogVerbose)
-	}
-
-	logs.Log.SetColorMap(map[logs.Level]func(string) string{
-		logs.Info:      logs.PurpleBold,
-		logs.Important: logs.GreenBold,
-		pkg.LogVerbose: logs.Green,
-	})
 
 	// 初始化全局变量
 	pkg.Distance = uint8(option.SimhashDistance)
