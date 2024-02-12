@@ -3,8 +3,9 @@ package pkg
 import (
 	"bytes"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
-	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/utils/encode"
+	"github.com/chainreactors/utils/iutils"
 	"net/url"
 	"strings"
 )
@@ -31,7 +32,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	copy(bl.Header, header)
 	bl.HeaderLength = len(bl.Header)
 
-	if i := resp.ContentLength(); i != 0 && bl.ContentType != "bin" {
+	if i := resp.ContentLength(); i != 0 && i <= ihttp.DefaultMaxBodySize {
 		body := resp.Body()
 		bl.Body = make([]byte, len(body))
 		copy(bl.Body, body)
@@ -101,7 +102,6 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 type Baseline struct {
 	*parsers.SprayResult
-	Unique    uint16   `json:"-"`
 	Url       *url.URL `json:"-"`
 	Dir       bool     `json:"-"`
 	Chunked   bool     `json:"-"`
@@ -133,9 +133,9 @@ func (bl *Baseline) Collect() {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
-			if name, ok := Md5Fingers[parsers.Md5Hash(bl.Body)]; ok {
+			if name, ok := Md5Fingers[encode.Md5Hash(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
-			} else if name, ok := Mmh3Fingers[parsers.Mmh3Hash32(bl.Body)]; ok {
+			} else if name, ok := Mmh3Fingers[encode.Mmh3Hash32(bl.Body)]; ok {
 				bl.Frameworks[name] = &parsers.Framework{Name: name}
 			}
 		}
@@ -160,8 +160,8 @@ func (bl *Baseline) CollectURL() {
 	for _, reg := range ExtractRegexps["js"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			u[1] = formatURL(u[1])
-			if u[1] != "" && !filterJs(u[1]) {
+			u[1] = CleanURL(u[1])
+			if u[1] != "" && !FilterJs(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
@@ -170,14 +170,14 @@ func (bl *Baseline) CollectURL() {
 	for _, reg := range ExtractRegexps["url"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			u[1] = formatURL(u[1])
-			if u[1] != "" && !filterUrl(u[1]) {
+			u[1] = CleanURL(u[1])
+			if u[1] != "" && !FilterUrl(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
 	}
 
-	bl.URLs = RemoveDuplication(bl.URLs)
+	bl.URLs = iutils.StringsUnique(bl.URLs)
 	if bl.URLs != nil {
 		bl.Extracteds = append(bl.Extracteds, &parsers.Extracted{
 			Name:          "crawl",
@@ -225,7 +225,7 @@ var Distance uint8 = 5 // 数字越小越相似, 数字为0则为完全一致.
 
 func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
 	// 这里使用rawsimhash, 是为了保证一定数量的字符串, 否则超短的body会导致simhash偏差指较大
-	if other.Distance = parsers.SimhashCompare(other.RawSimhash, bl.RawSimhash); other.Distance < Distance {
+	if other.Distance = encode.SimhashCompare(other.RawSimhash, bl.RawSimhash); other.Distance < Distance {
 		return true
 	}
 	return false

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
 	"github.com/chainreactors/spray/internal"
+	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
+	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
@@ -17,7 +18,7 @@ import (
 	"time"
 )
 
-var ver = ""
+var ver = "v0.9.3"
 
 func Spray() {
 	var option internal.Option
@@ -51,6 +52,28 @@ func Spray() {
 		return
 	}
 
+	// logs
+	logs.AddLevel(pkg.LogVerbose, "verbose", "[=] %s {{suffix}}")
+	if option.Debug {
+		logs.Log.SetLevel(logs.Debug)
+	} else if len(option.Verbose) > 0 {
+		logs.Log.SetLevel(pkg.LogVerbose)
+	}
+
+	logs.Log.SetColorMap(map[logs.Level]func(string) string{
+		logs.Info:      logs.PurpleBold,
+		logs.Important: logs.GreenBold,
+		pkg.LogVerbose: logs.Green,
+	})
+
+	if option.Config != "" {
+		err := internal.LoadConfig(option.Config, &option)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
+		}
+	}
+
 	if option.Version {
 		fmt.Println(ver)
 		return
@@ -58,7 +81,7 @@ func Spray() {
 
 	if option.Format != "" {
 		internal.Format(option.Format, !option.NoColor)
-		os.Exit(0)
+		return
 	}
 
 	err = pkg.LoadTemplates()
@@ -80,29 +103,24 @@ func Spray() {
 			}
 		}
 	}
-	// 一些全局变量初始化
-	if option.Debug {
-		logs.Log.Level = logs.Debug
-	}
 
-	logs.DefaultColorMap[logs.Info] = logs.PurpleBold
-	logs.DefaultColorMap[logs.Important] = logs.GreenBold
+	// 初始化全局变量
 	pkg.Distance = uint8(option.SimhashDistance)
 	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
-	internal.MaxCrawl = option.CrawlDepth
-	if option.ReadAll {
-		ihttp.DefaultMaxBodySize = 0
-	}
+	pool.MaxCrawl = option.CrawlDepth
+
 	var runner *internal.Runner
 	if option.ResumeFrom != "" {
 		runner, err = option.PrepareRunner()
 	} else {
 		runner, err = option.PrepareRunner()
 	}
-
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return
+	}
+	if option.ReadAll || runner.Crawl {
+		ihttp.DefaultMaxBodySize = 0
 	}
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)

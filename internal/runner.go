@@ -6,8 +6,9 @@ import (
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/spray/pkg/ihttp"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/gosuri/uiprogress"
@@ -17,11 +18,7 @@ import (
 )
 
 var (
-	WhiteStatus  = []int{200}
-	BlackStatus  = []int{400, 410}
-	FuzzyStatus  = []int{403, 404, 500, 501, 502, 503}
-	WAFStatus    = []int{493, 418, 1020, 406}
-	UniqueStatus = []int{403}
+	max = 2147483647
 )
 
 var (
@@ -33,6 +30,9 @@ var (
 type Runner struct {
 	taskCh   chan *Task
 	poolwg   sync.WaitGroup
+	outwg    *sync.WaitGroup
+	outputCh chan *pkg.Baseline
+	fuzzyCh  chan *pkg.Baseline
 	bar      *uiprogress.Bar
 	finished int
 
@@ -41,8 +41,9 @@ type Runner struct {
 	Wordlist        []string
 	Rules           *rule.Program
 	AppendRules     *rule.Program
+	AppendWords     []string
 	Headers         map[string]string
-	Fns             []func(string) string
+	Fns             []func(string) []string
 	FilterExpr      *vm.Program
 	MatchExpr       *vm.Program
 	RecursiveExpr   *vm.Program
@@ -55,8 +56,6 @@ type Runner struct {
 	Timeout         int
 	Mod             string
 	Probes          []string
-	OutputCh        chan *pkg.Baseline
-	FuzzyCh         chan *pkg.Baseline
 	Fuzzy           bool
 	OutputFile      *files.File
 	FuzzyFile       *files.File
@@ -77,24 +76,26 @@ type Runner struct {
 	IgnoreWaf       bool
 	Crawl           bool
 	Scope           []string
-	Active          bool
+	Finger          bool
 	Bak             bool
 	Common          bool
 	RetryCount      int
 	RandomUserAgent bool
 	Random          string
 	Index           string
+	Proxy           string
 }
 
-func (r *Runner) PrepareConfig() *pkg.Config {
-	config := &pkg.Config{
+func (r *Runner) PrepareConfig() *pool.Config {
+	config := &pool.Config{
 		Thread:          r.Threads,
 		Timeout:         r.Timeout,
 		RateLimit:       r.RateLimit,
 		Headers:         r.Headers,
-		Mod:             pkg.ModMap[r.Mod],
-		OutputCh:        r.OutputCh,
-		FuzzyCh:         r.FuzzyCh,
+		Mod:             pool.ModMap[r.Mod],
+		OutputCh:        r.outputCh,
+		FuzzyCh:         r.fuzzyCh,
+		OutLocker:       r.outwg,
 		Fuzzy:           r.Fuzzy,
 		CheckPeriod:     r.CheckPeriod,
 		ErrPeriod:       int32(r.ErrPeriod),
@@ -103,10 +104,11 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		FilterExpr:      r.FilterExpr,
 		RecuExpr:        r.RecursiveExpr,
 		AppendRule:      r.AppendRules,
+		AppendWords:     r.AppendWords,
 		IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.Crawl,
 		Scope:           r.Scope,
-		Active:          r.Active,
+		Active:          r.Finger,
 		Bak:             r.Bak,
 		Common:          r.Common,
 		Retry:           r.RetryCount,
@@ -114,16 +116,21 @@ func (r *Runner) PrepareConfig() *pkg.Config {
 		RandomUserAgent: r.RandomUserAgent,
 		Random:          r.Random,
 		Index:           r.Index,
+		ProxyAddr:       r.Proxy,
 	}
 
 	if config.ClientType == ihttp.Auto {
-		if config.Mod == pkg.PathSpray {
+		if config.Mod == pool.PathSpray {
 			config.ClientType = ihttp.FAST
-		} else if config.Mod == pkg.HostSpray {
+		} else if config.Mod == pool.HostSpray {
 			config.ClientType = ihttp.STANDARD
 		}
 	}
 	return config
+}
+
+func (r *Runner) AppendFunction(fn func(string) []string) {
+	r.Fns = append(r.Fns, fn)
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
@@ -133,10 +140,10 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
 			config := r.PrepareConfig()
 
-			pool, err := NewCheckPool(ctx, config)
+			pool, err := pool.NewCheckPool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
-				pool.cancel()
+				pool.Cancel()
 				r.poolwg.Done()
 				return
 			}
@@ -148,9 +155,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 				close(ch)
 			}()
-			pool.worder = words.NewWorderWithChan(ch)
-			pool.worder.Fns = r.Fns
-			pool.bar = pkg.NewBar("check", r.Count-r.Offset, r.Progress)
+			pool.Worder = words.NewWorderWithChan(ch)
+			pool.Worder.Fns = r.Fns
+			pool.Bar = pkg.NewBar("check", r.Count-r.Offset, r.Progress)
 			pool.Run(ctx, r.Offset, r.Count)
 			r.poolwg.Done()
 		})
@@ -182,17 +189,17 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			config := r.PrepareConfig()
 			config.BaseURL = t.baseUrl
 
-			pool, err := NewPool(ctx, config)
+			pool, err := pool.NewBrutePool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
-				pool.cancel()
+				pool.Cancel()
 				r.Done()
 				return
 			}
 			if t.origin != nil && len(r.Wordlist) == 0 {
 				// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
 				pool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
-				pool.worder, err = t.origin.InitWorder(r.Fns)
+				pool.Worder, err = t.origin.InitWorder(r.Fns)
 				if err != nil {
 					logs.Log.Error(err.Error())
 					r.Done()
@@ -201,9 +208,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				pool.Statistor.Total = t.origin.sum
 			} else {
 				pool.Statistor = pkg.NewStatistor(t.baseUrl)
-				pool.worder = words.NewWorder(r.Wordlist)
-				pool.worder.Fns = r.Fns
-				pool.worder.Rules = r.Rules.Expressions
+				pool.Worder = words.NewWorder(r.Wordlist)
+				pool.Worder.Fns = r.Fns
+				pool.Worder.Rules = r.Rules.Expressions
 			}
 
 			var limit int
@@ -212,7 +219,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			} else {
 				limit = pool.Statistor.Total
 			}
-			pool.bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
+			pool.Bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
+			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", pool.BaseURL, limit-pool.Statistor.Offset, pool.Thread, pool.ProxyAddr)
 			err = pool.Init()
 			if err != nil {
 				pool.Statistor.Error = err.Error()
@@ -227,9 +235,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 
 			pool.Run(pool.Statistor.Offset, limit)
 
-			if pool.isFailed && len(pool.failedBaselines) > 0 {
+			if pool.IsFailed && len(pool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
-				pool.Statistor.End = pool.failedBaselines[0].Number
+				pool.Statistor.End = pool.FailedBaselines[0].Number
 			}
 			r.PrintStat(pool)
 			r.Done()
@@ -239,7 +247,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.Output()
+	r.OutputHandler()
 	return nil
 }
 
@@ -287,19 +295,7 @@ Loop:
 	}
 
 	r.poolwg.Wait()
-	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
-	for {
-		if len(r.OutputCh) == 0 {
-			break
-		}
-	}
-
-	for {
-		if len(r.FuzzyCh) == 0 {
-			break
-		}
-	}
-	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
+	r.outwg.Wait()
 }
 
 func (r *Runner) RunWithCheck(ctx context.Context) {
@@ -326,7 +322,7 @@ Loop:
 	}
 
 	for {
-		if len(r.OutputCh) == 0 {
+		if len(r.outputCh) == 0 {
 			break
 		}
 	}
@@ -340,18 +336,18 @@ func (r *Runner) Done() {
 	r.poolwg.Done()
 }
 
-func (r *Runner) PrintStat(pool *Pool) {
+func (r *Runner) PrintStat(pool *pool.BrutePool) {
 	if r.Color {
 		logs.Log.Important(pool.Statistor.ColorString())
 		if pool.Statistor.Error == "" {
-			logs.Log.Important(pool.Statistor.ColorCountString())
-			logs.Log.Important(pool.Statistor.ColorSourceString())
+			pool.Statistor.PrintColorCount()
+			pool.Statistor.PrintColorSource()
 		}
 	} else {
 		logs.Log.Important(pool.Statistor.String())
 		if pool.Statistor.Error == "" {
-			logs.Log.Important(pool.Statistor.CountString())
-			logs.Log.Important(pool.Statistor.SourceString())
+			pool.Statistor.PrintCount()
+			pool.Statistor.PrintSource()
 		}
 	}
 
@@ -361,7 +357,7 @@ func (r *Runner) PrintStat(pool *Pool) {
 	}
 }
 
-func (r *Runner) Output() {
+func (r *Runner) OutputHandler() {
 	debugPrint := func(bl *pkg.Baseline) {
 		if r.Color {
 			logs.Log.Debug(bl.ColorString())
@@ -403,7 +399,7 @@ func (r *Runner) Output() {
 
 		for {
 			select {
-			case bl, ok := <-r.OutputCh:
+			case bl, ok := <-r.outputCh:
 				if !ok {
 					return
 				}
@@ -419,6 +415,7 @@ func (r *Runner) Output() {
 				} else {
 					debugPrint(bl)
 				}
+				r.outwg.Done()
 			}
 		}
 	}()
@@ -443,15 +440,16 @@ func (r *Runner) Output() {
 
 		for {
 			select {
-			case bl, ok := <-r.FuzzyCh:
+			case bl, ok := <-r.fuzzyCh:
 				if !ok {
 					return
 				}
 				if r.Fuzzy {
 					fuzzySaveFunc(bl)
-				} else {
-					debugPrint(bl)
+					//} else {
+					//	debugPrint(bl)
 				}
+				r.outwg.Done()
 			}
 		}
 	}()

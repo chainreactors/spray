@@ -17,11 +17,16 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
           submodules: recursive
+
+      - name: Install upx
+        run: sudo apt install upx -y
+        continue-on-error: true
+
       -
         name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17
+          go-version: 1.21
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4

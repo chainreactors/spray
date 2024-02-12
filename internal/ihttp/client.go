@@ -4,8 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/chainreactors/logs"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpproxy"
+	"golang.org/x/net/proxy"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -19,27 +25,27 @@ const (
 	STANDARD
 )
 
-func NewClient(thread int, timeout int, clientType int) *Client {
-	if clientType == FAST {
+func NewClient(config *ClientConfig) *Client {
+	if config.Type == FAST {
 		return &Client{
 			fastClient: &fasthttp.Client{
 				TLSConfig: &tls.Config{
 					Renegotiation:      tls.RenegotiateOnceAsClient,
 					InsecureSkipVerify: true,
 				},
-				MaxConnsPerHost:               thread * 3 / 2,
-				MaxIdleConnDuration:           time.Duration(timeout) * time.Second,
-				MaxConnWaitTimeout:            time.Duration(timeout) * time.Second,
-				ReadTimeout:                   time.Duration(timeout) * time.Second,
-				WriteTimeout:                  time.Duration(timeout) * time.Second,
+				Dial:                customDialFunc(config.ProxyAddr, config.Timeout),
+				MaxConnsPerHost:     config.Thread * 3 / 2,
+				MaxIdleConnDuration: config.Timeout,
+				//MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
+				//ReadTimeout:                   time.Duration(timeout) * time.Second,
+				//WriteTimeout:                  time.Duration(timeout) * time.Second,
 				ReadBufferSize:                16384, // 16k
 				MaxResponseBodySize:           DefaultMaxBodySize,
 				NoDefaultUserAgentHeader:      true,
 				DisablePathNormalizing:        true,
 				DisableHeaderNamesNormalizing: true,
 			},
-			timeout:    time.Duration(timeout) * time.Second,
-			clientType: clientType,
+			Config: config,
 		}
 	} else {
 		return &Client{
@@ -51,27 +57,34 @@ func NewClient(thread int, timeout int, clientType int) *Client {
 						Renegotiation:      tls.RenegotiateOnceAsClient,
 						InsecureSkipVerify: true,
 					},
-					TLSHandshakeTimeout: time.Duration(timeout) * time.Second,
-					MaxConnsPerHost:     thread * 3 / 2,
-					IdleConnTimeout:     time.Duration(timeout) * time.Second,
-					ReadBufferSize:      16384, // 16k
+					MaxConnsPerHost: config.Thread * 3 / 2,
+					IdleConnTimeout: config.Timeout,
+					ReadBufferSize:  16384, // 16k
+					Proxy: func(_ *http.Request) (*url.URL, error) {
+						return url.Parse(config.ProxyAddr)
+					},
 				},
-				Timeout: time.Second * time.Duration(timeout),
+				Timeout: config.Timeout,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
 					return http.ErrUseLastResponse
 				},
 			},
-			timeout:    time.Duration(timeout) * time.Second,
-			clientType: clientType,
+			Config: config,
 		}
 	}
+}
+
+type ClientConfig struct {
+	Type      int
+	Timeout   time.Duration
+	Thread    int
+	ProxyAddr string
 }
 
 type Client struct {
 	fastClient     *fasthttp.Client
 	standardClient *http.Client
-	clientType     int
-	timeout        time.Duration
+	Config         *ClientConfig
 }
 
 func (c *Client) TransToCheck() {
@@ -101,5 +114,43 @@ func (c *Client) Do(ctx context.Context, req *Request) (*Response, error) {
 		return &Response{StandardResponse: resp, ClientType: STANDARD}, err
 	} else {
 		return nil, fmt.Errorf("not found client")
+	}
+}
+
+func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
+	if proxyAddr == "" {
+		return func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, timeout)
+		}
+	}
+	u, err := url.Parse(proxyAddr)
+	if err != nil {
+		logs.Log.Error(err.Error())
+		return nil
+	}
+	if strings.ToLower(u.Scheme) == "socks5" {
+
+		return func(addr string) (net.Conn, error) {
+			dialer, err := proxy.SOCKS5("tcp", u.Host, nil, proxy.Direct)
+			if err != nil {
+				return nil, err
+			}
+
+			// Set up a connection with a timeout
+			conn, err := dialer.Dial("tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+
+			// Set deadlines for the connection
+			deadline := time.Now().Add(timeout)
+			if err := conn.SetDeadline(deadline); err != nil {
+				conn.Close()
+				return nil, err
+			}
+			return conn, nil
+		}
+	} else {
+		return fasthttpproxy.FasthttpHTTPDialerTimeout(proxyAddr, timeout)
 	}
 }

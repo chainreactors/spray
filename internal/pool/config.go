@@ -1,8 +1,10 @@
-package pkg
+package pool
 
 import (
 	"github.com/antonmedv/expr/vm"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/rule"
+	"sync"
 )
 
 type SprayMod int
@@ -21,9 +23,13 @@ var ModMap = map[string]SprayMod{
 
 type Config struct {
 	BaseURL         string
+	ProxyAddr       string
 	Thread          int
 	Wordlist        []string
 	Timeout         int
+	OutputCh        chan *pkg.Baseline
+	FuzzyCh         chan *pkg.Baseline
+	OutLocker       *sync.WaitGroup
 	RateLimit       int
 	CheckPeriod     int
 	ErrPeriod       int32
@@ -36,8 +42,7 @@ type Config struct {
 	FilterExpr      *vm.Program
 	RecuExpr        *vm.Program
 	AppendRule      *rule.Program
-	OutputCh        chan *Baseline
-	FuzzyCh         chan *Baseline
+	AppendWords     []string
 	Fuzzy           bool
 	IgnoreWaf       bool
 	Crawl           bool

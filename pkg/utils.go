@@ -1,22 +1,31 @@
 package pkg
 
 import (
-	"encoding/json"
+	"github.com/antonmedv/expr"
+	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/gogo/v2/pkg/fingers"
-	"github.com/chainreactors/ipcs"
+	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/parsers/iutils"
-	"github.com/chainreactors/words/mask"
+	"github.com/chainreactors/utils/iutils"
 	"math/rand"
 	"net/url"
-	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
 )
 
+var (
+	LogVerbose   = logs.Warn - 2
+	LogFuzz      = logs.Warn - 1
+	WhiteStatus  = []int{} // cmd input, 200
+	BlackStatus  = []int{} // cmd input, 400,410
+	FuzzyStatus  = []int{} // cmd input, 500,501,502,503
+	WAFStatus    = []int{493, 418, 1020, 406}
+	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
+)
 var (
 	Md5Fingers     map[string]string = make(map[string]string)
 	Mmh3Fingers    map[string]string = make(map[string]string)
@@ -52,35 +61,29 @@ var (
 		"video/avi":                "avi",
 		"image/x-icon":             "ico",
 	}
+
+	// from feroxbuster
+	randomUserAgent = []string{
+		"Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.84 Mobile Safari/537.36",
+		"Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1",
+		"Mozilla/5.0 (Windows Phone 10.0; Android 6.0.1; Microsoft; RM-1152) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Mobile Safari/537.36 Edge/15.15254",
+		"Mozilla/5.0 (Linux; Android 7.0; Pixel C Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/52.0.2743.98 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246",
+		"Mozilla/5.0 (X11; CrOS x86_64 8172.45.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.64 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9",
+		"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36",
+		"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Gecko/20100101 Firefox/15.0.1",
+		"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+		"Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+		"Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)",
+	}
+	uacount = len(randomUserAgent)
 )
 
-func RemoveDuplication(arr []string) []string {
-	set := make(map[string]struct{}, len(arr))
-	j := 0
-	for _, v := range arr {
-		_, ok := set[v]
-		if ok {
-			continue
-		}
-		set[v] = struct{}{}
-		arr[j] = v
-		j++
-	}
+type BS []byte
 
-	return arr[:j]
-}
-
-// 判断是否存在标准输入数据
-func HasStdin() bool {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-
-	isPipedFromChrDev := (stat.Mode() & os.ModeCharDevice) == 0
-	isPipedFromFIFO := (stat.Mode() & os.ModeNamedPipe) != 0
-
-	return isPipedFromChrDev || isPipedFromFIFO
+func (b BS) String() string {
+	return string(b)
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -133,83 +136,6 @@ func RandHost() string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func LoadTemplates() error {
-	var err error
-	// load fingers
-	Fingers, err = fingers.LoadFingers(LoadConfig("http"))
-	if err != nil {
-		return err
-	}
-
-	for _, finger := range Fingers {
-		err := finger.Compile(ipcs.ParsePorts)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, f := range Fingers {
-		for _, rule := range f.Rules {
-			if rule.SendDataStr != "" {
-				ActivePath = append(ActivePath, rule.SendDataStr)
-			}
-			if rule.Favicon != nil {
-				for _, mmh3 := range rule.Favicon.Mmh3 {
-					Mmh3Fingers[mmh3] = f.Name
-				}
-				for _, md5 := range rule.Favicon.Md5 {
-					Md5Fingers[md5] = f.Name
-				}
-			}
-		}
-	}
-
-	// load rule
-	var data map[string]interface{}
-	err = json.Unmarshal(LoadConfig("rule"), &data)
-	if err != nil {
-		return err
-	}
-	for k, v := range data {
-		Rules[k] = v.(string)
-	}
-
-	// load mask
-	var keywords map[string]interface{}
-	err = json.Unmarshal(LoadConfig("mask"), &keywords)
-	if err != nil {
-		return err
-	}
-
-	for k, v := range keywords {
-		t := make([]string, len(v.([]interface{})))
-		for i, vv := range v.([]interface{}) {
-			t[i] = iutils.ToString(vv)
-		}
-		mask.SpecialWords[k] = t
-	}
-
-	var extracts []*parsers.Extractor
-	err = json.Unmarshal(LoadConfig("extract"), &extracts)
-	if err != nil {
-		return err
-	}
-
-	for _, extract := range extracts {
-		extract.Compile()
-
-		ExtractRegexps[extract.Name] = []*parsers.Extractor{extract}
-		for _, tag := range extract.Tags {
-			if _, ok := ExtractRegexps[tag]; !ok {
-				ExtractRegexps[tag] = []*parsers.Extractor{extract}
-			} else {
-				ExtractRegexps[tag] = append(ExtractRegexps[tag], extract)
-			}
-		}
-	}
-	return nil
-}
-
 func FingerDetect(content []byte) parsers.Frameworks {
 	frames := make(parsers.Frameworks)
 	for _, finger := range Fingers {
@@ -222,7 +148,7 @@ func FingerDetect(content []byte) parsers.Frameworks {
 	return frames
 }
 
-func filterJs(u string) bool {
+func FilterJs(u string) bool {
 	if commonFilter(u) {
 		return true
 	}
@@ -230,7 +156,7 @@ func filterJs(u string) bool {
 	return false
 }
 
-func filterUrl(u string) bool {
+func FilterUrl(u string) bool {
 	if commonFilter(u) {
 		return true
 	}
@@ -249,8 +175,10 @@ func filterUrl(u string) bool {
 	return false
 }
 
-func formatURL(u string) string {
+func CleanURL(u string) string {
 	// 去掉frag与params, 节约url.parse性能, 防止带参数造成意外的影响
+	u = strings.Trim(u, "\"")
+	u = strings.Trim(u, "'")
 	if strings.Contains(u, "2f") || strings.Contains(u, "2F") {
 		u = strings.ReplaceAll(u, "\\u002F", "/")
 		u = strings.ReplaceAll(u, "\\u002f", "/")
@@ -341,8 +269,127 @@ func CRC16Hash(data []byte) uint16 {
 	return crc16
 }
 
+func SafePath(dir, u string) string {
+	hasSlash := strings.HasPrefix(u, "/")
+	if hasSlash {
+		return path.Join(dir, u[1:])
+	} else {
+		return path.Join(dir, u)
+	}
+}
+
+func RelaPath(base, u string) string {
+	// 拼接相对目录, 不使用path.join的原因是, 如果存在"////"这样的情况, 可能真的是有意义的路由, 不能随意去掉.
+	// ""	/a 	/a
+	// "" 	a  	/a
+	// /    ""  /
+	// /a/ 	b 	/a/b
+	// /a/ 	/b 	/a/b
+	// /a  	b 	/b
+	// /a  	/b 	/b
+
+	if u == "" {
+		return base
+	}
+
+	pathSlash := strings.HasPrefix(u, "/")
+	if base == "" {
+		if pathSlash {
+			return u[1:]
+		} else {
+			return "/" + u
+		}
+	} else if strings.HasSuffix(base, "/") {
+		if pathSlash {
+			return base + u[1:]
+		} else {
+			return base + u
+		}
+	} else {
+		if pathSlash {
+			return Dir(base) + u[1:]
+		} else {
+			return Dir(base) + u
+		}
+	}
+}
+
+func Dir(u string) string {
+	// 安全的获取目录, 不会额外处理多个"//", 并非用来获取上级目录
+	// /a 	/
+	// /a/ 	/a/
+	// a/ 	a/
+	// aaa 	/
+	if strings.HasSuffix(u, "/") {
+		return u
+	} else if i := strings.LastIndex(u, "/"); i == -1 {
+		return "/"
+	} else {
+		return u[:i+1]
+	}
+}
+
 func UniqueHash(bl *Baseline) uint16 {
-	// 由host+状态码+重定向url+content-type+title+length舍去个位与十位组成的hash
+	// 由host+状态码+重定向url+content-type+title+length舍去个位组成的hash
 	// body length可能会导致一些误报, 目前没有更好的解决办法
-	return CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/100*100)))
+	return CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/10*10)))
+}
+
+func FormatURL(base, u string) string {
+	if strings.HasPrefix(u, "http") {
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return ""
+		}
+		return parsed.Path
+	} else if strings.HasPrefix(u, "//") {
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return ""
+		}
+		return parsed.Path
+	} else if strings.HasPrefix(u, "/") {
+		// 绝对目录拼接
+		// 不需要进行处理, 用来跳过下面的判断
+		return u
+	} else if strings.HasPrefix(u, "./") {
+		// "./"相对目录拼接
+		return RelaPath(base, u[2:])
+	} else if strings.HasPrefix(u, "../") {
+		return path.Join(Dir(base), u)
+	} else {
+		// 相对目录拼接
+		return RelaPath(base, u)
+	}
+}
+
+func BaseURL(u *url.URL) string {
+	return u.Scheme + "://" + u.Host
+}
+
+func RandomUA() string {
+	return randomUserAgent[rand.Intn(uacount)]
+}
+
+func CompareWithExpr(exp *vm.Program, params map[string]interface{}) bool {
+	res, err := expr.Run(exp, params)
+	if err != nil {
+		logs.Log.Warn(err.Error())
+	}
+
+	if res == true {
+		return true
+	} else {
+		return false
+	}
+}
+
+func MatchWithGlobs(u string, globs []string) bool {
+	for _, glob := range globs {
+		ok, err := filepath.Match(glob, u)
+		if err == nil && ok {
+			return true
+		}
+	}
+	return false
 }

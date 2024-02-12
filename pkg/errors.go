@@ -37,9 +37,3 @@ var ErrMap = map[ErrorType]string{
 func (e ErrorType) Error() string {
 	return ErrMap[e]
 }
-
-type BS []byte
-
-func (b BS) String() string {
-	return string(b)
-}
