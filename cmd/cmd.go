@@ -66,7 +66,6 @@ func Spray() {
 		pkg.LogVerbose: logs.Green,
 	})
 
-	// check $home/.config/spray/config.yaml exist, if not, create it
 	if option.Config != "" {
 		err := internal.LoadConfig(option.Config, &option)
 		if err != nil {
