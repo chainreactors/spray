@@ -19,7 +19,7 @@ var (
 	Extractors                        = make(parsers.Extractors)
 	Fingers         fingers.Fingers
 	ActivePath      []string
-	FingerPrintHubs []FingerPrintHub
+	FingerPrintHubs []*FingerPrintHub
 )
 
 func LoadTemplates() error {
@@ -124,6 +124,7 @@ func LoadFingerPrintHub() error {
 	if err != nil {
 		return err
 	}
+	var fingers []*FingerPrintHub
 	for _, f := range FingerPrintHubs {
 		if f.Path != "/" {
 			ActivePath = append(ActivePath, f.Path)
@@ -131,7 +132,11 @@ func LoadFingerPrintHub() error {
 		for _, ico := range f.FaviconHash {
 			Md5Fingers[ico] = f.Name
 		}
+		if len(f.Keyword) > 0 || len(f.Headers) > 0 {
+			fingers = append(fingers, f)
+		}
 	}
+	FingerPrintHubs = fingers
 
 	return nil
 }
