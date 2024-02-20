@@ -50,6 +50,7 @@ type Statistor struct {
 	FuzzyNumber    int                         `json:"fuzzy"`
 	WafedNumber    int                         `json:"wafed"`
 	End            int                         `json:"end"`
+	Skipped        int                         `json:"skipped"`
 	Offset         int                         `json:"offset"`
 	Total          int                         `json:"total"`
 	StartTime      int64                       `json:"start_time"`
@@ -63,7 +64,16 @@ type Statistor struct {
 
 func (stat *Statistor) ColorString() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %s, finish: %s/%s, found: %s, check: %s, failed: %s", logs.GreenLine(stat.BaseUrl), stat.EndTime-stat.StartTime, logs.YellowBold(strconv.Itoa(int(stat.ReqTotal))), logs.YellowBold(strconv.Itoa(stat.End)), logs.YellowBold(strconv.Itoa(stat.Total)), logs.YellowBold(strconv.Itoa(stat.FoundNumber)), logs.YellowBold(strconv.Itoa(stat.CheckNumber)), logs.YellowBold(strconv.Itoa(int(stat.FailedNumber)))))
+	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %s, finish: %s/%s(%s skipped), found: %s, check: %s, failed: %s",
+		logs.GreenLine(stat.BaseUrl),
+		stat.EndTime-stat.StartTime,
+		logs.YellowBold(strconv.Itoa(int(stat.ReqTotal))),
+		logs.YellowBold(strconv.Itoa(stat.End)),
+		logs.YellowBold(strconv.Itoa(stat.Total)),
+		logs.YellowLine(strconv.Itoa(stat.Skipped)),
+		logs.YellowBold(strconv.Itoa(stat.FoundNumber)),
+		logs.YellowBold(strconv.Itoa(stat.CheckNumber)),
+		logs.YellowBold(strconv.Itoa(int(stat.FailedNumber)))))
 
 	if stat.FuzzyNumber != 0 {
 		s.WriteString(", fuzzy: " + logs.Yellow(strconv.Itoa(stat.FuzzyNumber)))
@@ -78,7 +88,16 @@ func (stat *Statistor) ColorString() string {
 }
 func (stat *Statistor) String() string {
 	var s strings.Builder
-	s.WriteString(fmt.Sprintf("[stat] %s took %d s, request total: %d, finish: %d/%d, found: %d, check: %d, failed: %d", stat.BaseUrl, stat.EndTime-stat.StartTime, stat.ReqTotal, stat.End, stat.Total, stat.FoundNumber, stat.CheckNumber, stat.FailedNumber))
+	s.WriteString(fmt.Sprintf("[stat] %s took %d s,  request total: %d, finish: %d/%d(%d skipped), found: %d, check: %d, failed: %d",
+		stat.BaseUrl,
+		stat.EndTime-stat.StartTime,
+		stat.ReqTotal,
+		stat.End,
+		stat.Total,
+		stat.Skipped,
+		stat.FoundNumber,
+		stat.CheckNumber,
+		stat.FailedNumber))
 
 	if stat.FuzzyNumber != 0 {
 		s.WriteString(", fuzzy: " + strconv.Itoa(stat.FuzzyNumber))
@@ -126,8 +145,7 @@ func (stat *Statistor) PrintColorCount() {
 		return
 	}
 	var s strings.Builder
-	s.WriteString("[stat] ")
-	s.WriteString(stat.BaseUrl)
+	s.WriteString(fmt.Sprintf("[stat] %s ", stat.BaseUrl))
 	for k, v := range stat.Counts {
 		if k == 0 {
 			continue
@@ -142,8 +160,7 @@ func (stat *Statistor) PrintColorSource() {
 		return
 	}
 	var s strings.Builder
-	s.WriteString("[stat] ")
-	s.WriteString(stat.BaseUrl)
+	s.WriteString(fmt.Sprintf("[stat] %s ", stat.BaseUrl))
 	for k, v := range stat.Sources {
 		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(k.Name()), logs.YellowBold(strconv.Itoa(v))))
 	}
