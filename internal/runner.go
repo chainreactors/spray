@@ -340,14 +340,14 @@ func (r *Runner) PrintStat(pool *pool.BrutePool) {
 	if r.Color {
 		logs.Log.Important(pool.Statistor.ColorString())
 		if pool.Statistor.Error == "" {
-			pool.Statistor.PrintColorCount()
-			pool.Statistor.PrintColorSource()
+			logs.Log.Log(pkg.LogVerbose, pool.Statistor.ColorCountString())
+			logs.Log.Log(pkg.LogVerbose, pool.Statistor.ColorSourceString())
 		}
 	} else {
 		logs.Log.Important(pool.Statistor.String())
 		if pool.Statistor.Error == "" {
-			pool.Statistor.PrintCount()
-			pool.Statistor.PrintSource()
+			logs.Log.Log(pkg.LogVerbose, pool.Statistor.CountString())
+			logs.Log.Log(pkg.LogVerbose, pool.Statistor.SourceString())
 		}
 	}
 
