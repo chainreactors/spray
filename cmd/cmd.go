@@ -84,11 +84,15 @@ func Spray() {
 		return
 	}
 
+	// load fingers
 	err = pkg.LoadTemplates()
 	if err != nil {
 		iutils.Fatal(err.Error())
 	}
-
+	err = pkg.LoadFingerPrintHub()
+	if err != nil {
+		iutils.Fatal(err.Error())
+	}
 	if option.Extracts != nil {
 		for _, e := range option.Extracts {
 			if reg, ok := pkg.ExtractRegexps[e]; ok {

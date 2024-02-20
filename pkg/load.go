@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+var (
+	Md5Fingers      map[string]string = make(map[string]string)
+	Mmh3Fingers     map[string]string = make(map[string]string)
+	Fingers         fingers.Fingers
+	ActivePath      []string
+	FingerPrintHubs []FingerPrintHub
+)
+
 func LoadTemplates() error {
 	var err error
 	// load fingers
@@ -84,6 +92,24 @@ func LoadTemplates() error {
 			}
 		}
 	}
+	return nil
+}
+
+func LoadFingerPrintHub() error {
+	content := LoadConfig("fingerprinthub")
+	err := json.Unmarshal(content, &FingerPrintHubs)
+	if err != nil {
+		return err
+	}
+	for _, f := range FingerPrintHubs {
+		if f.Path != "/" {
+			ActivePath = append(ActivePath, f.Path)
+		}
+		for _, ico := range f.FaviconHash {
+			Md5Fingers[ico] = f.Name
+		}
+	}
+
 	return nil
 }
 
