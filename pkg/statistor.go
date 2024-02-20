@@ -111,9 +111,9 @@ func (stat *Statistor) String() string {
 	return s.String()
 }
 
-func (stat *Statistor) PrintCount() {
+func (stat *Statistor) CountString() string {
 	if len(stat.Counts) == 0 {
-		return
+		return ""
 	}
 	var s strings.Builder
 	s.WriteString("[stat] ")
@@ -124,12 +124,12 @@ func (stat *Statistor) PrintCount() {
 		}
 		s.WriteString(fmt.Sprintf(" %d: %d,", k, v))
 	}
-	logs.Log.Important(s.String())
+	return s.String()
 }
 
-func (stat *Statistor) PrintSource() {
+func (stat *Statistor) SourceString() string {
 	if len(stat.Sources) == 0 {
-		return
+		return ""
 	}
 	var s strings.Builder
 	s.WriteString("[stat] ")
@@ -137,12 +137,12 @@ func (stat *Statistor) PrintSource() {
 	for k, v := range stat.Sources {
 		s.WriteString(fmt.Sprintf(" %s: %d,", k.Name(), v))
 	}
-	logs.Log.Important(s.String())
+	return s.String()
 }
 
-func (stat *Statistor) PrintColorCount() {
+func (stat *Statistor) ColorCountString() string {
 	if len(stat.Counts) == 0 {
-		return
+		return ""
 	}
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("[stat] %s ", stat.BaseUrl))
@@ -152,19 +152,19 @@ func (stat *Statistor) PrintColorCount() {
 		}
 		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(strconv.Itoa(k)), logs.YellowBold(strconv.Itoa(v))))
 	}
-	logs.Log.Important(s.String())
+	return s.String()
 }
 
-func (stat *Statistor) PrintColorSource() {
+func (stat *Statistor) ColorSourceString() string {
 	if len(stat.Sources) == 0 {
-		return
+		return ""
 	}
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf("[stat] %s ", stat.BaseUrl))
 	for k, v := range stat.Sources {
 		s.WriteString(fmt.Sprintf(" %s: %s,", logs.Cyan(k.Name()), logs.YellowBold(strconv.Itoa(v))))
 	}
-	logs.Log.Important(s.String())
+	return s.String()
 }
 
 func (stat *Statistor) Json() string {
