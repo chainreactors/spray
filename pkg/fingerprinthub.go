@@ -15,14 +15,20 @@ type FingerPrintHub struct {
 
 func FingerPrintHubDetect(header, body string) parsers.Frameworks {
 	frames := make(parsers.Frameworks)
+
 	for _, finger := range FingerPrintHubs {
 		status := false
+
 		for _, key := range finger.Keyword {
 			if strings.Contains(body, key) {
 				status = true
 			} else {
 				status = false
+				break
 			}
+		}
+		if !status {
+			continue
 		}
 		for k, v := range finger.Headers {
 			if v == "*" && strings.Contains(header, k) {
@@ -31,8 +37,10 @@ func FingerPrintHubDetect(header, body string) parsers.Frameworks {
 				status = true
 			} else {
 				status = false
+				break
 			}
 		}
+
 		if status {
 			frame := &parsers.Framework{
 				Name: finger.Name,
