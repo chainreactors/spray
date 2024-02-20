@@ -197,9 +197,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	// configuration
 	if opt.Force {
 		// 如果开启了force模式, 将关闭check机制, err积累到一定数量自动退出机制
-		r.BreakThreshold = max
-		r.CheckPeriod = max
-		r.ErrPeriod = max
+		r.BreakThreshold = MAX
+		r.CheckPeriod = MAX
+		r.ErrPeriod = MAX
 	}
 
 	// 选择client
@@ -223,6 +223,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Finger = true
 		r.Bak = true
 		r.Common = true
+		pkg.EnableFingerPrintHub = true
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	} else if opt.FileBak {
@@ -235,6 +236,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	if r.Finger {
 		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
+		pkg.EnableFingerPrintHub = true
 		s.WriteString("active fingerprint enable; ")
 	}
 	if r.Bak {

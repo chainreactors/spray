@@ -127,6 +127,9 @@ func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
 		bl.Frameworks = FingerDetect(bl.Raw)
+		if EnableFingerPrintHub {
+			bl.Frameworks.Merge(FingerPrintHubDetect(string(bl.Header), string(bl.Body)))
+		}
 	}
 
 	if len(bl.Body) > 0 {

@@ -3,7 +3,6 @@ package pkg
 import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/utils/iutils"
@@ -25,15 +24,14 @@ var (
 	FuzzyStatus  = []int{} // cmd input, 500,501,502,503
 	WAFStatus    = []int{493, 418, 1020, 406}
 	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
+
+	// plugins
+	EnableFingerPrintHub = false
 )
 var (
-	Md5Fingers     map[string]string = make(map[string]string)
-	Mmh3Fingers    map[string]string = make(map[string]string)
 	Rules          map[string]string = make(map[string]string)
-	ActivePath     []string
-	Fingers        fingers.Fingers
-	ExtractRegexps = map[string][]*parsers.Extractor{}
-	Extractors     = make(parsers.Extractors)
+	ExtractRegexps                   = map[string][]*parsers.Extractor{}
+	Extractors                       = make(parsers.Extractors)
 
 	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
 	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
@@ -134,18 +132,6 @@ func RandHost() string {
 
 	b[5] = byte(0x2e)
 	return *(*string)(unsafe.Pointer(&b))
-}
-
-func FingerDetect(content []byte) parsers.Frameworks {
-	frames := make(parsers.Frameworks)
-	for _, finger := range Fingers {
-		// sender置空, 所有的发包交给spray的pool
-		frame, _, ok := fingers.FingerMatcher(finger, map[string]interface{}{"content": content}, 0, nil)
-		if ok {
-			frames[frame.Name] = frame
-		}
-	}
-	return frames
 }
 
 func FilterJs(u string) bool {
