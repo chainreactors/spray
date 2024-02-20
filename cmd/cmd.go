@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/internal/pool"
@@ -13,7 +12,6 @@ import (
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
-	"regexp"
 	"syscall"
 	"time"
 )
@@ -92,20 +90,6 @@ func Spray() {
 	err = pkg.LoadFingerPrintHub()
 	if err != nil {
 		iutils.Fatal(err.Error())
-	}
-	if option.Extracts != nil {
-		for _, e := range option.Extracts {
-			if reg, ok := pkg.ExtractRegexps[e]; ok {
-				pkg.Extractors[e] = reg
-			} else {
-				pkg.Extractors[e] = []*parsers.Extractor{
-					&parsers.Extractor{
-						Name:            e,
-						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
-					},
-				}
-			}
-		}
 	}
 
 	// 初始化全局变量

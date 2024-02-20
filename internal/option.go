@@ -7,6 +7,7 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
@@ -18,6 +19,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -93,15 +95,16 @@ type RequestOptions struct {
 }
 
 type PluginOptions struct {
-	Advance    bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
-	Extracts   []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
-	Recon      bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
-	Finger     bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
-	Bak        bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
-	FileBak    bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
-	Common     bool     `long:"common" description:"Bool, enable common file found" config:"common"`
-	Crawl      bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
-	CrawlDepth int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
+	Advance       bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
+	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
+	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
+	Recon         bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
+	Finger        bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
+	Bak           bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
+	FileBak       bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
+	Common        bool     `long:"common" description:"Bool, enable common file found" config:"common"`
+	Crawl         bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
+	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
 }
 
 type ModeOptions struct {
@@ -215,6 +218,29 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.Threads == DefaultThreads && opt.CheckOnly {
 		r.Threads = 1000
 	}
+
+	if opt.Extracts != nil {
+		for _, e := range opt.Extracts {
+			if reg, ok := pkg.ExtractRegexps[e]; ok {
+				pkg.Extractors[e] = reg
+			} else {
+				pkg.Extractors[e] = []*parsers.Extractor{
+					&parsers.Extractor{
+						Name:            e,
+						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
+					},
+				}
+			}
+		}
+	}
+	if opt.ExtractConfig != "" {
+		extracts, err := pkg.LoadExtractorConfig(opt.ExtractConfig)
+		if err != nil {
+			return nil, err
+		}
+		pkg.Extractors[opt.ExtractConfig] = extracts
+	}
+
 	if opt.Recon {
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 	}

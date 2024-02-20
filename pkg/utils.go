@@ -4,7 +4,6 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/utils/iutils"
 	"math/rand"
 	"net/url"
@@ -29,9 +28,7 @@ var (
 	EnableFingerPrintHub = false
 )
 var (
-	Rules          map[string]string = make(map[string]string)
-	ExtractRegexps                   = map[string][]*parsers.Extractor{}
-	Extractors                       = make(parsers.Extractors)
+	Rules map[string]string = make(map[string]string)
 
 	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
 	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
