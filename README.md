@@ -15,7 +15,7 @@
 * 基于掩码的字典生成
 * 基于规则的字典生成
 * 动态智能过滤
-* 全量gogo的指纹识别
+* 全量[gogo](https://github.com/chainreactors/gogo)的指纹识别, 全量的[fingerprinthub](https://github.com/0x727/FingerprintHub)指纹
 * 自定义信息提取, 如ip,js, title, hash以及自定义的正则表达式
 * 自定义过滤策略
 * 自定义输出格式与内容
@@ -94,3 +94,4 @@ go build .
 ## Thanks
 
 * [fuzzuli](https://github.com/musana/fuzzuli) 提供了一个备份文件字典生成思路
+* [fingerprinthub](https://github.com/0x727/FingerprintHub) 作为指纹库的补充
