@@ -25,6 +25,7 @@ import (
 
 var (
 	DefaultThreads = 20
+	SkipChar       = "%SKIP%"
 )
 
 type Option struct {

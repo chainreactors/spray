@@ -2,8 +2,6 @@ module github.com/chainreactors/spray
 
 go 1.21
 
-toolchain go1.21.3
-
 require github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 
 require (
@@ -13,7 +11,7 @@ require (
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
 	github.com/chainreactors/parsers v0.0.0-20240220101211-fc5d6e07ba81
 	github.com/chainreactors/utils v0.0.0-20231031063336-9477f1b23886
-	github.com/chainreactors/words v0.4.1-0.20240208114042-a1c5053345b0
+	github.com/chainreactors/words v0.4.1-0.20240220104223-153f52e53f37
 	github.com/goccy/go-yaml v1.11.2
 	github.com/gookit/config/v2 v2.2.5
 	github.com/gosuri/uiprogress v0.0.1
