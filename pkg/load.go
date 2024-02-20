@@ -7,7 +7,19 @@ import (
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
+	"os"
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 	"strings"
+)
+
+var (
+	Md5Fingers      map[string]string = make(map[string]string)
+	Mmh3Fingers     map[string]string = make(map[string]string)
+	ExtractRegexps                    = make(parsers.Extractors)
+	Extractors                        = make(parsers.Extractors)
+	Fingers         fingers.Fingers
+	ActivePath      []string
+	FingerPrintHubs []FingerPrintHub
 )
 
 func LoadTemplates() error {
@@ -84,6 +96,43 @@ func LoadTemplates() error {
 			}
 		}
 	}
+	return nil
+}
+
+func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
+	var extracts []*parsers.Extractor
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal(content, &extracts)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, extract := range extracts {
+		extract.Compile()
+	}
+
+	return extracts, nil
+}
+
+func LoadFingerPrintHub() error {
+	content := LoadConfig("fingerprinthub")
+	err := json.Unmarshal(content, &FingerPrintHubs)
+	if err != nil {
+		return err
+	}
+	for _, f := range FingerPrintHubs {
+		if f.Path != "/" {
+			ActivePath = append(ActivePath, f.Path)
+		}
+		for _, ico := range f.FaviconHash {
+			Md5Fingers[ico] = f.Name
+		}
+	}
+
 	return nil
 }
 

@@ -235,6 +235,11 @@ Loop:
 				continue
 			}
 			pool.Statistor.End++
+			if w == "" {
+				pool.Statistor.Skipped++
+				continue
+			}
+
 			pool.wordOffset++
 			if pool.wordOffset < offset {
 				continue
