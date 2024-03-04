@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var ver = "v0.9.3"
+var ver = "v0.9.5"
 
 func Spray() {
 	var option internal.Option
