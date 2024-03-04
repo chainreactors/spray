@@ -26,8 +26,9 @@ const (
 )
 
 func NewClient(config *ClientConfig) *Client {
+	var client *Client
 	if config.Type == FAST {
-		return &Client{
+		client = &Client{
 			fastClient: &fasthttp.Client{
 				TLSConfig: &tls.Config{
 					Renegotiation:      tls.RenegotiateOnceAsClient,
@@ -48,7 +49,7 @@ func NewClient(config *ClientConfig) *Client {
 			Config: config,
 		}
 	} else {
-		return &Client{
+		client = &Client{
 			standardClient: &http.Client{
 				Transport: &http.Transport{
 					//Proxy: Proxy,
@@ -60,9 +61,6 @@ func NewClient(config *ClientConfig) *Client {
 					MaxConnsPerHost: config.Thread * 3 / 2,
 					IdleConnTimeout: config.Timeout,
 					ReadBufferSize:  16384, // 16k
-					Proxy: func(_ *http.Request) (*url.URL, error) {
-						return url.Parse(config.ProxyAddr)
-					},
 				},
 				Timeout: config.Timeout,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -71,7 +69,13 @@ func NewClient(config *ClientConfig) *Client {
 			},
 			Config: config,
 		}
+		if config.ProxyAddr != "" {
+			client.standardClient.Transport.(*http.Transport).Proxy = func(_ *http.Request) (*url.URL, error) {
+				return url.Parse(config.ProxyAddr)
+			}
+		}
 	}
+	return client
 }
 
 type ClientConfig struct {

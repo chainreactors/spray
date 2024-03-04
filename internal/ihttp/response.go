@@ -94,11 +94,13 @@ func (r *Response) Header() []byte {
 		return r.FastResponse.Header.Header()
 	} else if r.StandardResponse != nil {
 		var header bytes.Buffer
+		header.WriteString(r.StandardResponse.Proto + " " + r.StandardResponse.Status)
 		for k, v := range r.StandardResponse.Header {
 			for _, i := range v {
 				header.WriteString(k + ": " + i + "\r\n")
 			}
 		}
+		header.WriteString("\r\n")
 		return header.Bytes()
 	} else {
 		return nil

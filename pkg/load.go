@@ -2,9 +2,8 @@ package pkg
 
 import (
 	"encoding/json"
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
+	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"os"
@@ -13,31 +12,23 @@ import (
 )
 
 var (
-	Md5Fingers      map[string]string = make(map[string]string)
-	Mmh3Fingers     map[string]string = make(map[string]string)
-	ExtractRegexps                    = make(parsers.Extractors)
-	Extractors                        = make(parsers.Extractors)
-	Fingers         fingers.Fingers
-	ActivePath      []string
-	FingerPrintHubs []FingerPrintHub
+	Md5Fingers     map[string]string = make(map[string]string)
+	Mmh3Fingers    map[string]string = make(map[string]string)
+	ExtractRegexps                   = make(parsers.Extractors)
+	Extractors                       = make(parsers.Extractors)
+
+	FingerEngine *fingers.Engine
+	ActivePath   []string
 )
 
 func LoadTemplates() error {
 	var err error
 	// load fingers
-	Fingers, err = fingers.LoadFingers(LoadConfig("http"))
+	FingerEngine, err = fingers.NewEngine()
 	if err != nil {
 		return err
 	}
-
-	for _, finger := range Fingers {
-		err := finger.Compile(utils.ParsePorts)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, f := range Fingers {
+	for _, f := range FingerEngine.FingersEngine.Fingers {
 		for _, rule := range f.Rules {
 			if rule.SendDataStr != "" {
 				ActivePath = append(ActivePath, rule.SendDataStr)
@@ -50,6 +41,14 @@ func LoadTemplates() error {
 					Md5Fingers[md5] = f.Name
 				}
 			}
+		}
+	}
+	for _, f := range FingerEngine.FingerPrintEngine {
+		if f.Path != "/" {
+			ActivePath = append(ActivePath, f.Path)
+		}
+		for _, ico := range f.FaviconHash {
+			Md5Fingers[ico] = f.Name
 		}
 	}
 
@@ -118,21 +117,12 @@ func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
 	return extracts, nil
 }
 
-func LoadFingerPrintHub() error {
-	content := LoadConfig("fingerprinthub")
-	err := json.Unmarshal(content, &FingerPrintHubs)
+func Load() error {
+	// load fingers
+	err := LoadTemplates()
 	if err != nil {
 		return err
 	}
-	for _, f := range FingerPrintHubs {
-		if f.Path != "/" {
-			ActivePath = append(ActivePath, f.Path)
-		}
-		for _, ico := range f.FaviconHash {
-			Md5Fingers[ico] = f.Name
-		}
-	}
-
 	return nil
 }
 

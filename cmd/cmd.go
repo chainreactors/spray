@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var ver = "v0.9.3"
+var ver = "v0.9.5"
 
 func Spray() {
 	var option internal.Option
@@ -82,12 +82,7 @@ func Spray() {
 		return
 	}
 
-	// load fingers
-	err = pkg.LoadTemplates()
-	if err != nil {
-		iutils.Fatal(err.Error())
-	}
-	err = pkg.LoadFingerPrintHub()
+	err = pkg.Load()
 	if err != nil {
 		iutils.Fatal(err.Error())
 	}

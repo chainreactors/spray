@@ -1,11 +1,14 @@
 package pkg
 
 import (
+	"bufio"
+	"bytes"
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/utils/iutils"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -25,7 +28,7 @@ var (
 	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
 
 	// plugins
-	EnableFingerPrintHub = false
+	EnableAllFingerEngine = false
 )
 var (
 	Rules map[string]string = make(map[string]string)
@@ -375,4 +378,16 @@ func MatchWithGlobs(u string, globs []string) bool {
 		}
 	}
 	return false
+}
+
+func ParseRawResponse(raw []byte) (*http.Response, error) {
+	reader := bytes.NewReader(raw)
+
+	// 使用http.ReadResponse解析HTTP响应
+	resp, err := http.ReadResponse(bufio.NewReader(reader), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return resp, nil
 }
