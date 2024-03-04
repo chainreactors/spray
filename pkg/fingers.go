@@ -2,19 +2,22 @@ package pkg
 
 import (
 	"bytes"
-	"github.com/chainreactors/gogo/v2/pkg/fingers"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/fingers/common"
+	"net/http"
 )
 
 // gogo fingers engine
-func FingerDetect(content []byte) parsers.Frameworks {
-	frames := make(parsers.Frameworks)
-	for _, finger := range Fingers {
-		// sender置空, 所有的发包交给spray的pool
-		frame, _, ok := fingers.FingerMatcher(finger, map[string]interface{}{"content": bytes.ToLower(content)}, 0, nil)
-		if ok {
-			frames.Add(frame)
-		}
-	}
+func FingersDetect(content []byte) common.Frameworks {
+	frames, _ := FingerEngine.FingersEngine.Match(bytes.ToLower(content), "")
+	return frames
+}
+
+func FingerPrintHubDetect(header http.Header, body string) common.Frameworks {
+	frames := FingerEngine.FingerPrintEngine.Match(header, body)
+	return frames
+}
+
+func WappalyzerDetect(header http.Header, body []byte) common.Frameworks {
+	frames := FingerEngine.WappalyzerEngine.Fingerprint(header, body)
 	return frames
 }

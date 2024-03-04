@@ -2,21 +2,24 @@ package pkg
 
 import (
 	"bytes"
+	"github.com/chainreactors/fingers/common"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/utils/encode"
 	"github.com/chainreactors/utils/iutils"
+	"net/http"
 	"net/url"
 	"strings"
 )
 
 func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
+	var err error
 	bl := &Baseline{
 		SprayResult: &parsers.SprayResult{
 			UrlString:  u,
 			Status:     resp.StatusCode(),
 			IsValid:    true,
-			Frameworks: make(parsers.Frameworks),
+			Frameworks: make(common.Frameworks),
 		},
 	}
 
@@ -46,10 +49,12 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	}
 
 	bl.Raw = append(bl.Header, bl.Body...)
-	if r := resp.GetHeader("Location"); r != "" {
+	bl.Response, err = ParseRawResponse(bl.Raw)
+
+	if r := bl.Response.Header.Get("Location"); r != "" {
 		bl.RedirectURL = r
 	} else {
-		bl.RedirectURL = resp.GetHeader("location")
+		bl.RedirectURL = bl.Response.Header.Get("location")
 	}
 
 	bl.Dir = bl.IsDir()
@@ -102,17 +107,18 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 type Baseline struct {
 	*parsers.SprayResult
-	Url       *url.URL `json:"-"`
-	Dir       bool     `json:"-"`
-	Chunked   bool     `json:"-"`
-	Body      BS       `json:"-"`
-	Header    BS       `json:"-"`
-	Raw       BS       `json:"-"`
-	Recu      bool     `json:"-"`
-	RecuDepth int      `json:"-"`
-	URLs      []string `json:"-"`
-	Collected bool     `json:"-"`
-	Retry     int      `json:"-"`
+	Url       *url.URL       `json:"-"`
+	Dir       bool           `json:"-"`
+	Chunked   bool           `json:"-"`
+	Body      BS             `json:"-"`
+	Header    BS             `json:"-"`
+	Raw       BS             `json:"-"`
+	Response  *http.Response `json:"-"`
+	Recu      bool           `json:"-"`
+	RecuDepth int            `json:"-"`
+	URLs      []string       `json:"-"`
+	Collected bool           `json:"-"`
+	Retry     int            `json:"-"`
 }
 
 func (bl *Baseline) IsDir() bool {
@@ -126,9 +132,10 @@ func (bl *Baseline) IsDir() bool {
 func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
-		bl.Frameworks = FingerDetect(bl.Raw)
-		if EnableFingerPrintHub {
-			bl.Frameworks.Merge(FingerPrintHubDetect(string(bl.Header), string(bl.Body)))
+		bl.Frameworks = FingersDetect(bl.Raw)
+		if EnableAllFingerEngine {
+			bl.Frameworks.Merge(FingerPrintHubDetect(bl.Response.Header, string(bl.Body)))
+			bl.Frameworks.Merge(WappalyzerDetect(bl.Response.Header, bl.Body))
 		}
 	}
 
@@ -137,9 +144,9 @@ func (bl *Baseline) Collect() {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
 			if name, ok := Md5Fingers[encode.Md5Hash(bl.Body)]; ok {
-				bl.Frameworks[name] = &parsers.Framework{Name: name}
+				bl.Frameworks[name] = &common.Framework{Name: name}
 			} else if name, ok := Mmh3Fingers[encode.Mmh3Hash32(bl.Body)]; ok {
-				bl.Frameworks[name] = &parsers.Framework{Name: name}
+				bl.Frameworks[name] = &common.Framework{Name: name}
 			}
 		}
 	}

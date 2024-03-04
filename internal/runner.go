@@ -446,8 +446,6 @@ func (r *Runner) OutputHandler() {
 				}
 				if r.Fuzzy {
 					fuzzySaveFunc(bl)
-					//} else {
-					//	debugPrint(bl)
 				}
 				r.outwg.Done()
 			}

@@ -250,7 +250,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Finger = true
 		r.Bak = true
 		r.Common = true
-		pkg.EnableFingerPrintHub = true
+		pkg.EnableAllFingerEngine = true
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	} else if opt.FileBak {
@@ -263,7 +263,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 	if r.Finger {
 		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
-		pkg.EnableFingerPrintHub = true
+		pkg.EnableAllFingerEngine = true
 		s.WriteString("active fingerprint enable; ")
 	}
 	if r.Bak {
