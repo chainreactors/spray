@@ -82,12 +82,7 @@ func Spray() {
 		return
 	}
 
-	// load fingers
-	err = pkg.LoadTemplates()
-	if err != nil {
-		iutils.Fatal(err.Error())
-	}
-	err = pkg.LoadFingerPrintHub()
+	err = pkg.Load()
 	if err != nil {
 		iutils.Fatal(err.Error())
 	}

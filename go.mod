@@ -1,16 +1,16 @@
 module github.com/chainreactors/spray
 
-go 1.21
+go 1.21.3
 
 require github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 
 require (
 	github.com/antonmedv/expr v1.12.5
 	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
-	github.com/chainreactors/gogo/v2 v2.11.12-0.20231228061950-116583962e30
+	github.com/chainreactors/fingers v0.0.0-20240304115656-fa8ca9fc375f
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
-	github.com/chainreactors/parsers v0.0.0-20240220101211-fc5d6e07ba81
-	github.com/chainreactors/utils v0.0.0-20231031063336-9477f1b23886
+	github.com/chainreactors/parsers v0.0.0-20240304115854-f71473f7b510
+	github.com/chainreactors/utils v0.0.0-20240302165634-2b8494c9cfc3
 	github.com/chainreactors/words v0.4.1-0.20240220104223-153f52e53f37
 	github.com/goccy/go-yaml v1.11.2
 	github.com/gookit/config/v2 v2.2.5
@@ -18,7 +18,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.7.0
 	github.com/valyala/fasthttp v1.43.0
-	golang.org/x/net v0.20.0
+	golang.org/x/net v0.21.0
 	golang.org/x/time v0.3.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -41,10 +41,9 @@ require (
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
-	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/term v0.16.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/term v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )
