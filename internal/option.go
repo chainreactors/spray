@@ -15,7 +15,7 @@ import (
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
-	"github.com/gosuri/uiprogress"
+	"github.com/vbauerster/mpb/v8"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -152,7 +153,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	r := &Runner{
-		Progress:        uiprogress.New(),
+		Progress:        mpb.New(mpb.WithRefreshRate(100 * time.Millisecond)),
 		Threads:         opt.Threads,
 		PoolSize:        opt.PoolSize,
 		Mod:             opt.Mod,
@@ -195,8 +196,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Color = false
 	}
 	if !(opt.Quiet || opt.NoBar) {
-		r.Progress.Start()
-		logs.Log.SetOutput(r.Progress.Bypass())
+		logs.Log.SetOutput(r.Progress)
 	}
 
 	// configuration

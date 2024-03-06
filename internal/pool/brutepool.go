@@ -237,7 +237,7 @@ Loop:
 			pool.Statistor.End++
 			if w == "" {
 				pool.Statistor.Skipped++
-				continue
+				pool.Bar.Done()
 			}
 
 			pool.wordOffset++

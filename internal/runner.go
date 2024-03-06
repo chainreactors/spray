@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
@@ -11,8 +10,9 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
-	"github.com/gosuri/uiprogress"
 	"github.com/panjf2000/ants/v2"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 	"sync"
 	"time"
 )
@@ -33,7 +33,7 @@ type Runner struct {
 	outwg    *sync.WaitGroup
 	outputCh chan *pkg.Baseline
 	fuzzyCh  chan *pkg.Baseline
-	bar      *uiprogress.Bar
+	bar      *mpb.Bar
 	finished int
 
 	Tasks           chan *Task
@@ -61,7 +61,7 @@ type Runner struct {
 	FuzzyFile       *files.File
 	DumpFile        *files.File
 	StatFile        *files.File
-	Progress        *uiprogress.Progress
+	Progress        *mpb.Progress
 	Offset          int
 	Limit           int
 	RateLimit       int
@@ -157,7 +157,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}()
 			pool.Worder = words.NewWorderWithChan(ch)
 			pool.Worder.Fns = r.Fns
-			pool.Bar = pkg.NewBar("check", r.Count-r.Offset, r.Progress)
+			pool.Bar = pkg.NewBar("check", r.Count-r.Offset, pool.Statistor, r.Progress)
 			pool.Run(ctx, r.Offset, r.Count)
 			r.poolwg.Done()
 		})
@@ -171,12 +171,21 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		}()
 
 		if r.Count > 0 {
-			r.bar = r.Progress.AddBar(r.Count)
-			r.bar.PrependCompleted()
-			r.bar.PrependFunc(func(b *uiprogress.Bar) string {
-				return fmt.Sprintf("total progressive: %d/%d ", r.finished, r.Count)
-			})
-			r.bar.AppendElapsed()
+			prompt := "total progressive:"
+			r.bar = r.Progress.AddBar(int64(r.Count),
+				mpb.BarFillerClearOnComplete(), // 可选：当进度条完成时清除
+				mpb.PrependDecorators(
+					// 显示自定义的信息，比如下载速度和进度
+					decor.Name(prompt, decor.WC{W: len(prompt) + 1, C: decor.DindentRight}), // 这里调整了装饰器的参数
+					decor.OnComplete( // 当进度完成时显示的文本
+						decor.Counters(0, "% d/% d"), " done!",
+					),
+				),
+				mpb.AppendDecorators(
+					// 显示经过的时间
+					decor.Elapsed(decor.ET_STYLE_GO, decor.WC{W: 4}),
+				),
+			)
 		}
 
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
@@ -219,7 +228,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			} else {
 				limit = pool.Statistor.Total
 			}
-			pool.Bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, r.Progress)
+			pool.Bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, pool.Statistor, r.Progress)
 			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", pool.BaseURL, limit-pool.Statistor.Offset, pool.Thread, pool.ProxyAddr)
 			err = pool.Init()
 			if err != nil {
@@ -331,7 +340,7 @@ Loop:
 }
 
 func (r *Runner) Done() {
-	r.bar.Incr()
+	r.bar.Increment()
 	r.finished++
 	r.poolwg.Done()
 }
