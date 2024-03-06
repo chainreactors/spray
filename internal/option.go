@@ -32,8 +32,8 @@ var (
 )
 
 type Option struct {
-	InputOptions    `group:"Input Options" config:"input" default:""`
-	FunctionOptions `group:"Function Options" config:"functions" default:""`
+	InputOptions    `group:"Input Options" config:"input" `
+	FunctionOptions `group:"Function Options" config:"functions" `
 	OutputOptions   `group:"Output Options" config:"output"`
 	PluginOptions   `group:"Plugin Options" config:"plugins"`
 	RequestOptions  `group:"Request Options" config:"request"`
@@ -43,14 +43,14 @@ type Option struct {
 
 type InputOptions struct {
 	ResumeFrom string   `long:"resume" description:"File, resume filename" `
-	Config     string   `short:"c" long:"config" description:"File, config filename"`
+	Config     string   `short:"c" long:"config" default:"config.yaml" description:"File, config filename"`
 	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
 	PortRange  string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
 	CIDRs      string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	//Raw          string   `long:"raw" description:"File, input raw request filename"`
-	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
+	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
 	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
@@ -132,19 +132,20 @@ type ModeOptions struct {
 }
 
 type MiscOptions struct {
-	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
-	Client   string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
-	Deadline int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
-	Timeout  int    `long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
-	PoolSize int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
-	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
-	Debug    bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
-	Version  bool   `long:"version" description:"Bool, show version"`
-	Verbose  []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
-	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
-	NoColor  bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
-	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
-	Proxy    string `long:"proxy" default:"" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
+	Mod        string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
+	Client     string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
+	Deadline   int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Timeout    int    `long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
+	PoolSize   int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
+	Threads    int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
+	Debug      bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
+	Version    bool   `long:"version" description:"Bool, show version"`
+	Verbose    []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
+	Quiet      bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
+	NoColor    bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
+	NoBar      bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
+	Proxy      string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
+	InitConfig bool   `long:"init" description:"Bool, init config file"`
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
@@ -308,7 +309,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
-	if len(opt.Dictionaries) == 0 && !opt.NoDict {
+	if len(opt.Dictionaries) == 0 && opt.Word == "" && !opt.NoDict {
 		dicts = append(dicts, pkg.LoadDefaultDict())
 		logs.Log.Warn("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
 	} else {

@@ -2,10 +2,10 @@ package internal
 
 import (
 	"fmt"
-	"github.com/goccy/go-yaml"
 	"github.com/gookit/config/v2"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 //var (
@@ -101,14 +101,14 @@ func setFieldValue(field reflect.Value) interface{} {
 	}
 }
 
-// extractConfigAndDefaults 提取带有 `config` 和 `default` 标签的字段
-func extractConfigAndDefaults(v reflect.Value, result map[string]interface{}) {
+func extractConfigAndDefaults(v reflect.Value, result map[string]interface{}, comments map[string]string) {
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		fieldType := t.Field(i)
 		configTag := fieldType.Tag.Get("config")
 		defaultTag := fieldType.Tag.Get("default")
+		descriptionTag := fieldType.Tag.Get("description") // 读取description标签
 
 		if configTag != "" {
 			var value interface{}
@@ -117,30 +117,86 @@ func extractConfigAndDefaults(v reflect.Value, result map[string]interface{}) {
 			} else {
 				value = setFieldValue(field)
 			}
+			fullPath := configTag // 在递归情况下，您可能需要构建完整的路径
 			if field.Kind() == reflect.Struct {
 				nestedResult := make(map[string]interface{})
-				extractConfigAndDefaults(field, nestedResult)
+				nestedComments := make(map[string]string)
+				extractConfigAndDefaults(field, nestedResult, nestedComments)
 				result[configTag] = nestedResult
+				for k, v := range nestedComments {
+					comments[fullPath+"."+k] = v // 保留嵌套注释的路径
+				}
 			} else {
 				result[configTag] = value
+				if descriptionTag != "" {
+					comments[fullPath] = descriptionTag
+				}
 			}
 		}
 	}
 }
 
-func initDefaultConfig(cfg interface{}) (string, error) {
+func InitDefaultConfig(cfg interface{}, indentLevel int) string {
+	var yamlStr strings.Builder
 	v := reflect.ValueOf(cfg)
-	if v.Kind() != reflect.Struct {
-		return "", fmt.Errorf("expected a struct, got %s", v.Kind())
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem() // 解引用指针
+	}
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+		configTag := fieldType.Tag.Get("config")
+		if configTag == "" {
+			continue // 忽略没有config标签的字段
+		}
+
+		defaultTag := fieldType.Tag.Get("default")
+		descriptionTag := fieldType.Tag.Get("description")
+
+		// 添加注释
+		if descriptionTag != "" {
+			yamlStr.WriteString(fmt.Sprintf("%s# %s\n", strings.Repeat(" ", indentLevel*2), descriptionTag))
+		}
+
+		// 准备值
+		valueStr := prepareValue(fieldType.Type.Kind(), defaultTag)
+
+		// 根据字段类型进行处理
+		switch field.Kind() {
+		case reflect.Struct:
+			// 对于嵌套结构体，递归生成YAML
+			yamlStr.WriteString(fmt.Sprintf("%s%s:\n%s", strings.Repeat(" ", indentLevel*2), configTag, InitDefaultConfig(field.Interface(), indentLevel+1)))
+		default:
+			// 直接生成键值对
+			yamlStr.WriteString(fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", indentLevel*2), configTag, valueStr))
+		}
 	}
 
-	result := make(map[string]interface{})
-	extractConfigAndDefaults(v, result)
+	return yamlStr.String()
+}
 
-	yamlData, err := yaml.Marshal(result)
-	if err != nil {
-		return "", err
+// prepareValue 根据字段类型和default标签的值，准备最终的值字符串
+func prepareValue(kind reflect.Kind, defaultVal string) string {
+	if defaultVal != "" {
+		return defaultVal
 	}
-
-	return string(yamlData), nil
+	// 根据类型返回默认空值
+	switch kind {
+	case reflect.Bool:
+		return "false"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return "0"
+	case reflect.Float32, reflect.Float64:
+		return "0.0"
+	case reflect.Slice, reflect.Array:
+		return "[]"
+	case reflect.String:
+		return `""`
+	case reflect.Struct, reflect.Map:
+		return "{}"
+	default:
+		return `""`
+	}
 }

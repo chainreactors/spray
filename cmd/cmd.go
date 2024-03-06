@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
@@ -63,12 +64,24 @@ func Spray() {
 		logs.Important: logs.GreenBold,
 		pkg.LogVerbose: logs.Green,
 	})
-
-	if option.Config != "" {
-		err := internal.LoadConfig(option.Config, &option)
+	if option.InitConfig {
+		configStr := internal.InitDefaultConfig(&option, 0)
+		err := os.WriteFile("config.yaml", []byte(configStr), 0o744)
 		if err != nil {
-			logs.Log.Error(err.Error())
+			logs.Log.Warn("cannot create config: config.yaml, " + err.Error())
 			return
+		}
+		return
+	}
+	if option.Config != "" {
+		if !files.IsExist(option.Config) {
+			logs.Log.Warnf("config file %s not found", option.Config)
+		} else {
+			err := internal.LoadConfig(option.Config, &option)
+			if err != nil {
+				logs.Log.Error(err.Error())
+				return
+			}
 		}
 	}
 
