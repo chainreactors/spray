@@ -35,7 +35,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	copy(bl.Header, header)
 	bl.HeaderLength = len(bl.Header)
 
-	if i := resp.ContentLength(); i != 0 && i <= ihttp.DefaultMaxBodySize {
+	if i := resp.ContentLength(); ihttp.CheckBodySize(i) {
 		body := resp.Body()
 		bl.Body = make([]byte, len(body))
 		copy(bl.Body, body)
@@ -44,7 +44,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 			bl.Chunked = true
 			bl.BodyLength = len(bl.Body)
 		} else {
-			bl.BodyLength = i
+			bl.BodyLength = int(i)
 		}
 	}
 
@@ -86,7 +86,7 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 	// 无效数据也要读取body, 否则keep-alive不生效
 	resp.Body()
-	bl.BodyLength = resp.ContentLength()
+	bl.BodyLength = int(resp.ContentLength())
 	bl.RedirectURL = string(resp.GetHeader("Location"))
 
 	bl.Dir = bl.IsDir()

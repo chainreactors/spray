@@ -356,7 +356,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.doRedirect(bl, unit.depth)
 	}
 
-	if ihttp.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp.DefaultMaxBodySize {
+	if !ihttp.CheckBodySize(int64(bl.BodyLength)) {
 		bl.ExceedLength = true
 	}
 	bl.Source = unit.source

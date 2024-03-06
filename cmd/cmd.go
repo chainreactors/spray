@@ -89,7 +89,12 @@ func Spray() {
 
 	// 初始化全局变量
 	pkg.Distance = uint8(option.SimhashDistance)
-	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
+	if option.MaxBodyLength == -1 {
+		ihttp.DefaultMaxBodySize = -1
+	} else {
+		ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
+	}
+
 	pool.MaxCrawl = option.CrawlDepth
 
 	var runner *internal.Runner
@@ -103,7 +108,7 @@ func Spray() {
 		return
 	}
 	if option.ReadAll || runner.Crawl {
-		ihttp.DefaultMaxBodySize = 0
+		ihttp.DefaultMaxBodySize = -1
 	}
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)

@@ -91,7 +91,7 @@ type RequestOptions struct {
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
 	Cookie          []string `long:"cookie" description:"Strings, custom cookie" config:"cookies"`
 	ReadAll         bool     `long:"read-all" description:"Bool, read all response body" config:"read-all"`
-	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000" config:"max-body-length"`
+	MaxBodyLength   int64    `long:"max-length" default:"100" description:"Int, max response body length (kb), -1 read-all, 0 not read body, default 100k, e.g. --max-length 1000" config:"max-length"`
 }
 
 type PluginOptions struct {
