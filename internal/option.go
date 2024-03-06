@@ -48,14 +48,15 @@ type InputOptions struct {
 	PortRange  string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
 	CIDRs      string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	//Raw          string   `long:"raw" description:"File, input raw request filename"`
+	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
-	Offset       int      `long:"offset" description:"Int, wordlist offset"`
-	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
 	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
 	AppendFile   []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	Offset       int      `long:"offset" description:"Int, wordlist offset"`
+	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
 
 type FunctionOptions struct {
@@ -307,7 +308,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
-	if len(opt.Dictionaries) == 0 {
+	if len(opt.Dictionaries) == 0 && !opt.NoDict {
 		dicts = append(dicts, pkg.LoadDefaultDict())
 		logs.Log.Warn("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
 	} else {
