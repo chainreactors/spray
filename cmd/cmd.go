@@ -17,13 +17,22 @@ import (
 	"time"
 )
 
-var ver = "v0.9.5"
+var ver = "v0.9.6"
 var DefaultConfig = "config.yaml"
+
+func init() {
+	logs.Log.SetColorMap(map[logs.Level]func(string) string{
+		logs.Info:      logs.PurpleBold,
+		logs.Important: logs.GreenBold,
+		pkg.LogVerbose: logs.Green,
+	})
+}
 
 func Spray() {
 	var option internal.Option
 
 	if files.IsExist(DefaultConfig) {
+		logs.Log.Warnf("config.yaml exist, loading")
 		err := internal.LoadConfig(DefaultConfig, &option)
 		if err != nil {
 			logs.Log.Error(err.Error())
@@ -68,19 +77,17 @@ func Spray() {
 	} else if len(option.Verbose) > 0 {
 		logs.Log.SetLevel(pkg.LogVerbose)
 	}
-
-	logs.Log.SetColorMap(map[logs.Level]func(string) string{
-		logs.Info:      logs.PurpleBold,
-		logs.Important: logs.GreenBold,
-		pkg.LogVerbose: logs.Green,
-	})
 	if option.InitConfig {
 		configStr := internal.InitDefaultConfig(&option, 0)
-		err := os.WriteFile("config.yaml", []byte(configStr), 0o744)
+		err := os.WriteFile(DefaultConfig, []byte(configStr), 0o744)
 		if err != nil {
 			logs.Log.Warn("cannot create config: config.yaml, " + err.Error())
 			return
 		}
+		if files.IsExist(DefaultConfig) {
+			logs.Log.Warn("override default config: ./config.yaml")
+		}
+		logs.Log.Info("init default config: ./config.yaml")
 		return
 	}
 	if option.Config != "" {
@@ -88,6 +95,11 @@ func Spray() {
 		if err != nil {
 			logs.Log.Error(err.Error())
 			return
+		}
+		if files.IsExist(DefaultConfig) {
+			logs.Log.Warnf("custom config %s, override default config", option.Config)
+		} else {
+			logs.Log.Important("load config: " + option.Config)
 		}
 	}
 
