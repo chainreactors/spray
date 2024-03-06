@@ -16,8 +16,18 @@ import (
 )
 
 var (
-	DefaultMaxBodySize = 1024 * 100 // 100k
+	DefaultMaxBodySize int64 = 1024 * 100 // 100k
 )
+
+func CheckBodySize(size int64) bool {
+	if DefaultMaxBodySize == -1 {
+		return true
+	}
+	if DefaultMaxBodySize == 0 {
+		return false
+	}
+	return size < DefaultMaxBodySize
+}
 
 const (
 	Auto = iota
@@ -41,7 +51,7 @@ func NewClient(config *ClientConfig) *Client {
 				//ReadTimeout:                   time.Duration(timeout) * time.Second,
 				//WriteTimeout:                  time.Duration(timeout) * time.Second,
 				ReadBufferSize:                16384, // 16k
-				MaxResponseBodySize:           DefaultMaxBodySize,
+				MaxResponseBodySize:           int(DefaultMaxBodySize),
 				NoDefaultUserAgentHeader:      true,
 				DisablePathNormalizing:        true,
 				DisableHeaderNamesNormalizing: true,
