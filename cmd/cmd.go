@@ -18,9 +18,19 @@ import (
 )
 
 var ver = "v0.9.5"
+var DefaultConfig = "config.yaml"
 
 func Spray() {
 	var option internal.Option
+
+	if files.IsExist(DefaultConfig) {
+		err := internal.LoadConfig(DefaultConfig, &option)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
+		}
+	}
+
 	parser := flags.NewParser(&option, flags.Default)
 	parser.Usage = `
 
@@ -74,14 +84,10 @@ func Spray() {
 		return
 	}
 	if option.Config != "" {
-		if !files.IsExist(option.Config) {
-			logs.Log.Warnf("config file %s not found", option.Config)
-		} else {
-			err := internal.LoadConfig(option.Config, &option)
-			if err != nil {
-				logs.Log.Error(err.Error())
-				return
-			}
+		err := internal.LoadConfig(option.Config, &option)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
 		}
 	}
 

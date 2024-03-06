@@ -43,7 +43,7 @@ type Option struct {
 
 type InputOptions struct {
 	ResumeFrom string   `long:"resume" description:"File, resume filename" `
-	Config     string   `short:"c" long:"config" default:"config.yaml" description:"File, config filename"`
+	Config     string   `short:"c" long:"config" description:"File, config filename"`
 	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
 	PortRange  string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
@@ -85,6 +85,9 @@ type OutputOptions struct {
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json" config:"format"`
 	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output_probe"`
+	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
+	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
+	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
 }
 
 type RequestOptions struct {
@@ -141,9 +144,6 @@ type MiscOptions struct {
 	Debug      bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
 	Version    bool   `long:"version" description:"Bool, show version"`
 	Verbose    []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
-	Quiet      bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
-	NoColor    bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
-	NoBar      bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
 	Proxy      string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
 	InitConfig bool   `long:"init" description:"Bool, init config file"`
 }
@@ -154,7 +154,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	r := &Runner{
-		Progress:        mpb.New(mpb.WithRefreshRate(100 * time.Millisecond)),
 		Threads:         opt.Threads,
 		PoolSize:        opt.PoolSize,
 		Mod:             opt.Mod,
@@ -197,6 +196,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Color = false
 	}
 	if !(opt.Quiet || opt.NoBar) {
+		r.Progress = mpb.New(mpb.WithRefreshRate(100 * time.Millisecond))
 		logs.Log.SetOutput(r.Progress)
 	}
 
@@ -334,11 +334,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.Word += "}"
 	}
 
-	if opt.Suffixes != nil {
+	if len(opt.Suffixes) != 0 {
 		mask.SpecialWords["suffix"] = opt.Suffixes
 		opt.Word += "{@suffix}"
 	}
-	if opt.Prefixes != nil {
+	if len(opt.Prefixes) != 0 {
 		mask.SpecialWords["prefix"] = opt.Prefixes
 		opt.Word = "{@prefix}" + opt.Word
 	}
@@ -362,7 +362,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Logf(pkg.LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
 	}
 
-	if opt.Rules != nil {
+	if len(opt.Rules) != 0 {
 		rules, err := loadRuleAndCombine(opt.Rules)
 		if err != nil {
 			return nil, err
@@ -391,7 +391,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Total:        r.Total,
 	}
 
-	if opt.AppendRule != nil {
+	if len(opt.AppendRule) != 0 {
 		content, err := loadRuleAndCombine(opt.AppendRule)
 		if err != nil {
 			return nil, err
@@ -399,7 +399,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.AppendRules = rule.Compile(string(content), "")
 	}
 
-	if opt.AppendFile != nil {
+	if len(opt.AppendFile) != 0 {
 		var bs bytes.Buffer
 		for _, f := range opt.AppendFile {
 			content, err := ioutil.ReadFile(f)
