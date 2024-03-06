@@ -14,10 +14,10 @@ require (
 	github.com/chainreactors/words v0.4.1-0.20240220104223-153f52e53f37
 	github.com/goccy/go-yaml v1.11.2
 	github.com/gookit/config/v2 v2.2.5
-	github.com/gosuri/uiprogress v0.0.1
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.7.0
 	github.com/valyala/fasthttp v1.43.0
+	github.com/vbauerster/mpb/v8 v8.7.2
 	golang.org/x/net v0.21.0
 	golang.org/x/time v0.3.0
 	sigs.k8s.io/yaml v1.4.0
@@ -25,6 +25,8 @@ require (
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
+	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-dedup/megophone v0.0.0-20170830025436-f01be21026f5 // indirect
@@ -33,11 +35,12 @@ require (
 	github.com/go-playground/validator/v10 v10.14.1 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gookit/goutil v0.6.15 // indirect
-	github.com/gosuri/uilive v0.0.4 // indirect
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
