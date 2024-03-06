@@ -171,21 +171,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		}()
 
 		if r.Count > 0 {
-			prompt := "total progressive:"
-			r.bar = r.Progress.AddBar(int64(r.Count),
-				mpb.BarFillerClearOnComplete(), // 可选：当进度条完成时清除
-				mpb.PrependDecorators(
-					// 显示自定义的信息，比如下载速度和进度
-					decor.Name(prompt, decor.WC{W: len(prompt) + 1, C: decor.DindentRight}), // 这里调整了装饰器的参数
-					decor.OnComplete( // 当进度完成时显示的文本
-						decor.Counters(0, "% d/% d"), " done!",
-					),
-				),
-				mpb.AppendDecorators(
-					// 显示经过的时间
-					decor.Elapsed(decor.ET_STYLE_GO, decor.WC{W: 4}),
-				),
-			)
+			r.addBar(r.Count)
 		}
 
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
@@ -339,8 +325,32 @@ Loop:
 	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
 }
 
+func (r *Runner) addBar(total int) {
+	if r.Progress == nil {
+		return
+	}
+
+	prompt := "total progressive:"
+	r.bar = r.Progress.AddBar(int64(total),
+		mpb.BarFillerClearOnComplete(), // 可选：当进度条完成时清除
+		mpb.PrependDecorators(
+			// 显示自定义的信息，比如下载速度和进度
+			decor.Name(prompt, decor.WC{W: len(prompt) + 1, C: decor.DindentRight}), // 这里调整了装饰器的参数
+			decor.OnComplete( // 当进度完成时显示的文本
+				decor.Counters(0, "% d/% d"), " done!",
+			),
+		),
+		mpb.AppendDecorators(
+			// 显示经过的时间
+			decor.Elapsed(decor.ET_STYLE_GO, decor.WC{W: 4}),
+		),
+	)
+}
+
 func (r *Runner) Done() {
-	r.bar.Increment()
+	if r.bar != nil {
+		r.bar.Increment()
+	}
 	r.finished++
 	r.poolwg.Done()
 }

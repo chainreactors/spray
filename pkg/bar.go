@@ -1,26 +1,31 @@
 package pkg
 
 import (
-	"github.com/chainreactors/go-metrics"
+	"fmt"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"time"
 )
 
 func NewBar(u string, total int, stat *Statistor, p *mpb.Progress) *Bar {
-	m := metrics.NewMeter()
-	metrics.Register(u, m)
-
-	// 在mpb v8中，Name装饰器的使用方式略有不同
+	if p == nil {
+		return &Bar{
+			url: u,
+		}
+	}
 	bar := p.AddBar(int64(total),
 		mpb.BarFillerClearOnComplete(),
 		mpb.BarRemoveOnComplete(),
 		mpb.PrependDecorators(
-			// 显示自定义的信息，比如下载速度和进度
 			decor.Name(u, decor.WC{W: len(u) + 1, C: decor.DindentRight}), // 这里调整了装饰器的参数
-			decor.Counters(0, "% d/% d"),
+			decor.NewAverageSpeed(0, "% .0f/s ", time.Now()),
+			decor.Counters(0, "%d/%d"),
+			decor.Any(func(s decor.Statistics) string {
+				return fmt.Sprintf(" found: %d", stat.FoundNumber)
+			}),
 		),
 		mpb.AppendDecorators(
-			// 显示经过的时间
+			decor.Percentage(),
 			decor.Elapsed(decor.ET_STYLE_GO, decor.WC{W: 4}),
 		),
 	)
@@ -28,23 +33,29 @@ func NewBar(u string, total int, stat *Statistor, p *mpb.Progress) *Bar {
 	return &Bar{
 		url: u,
 		bar: bar,
-		m:   m,
+		//m:   m,
 	}
 }
 
 type Bar struct {
 	url string
 	bar *mpb.Bar
-	m   metrics.Meter
+	//m   metrics.Meter
 }
 
 func (bar *Bar) Done() {
-	bar.m.Mark(1)
+	//bar.m.Mark(1)
+	if bar.bar == nil {
+		return
+	}
 	bar.bar.Increment()
 }
 
 func (bar *Bar) Close() {
 	//metrics.Unregister(bar.url)
 	// 标记进度条为完成状态
-	//bar.bar.Abort(false)
+	if bar.bar == nil {
+		return
+	}
+	bar.bar.Abort(false)
 }

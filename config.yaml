@@ -2,7 +2,7 @@ input:
   # Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt
   dictionaries: []
   # Bool, no dictionary
-  no-dict: true
+  no-dict: false
   # String, word generate dsl, e.g.: -w test{?ld#4}
   word: ""
   # Files, rule files, e.g.: -r rule1.txt -r rule2.txt
@@ -55,6 +55,12 @@ output:
   format: ""
   # String, output format
   output_probe: ""
+  # Bool, Quiet
+  quiet: false
+  # Bool, no color
+  no-color: false
+  # Bool, No progress bar
+  no-bar: false
 plugins:
   # Bool, enable all plugin
   all: false
@@ -144,11 +150,5 @@ misc:
   debug: false
   # Bool, log verbose level ,default 0, level1: -v level2 -vv 
   verbose: []
-  # Bool, Quiet
-  quiet: false
-  # Bool, no color
-  no-color: false
-  # Bool, No progress bar
-  no-bar: false
   # String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080
   proxy: ""
