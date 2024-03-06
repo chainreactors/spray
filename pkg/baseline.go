@@ -188,7 +188,7 @@ func (bl *Baseline) CollectURL() {
 	}
 
 	bl.URLs = iutils.StringsUnique(bl.URLs)
-	if bl.URLs != nil {
+	if len(bl.URLs) != 0 {
 		bl.Extracteds = append(bl.Extracteds, &parsers.Extracted{
 			Name:          "crawl",
 			ExtractResult: bl.URLs,
