@@ -2,6 +2,7 @@ package pool
 
 import (
 	"context"
+	"errors"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal/ihttp"
@@ -19,9 +20,10 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &CheckPool{
 		&This{
-			Config: config,
-			ctx:    pctx,
-			Cancel: cancel,
+			Config:    config,
+			Statistor: pkg.NewStatistor(""),
+			ctx:       pctx,
+			Cancel:    cancel,
 			client: ihttp.NewClient(&ihttp.ClientConfig{
 				Thread:    config.Thread,
 				Type:      config.ClientType,
@@ -112,7 +114,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		defer fasthttp.ReleaseRequest(req.FastRequest)
 	}
 
-	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
+	if reqerr != nil && !errors.Is(reqerr, fasthttp.ErrBodyTooLarge) {
 		pool.failedCount++
 		bl = &pkg.Baseline{
 			SprayResult: &parsers.SprayResult{
@@ -156,9 +158,11 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		}
 	}
 
+	if bl.Source == parsers.CheckSource {
+		pool.Bar.Done()
+	}
 	pool.reqCount++
 	pool.wg.Done()
-	pool.Bar.Done()
 }
 
 func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
