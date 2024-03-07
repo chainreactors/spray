@@ -764,16 +764,3 @@ func (pool *BrutePool) resetFailed() {
 	pool.failedCount = 1
 	pool.FailedBaselines = nil
 }
-
-func NewBaselines() *Baselines {
-	return &Baselines{
-		baselines: map[int]*pkg.Baseline{},
-	}
-}
-
-type Baselines struct {
-	FailedBaselines []*pkg.Baseline
-	random          *pkg.Baseline
-	index           *pkg.Baseline
-	baselines       map[int]*pkg.Baseline
-}
