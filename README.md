@@ -26,27 +26,57 @@
 
 [**Document**](https://chainreactors.github.io/wiki/spray/start)
 
-基本使用, 从字典中读取目录进行爆破
+### 基本使用
+
+**从字典中读取目录进行爆破**
 
 `spray -u http://example.com -d wordlist1.txt -d wordlist2.txt`
 
-通过掩码生成字典进行爆破
+**通过掩码生成字典进行爆破**
 
 `spray -u http://example.com -w "/aaa/bbb{?l#4}/ccc"`
 
-通过规则生成字典爆破. 规则文件格式参考hashcat的字典生成规则
+**通过规则生成字典爆破**
+
+规则文件格式参考hashcat的字典生成规则
 
 `spray -u http://example.com -r rule.txt -d 1.txt`
 
-批量爆破
+**批量爆破多个目标**
 
 `spray -l url.txt -r rule.txt -d 1.txt`
 
-断点续传
+**断点续传**
 
 `spray --resume stat.json`
 
-被动url收集
+### 高级用法
+
+**check-only 模式**
+
+类似ehole/httpx这类对单页面信息收集的模式. 会有针对性的性能优化. 默认使用[templates](https://github.com/chainreactors/templates/tree/master/fingers)指纹库. 可以使用`--finger`打开第三方指纹库的匹配
+
+`spray -l url.txt --check-only`
+
+**启用拓展指纹识别**
+
+会进行主动探测常见的指纹目录, 并额外启用fingerprinthub与wappalyzer拓展指纹库
+
+`spray -u http://example.com --finger `
+
+**启用爬虫**
+
+`spray -u http://example.com --crawl`
+
+**扫描备份文件与常见通用文件**
+
+`spray -u http://example.com --bak --common`
+
+**启用所有插件**
+
+`spray -u http://example.com -a`
+
+**被动url收集**
 
 参见: https://github.com/chainreactors/urlfounder
 
