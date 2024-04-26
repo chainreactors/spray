@@ -1,6 +1,6 @@
 module github.com/chainreactors/spray
 
-go 1.21.3
+go 1.21
 
 require github.com/chainreactors/go-metrics v0.0.0-20220926021830-24787b7a10f8
 

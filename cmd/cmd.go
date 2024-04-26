@@ -32,7 +32,7 @@ func Spray() {
 	var option internal.Option
 
 	if files.IsExist(DefaultConfig) {
-		logs.Log.Warnf("config.yaml exist, loading")
+		logs.Log.Debug("config.yaml exist, loading")
 		err := internal.LoadConfig(DefaultConfig, &option)
 		if err != nil {
 			logs.Log.Error(err.Error())
