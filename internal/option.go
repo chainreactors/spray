@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -417,7 +418,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	ports := utils.ParsePort(opt.PortRange)
-
 	// prepare task
 	tasks := make(chan *Task, opt.PoolSize)
 	var taskfrom string
@@ -486,14 +486,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		} else if opt.URLFile != "" {
 			file, err = os.Open(opt.URLFile)
 			if err != nil {
-				logs.Log.Error(err.Error())
+				return nil, err
 			}
-			taskfrom = opt.URLFile
+			taskfrom = filepath.Base(opt.URLFile)
 		} else if files.HasStdin() {
 			file = os.Stdin
 			taskfrom = "stdin"
 		}
-
 		if file != nil {
 			content, err := ioutil.ReadAll(file)
 			if err != nil {
