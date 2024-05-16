@@ -28,7 +28,7 @@ func LoadTemplates() error {
 	if err != nil {
 		return err
 	}
-	for _, f := range FingerEngine.FingersEngine.Fingers {
+	for _, f := range FingerEngine.FingersEngine.HTTPFingers {
 		for _, rule := range f.Rules {
 			if rule.SendDataStr != "" {
 				ActivePath = append(ActivePath, rule.SendDataStr)

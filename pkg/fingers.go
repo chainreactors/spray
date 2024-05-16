@@ -8,7 +8,7 @@ import (
 
 // gogo fingers engine
 func FingersDetect(content []byte) common.Frameworks {
-	frames, _ := FingerEngine.FingersEngine.Match(bytes.ToLower(content), "")
+	frames, _ := FingerEngine.FingersEngine.HTTPMatch(bytes.ToLower(content), "")
 	return frames
 }
 
