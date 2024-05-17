@@ -143,7 +143,6 @@ func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
 		return nil
 	}
 	if strings.ToLower(u.Scheme) == "socks5" {
-
 		return func(addr string) (net.Conn, error) {
 			dialer, err := proxy.SOCKS5("tcp", u.Host, nil, proxy.Direct)
 			if err != nil {
@@ -165,6 +164,6 @@ func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
 			return conn, nil
 		}
 	} else {
-		return fasthttpproxy.FasthttpHTTPDialerTimeout(proxyAddr, timeout)
+		return fasthttpproxy.FasthttpHTTPDialerTimeout(u.Host, timeout)
 	}
 }
