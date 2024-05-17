@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/chainreactors/words/rule"
 	"github.com/vbauerster/mpb/v8"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -43,13 +45,13 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom string   `long:"resume" description:"File, resume filename" `
-	Config     string   `short:"c" long:"config" description:"File, config filename"`
-	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
-	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
-	PortRange  string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
-	CIDRs      string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
-	//Raw          string   `long:"raw" description:"File, input raw request filename"`
+	ResumeFrom   string   `long:"resume" description:"File, resume filename" `
+	Config       string   `short:"c" long:"config" description:"File, config filename"`
+	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
+	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
+	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
+	CIDRs        string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
 	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
@@ -92,6 +94,7 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
+	Method          string   `short:"x" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
 	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --headers 'Auth: example_auth'" config:"headers"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
@@ -162,6 +165,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		RateLimit:       opt.RateLimit,
 		Deadline:        opt.Deadline,
 		Headers:         make(map[string]string),
+		Method:          opt.Method,
 		Offset:          opt.Offset,
 		Total:           opt.Limit,
 		taskCh:          make(chan *Task),
@@ -459,6 +463,24 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 			taskfrom = "cmd"
 			r.Count = len(opt.URL)
+		} else if opt.RawFile != "" {
+			raw, err := os.Open(opt.RawFile)
+			if err != nil {
+				return nil, err
+			}
+
+			req, err := http.ReadRequest(bufio.NewReader(raw))
+			if err != nil {
+				return nil, err
+			}
+			go func() {
+				opt.GenerateTasks(tasks, fmt.Sprintf("http://%s%s", req.Host, req.URL.String()), ports)
+				close(tasks)
+			}()
+			r.Method = req.Method
+			for k, _ := range req.Header {
+				r.Headers[k] = req.Header.Get(k)
+			}
 		} else if opt.CIDRs != "" {
 			if len(ports) == 0 {
 				ports = []string{"80", "443"}
@@ -739,7 +761,7 @@ func (opt *Option) Validate() error {
 		return errors.New("--resume and --depth cannot be used at the same time")
 	}
 
-	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" {
+	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" && opt.RawFile == "" {
 		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
 	}
 	return nil
