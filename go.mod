@@ -11,7 +11,7 @@ require (
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
 	github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc
 	github.com/chainreactors/utils v0.0.0-20240302165634-2b8494c9cfc3
-	github.com/chainreactors/words v0.4.1-0.20240220104223-153f52e53f37
+	github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508
 	github.com/gookit/config/v2 v2.2.5
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/panjf2000/ants/v2 v2.9.1
