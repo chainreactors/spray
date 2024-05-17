@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-type This struct {
+type BasePool struct {
 	*Config
 	Statistor   *pkg.Statistor
 	Pool        *ants.PoolWithFunc
@@ -31,7 +31,7 @@ type This struct {
 	wg          sync.WaitGroup
 }
 
-func (pool *This) doRedirect(bl *pkg.Baseline, depth int) {
+func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
 	if depth >= MaxRedirect {
 		return
 	}
@@ -48,7 +48,7 @@ func (pool *This) doRedirect(bl *pkg.Baseline, depth int) {
 	}()
 }
 
-func (pool *This) doRule(bl *pkg.Baseline) {
+func (pool *BasePool) doRule(bl *pkg.Baseline) {
 	if pool.AppendRule == nil {
 		pool.wg.Done()
 		return
@@ -69,7 +69,7 @@ func (pool *This) doRule(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *This) doAppendWords(bl *pkg.Baseline) {
+func (pool *BasePool) doAppendWords(bl *pkg.Baseline) {
 	if pool.AppendWords == nil {
 		pool.wg.Done()
 		return
@@ -90,7 +90,7 @@ func (pool *This) doAppendWords(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *This) doRetry(bl *pkg.Baseline) {
+func (pool *BasePool) doRetry(bl *pkg.Baseline) {
 	if bl.Retry >= pool.Retry {
 		return
 	}
@@ -105,7 +105,7 @@ func (pool *This) doRetry(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *This) doActive() {
+func (pool *BasePool) doActive() {
 	defer pool.wg.Done()
 	for _, u := range pkg.ActivePath {
 		pool.addAddition(&Unit{
@@ -115,7 +115,7 @@ func (pool *This) doActive() {
 	}
 }
 
-func (pool *This) doCommonFile() {
+func (pool *BasePool) doCommonFile() {
 	defer pool.wg.Done()
 	for _, u := range mask.SpecialWords["common_file"] {
 		pool.addAddition(&Unit{
@@ -125,7 +125,7 @@ func (pool *This) doCommonFile() {
 	}
 }
 
-func (pool *This) addAddition(u *Unit) {
+func (pool *BasePool) addAddition(u *Unit) {
 	// 强行屏蔽报错, 防止goroutine泄露
 	pool.wg.Add(1)
 	defer func() {
@@ -135,25 +135,25 @@ func (pool *This) addAddition(u *Unit) {
 	pool.additionCh <- u
 }
 
-func (pool *This) Close() {
+func (pool *BasePool) Close() {
 	pool.Bar.Close()
 }
 
-func (pool *This) genReq(s string) (*ihttp.Request, error) {
+func (pool *BasePool) genReq(s string) (*ihttp.Request, error) {
 	if pool.Mod == HostSpray {
 		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
 	} else if pool.Mod == PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.BaseURL, s)
+		return ihttp.BuildPathRequest(pool.ClientType, pool.BaseURL, s, pool.Method)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
 
-func (pool *This) putToOutput(bl *pkg.Baseline) {
+func (pool *BasePool) putToOutput(bl *pkg.Baseline) {
 	pool.OutLocker.Add(1)
 	pool.OutputCh <- bl
 }
 
-func (pool *This) putToFuzzy(bl *pkg.Baseline) {
+func (pool *BasePool) putToFuzzy(bl *pkg.Baseline) {
 	pool.OutLocker.Add(1)
 	bl.IsFuzzy = true
 	pool.FuzzyCh <- bl

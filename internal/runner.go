@@ -43,6 +43,7 @@ type Runner struct {
 	AppendRules     *rule.Program
 	AppendWords     []string
 	Headers         map[string]string
+	Method          string
 	Fns             []func(string) []string
 	FilterExpr      *vm.Program
 	MatchExpr       *vm.Program
@@ -92,6 +93,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Timeout:         r.Timeout,
 		RateLimit:       r.RateLimit,
 		Headers:         r.Headers,
+		Method:          r.Method,
 		Mod:             pool.ModMap[r.Mod],
 		OutputCh:        r.outputCh,
 		FuzzyCh:         r.fuzzyCh,

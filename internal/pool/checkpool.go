@@ -19,7 +19,7 @@ import (
 func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &CheckPool{
-		&This{
+		&BasePool{
 			Config:    config,
 			Statistor: pkg.NewStatistor(""),
 			ctx:       pctx,
@@ -38,12 +38,12 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pool.Headers = map[string]string{"Connection": "close"}
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
 
-	pool.This.Pool = p
+	pool.BasePool.Pool = p
 	return pool, nil
 }
 
 type CheckPool struct {
-	*This
+	*BasePool
 }
 
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
@@ -81,12 +81,12 @@ Loop:
 			}
 
 			pool.wg.Add(1)
-			_ = pool.This.Pool.Invoke(newUnit(u, parsers.CheckSource))
+			_ = pool.BasePool.Pool.Invoke(newUnit(u, parsers.CheckSource))
 		case u, ok := <-pool.additionCh:
 			if !ok {
 				continue
 			}
-			_ = pool.This.Pool.Invoke(u)
+			_ = pool.BasePool.Pool.Invoke(u)
 		case <-pool.closeCh:
 			break Loop
 		case <-ctx.Done():

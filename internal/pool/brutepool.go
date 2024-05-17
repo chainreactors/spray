@@ -2,6 +2,7 @@ package pool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -37,7 +38,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &BrutePool{
 		Baselines: NewBaselines(),
-		This: &This{
+		BasePool: &BasePool{
 			Config: config,
 			ctx:    pctx,
 			Cancel: cancel,
@@ -83,7 +84,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 
 type BrutePool struct {
 	*Baselines
-	*This
+	*BasePool
 	base  string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
 	isDir bool
 	url   *url.URL
@@ -125,7 +126,7 @@ func (pool *BrutePool) genReq(mod SprayMod, s string) (*ihttp.Request, error) {
 	if mod == HostSpray {
 		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
 	} else if mod == PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
+		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s, pool.Method)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
@@ -311,7 +312,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	}
 
 	req.SetHeaders(pool.Headers)
-	req.SetHeader("User-Agent", pkg.RandomUA())
+	if pool.RandomUserAgent {
+		req.SetHeader("User-Agent", pkg.RandomUA())
+	}
 
 	start := time.Now()
 	resp, reqerr := pool.client.Do(pool.ctx, req)
@@ -322,7 +325,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	// compare与各种错误处理
 	var bl *pkg.Baseline
-	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
+	if reqerr != nil && !errors.Is(reqerr, fasthttp.ErrBodyTooLarge) {
 		atomic.AddInt32(&pool.failedCount, 1)
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
 		bl = &pkg.Baseline{
@@ -422,7 +425,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 	defer pool.wg.Done()
 	unit := v.(*Unit)
-	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "")
+	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "", pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
