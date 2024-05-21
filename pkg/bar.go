@@ -57,5 +57,5 @@ func (bar *Bar) Close() {
 	if bar.bar == nil {
 		return
 	}
-	bar.bar.Abort(false)
+	bar.bar.Abort(true)
 }
