@@ -443,15 +443,16 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 		// 根据不同的输入类型生成任务
 		if len(opt.URL) == 1 {
-			u, err := url.Parse(opt.URL[0])
-			if err != nil {
-				u, _ = url.Parse("http://" + opt.URL[0])
-			}
+			//u, err := fixUrl(opt.URL[0])
+			//if err != nil {
+			//	return nil, err
+			//}
 			go func() {
-				opt.GenerateTasks(tasks, u.String(), ports)
+				opt.GenerateTasks(tasks, opt.URL[0], ports)
 				close(tasks)
 			}()
-			taskfrom = u.Host
+			parsed, _ := url.Parse(opt.URL[0])
+			taskfrom = parsed.Host
 			r.Count = 1
 		} else if len(opt.URL) > 1 {
 			go func() {
@@ -771,7 +772,7 @@ func (opt *Option) Validate() error {
 func (opt *Option) GenerateTasks(ch chan *Task, u string, ports []string) {
 	parsed, err := url.Parse(u)
 	if err != nil {
-		logs.Log.Warn(err.Error())
+		logs.Log.Warnf("parse %s, %s ", u, err.Error())
 		return
 	}
 
@@ -784,7 +785,7 @@ func (opt *Option) GenerateTasks(ch chan *Task, u string, ports []string) {
 	}
 
 	if len(ports) == 0 {
-		ch <- &Task{baseUrl: u}
+		ch <- &Task{baseUrl: parsed.String()}
 		return
 	}
 
