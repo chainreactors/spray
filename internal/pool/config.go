@@ -27,6 +27,7 @@ type Config struct {
 	Thread          int
 	Wordlist        []string
 	Timeout         int
+	ProcessCh       chan *pkg.Baseline
 	OutputCh        chan *pkg.Baseline
 	FuzzyCh         chan *pkg.Baseline
 	OutLocker       *sync.WaitGroup

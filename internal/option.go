@@ -142,7 +142,7 @@ type MiscOptions struct {
 	Mod        string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
 	Client     string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
 	Deadline   int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
-	Timeout    int    `long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
+	Timeout    int    `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
 	PoolSize   int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
 	Threads    int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
 	Debug      bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
@@ -169,9 +169,9 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Offset:          opt.Offset,
 		Total:           opt.Limit,
 		taskCh:          make(chan *Task),
-		outputCh:        make(chan *pkg.Baseline, 100),
+		outputCh:        make(chan *pkg.Baseline, 256),
 		outwg:           &sync.WaitGroup{},
-		fuzzyCh:         make(chan *pkg.Baseline, 100),
+		fuzzyCh:         make(chan *pkg.Baseline, 256),
 		Fuzzy:           opt.Fuzzy,
 		Force:           opt.Force,
 		CheckOnly:       opt.CheckOnly,
@@ -443,10 +443,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 		// 根据不同的输入类型生成任务
 		if len(opt.URL) == 1 {
-			//u, err := fixUrl(opt.URL[0])
-			//if err != nil {
-			//	return nil, err
-			//}
 			go func() {
 				opt.GenerateTasks(tasks, opt.URL[0], ports)
 				close(tasks)

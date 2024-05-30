@@ -48,8 +48,8 @@ func NewClient(config *ClientConfig) *Client {
 				MaxConnsPerHost:     config.Thread * 3 / 2,
 				MaxIdleConnDuration: config.Timeout,
 				//MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
-				//ReadTimeout:                   time.Duration(timeout) * time.Second,
-				//WriteTimeout:                  time.Duration(timeout) * time.Second,
+				//ReadTimeout:                   config.Timeout * time.Second,
+				//WriteTimeout:                  config.Timeout * time.Second,
 				ReadBufferSize:                16384, // 16k
 				MaxResponseBodySize:           int(DefaultMaxBodySize),
 				NoDefaultUserAgentHeader:      true,
@@ -68,9 +68,10 @@ func NewClient(config *ClientConfig) *Client {
 						Renegotiation:      tls.RenegotiateOnceAsClient,
 						InsecureSkipVerify: true,
 					},
-					MaxConnsPerHost: config.Thread * 3 / 2,
-					IdleConnTimeout: config.Timeout,
-					ReadBufferSize:  16384, // 16k
+					TLSHandshakeTimeout: config.Timeout,
+					MaxConnsPerHost:     config.Thread * 3 / 2,
+					IdleConnTimeout:     config.Timeout,
+					ReadBufferSize:      16384, // 16k
 				},
 				Timeout: config.Timeout,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {

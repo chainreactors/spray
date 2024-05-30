@@ -20,9 +20,10 @@ type BasePool struct {
 	Pool        *ants.PoolWithFunc
 	Bar         *pkg.Bar
 	Worder      *words.Worder
+	Cancel      context.CancelFunc
 	client      *ihttp.Client
 	ctx         context.Context
-	Cancel      context.CancelFunc
+	processCh   chan *pkg.Baseline // 待处理的baseline
 	dir         string
 	reqCount    int
 	failedCount int

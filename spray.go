@@ -5,6 +5,7 @@ import (
 	"github.com/chainreactors/spray/cmd"
 	"github.com/gookit/config/v2"
 	"github.com/gookit/config/v2/yaml"
+	//_ "net/http/pprof"
 )
 
 func init() {
