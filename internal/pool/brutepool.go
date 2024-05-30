@@ -50,6 +50,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			}),
 			additionCh: make(chan *Unit, config.Thread),
 			closeCh:    make(chan struct{}),
+			processCh:  make(chan *pkg.Baseline, config.Thread),
 			wg:         sync.WaitGroup{},
 		},
 		base:  u.Scheme + "://" + u.Host,
@@ -58,7 +59,6 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
-		handlerCh:   make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan struct{}, config.Thread),
 		initwg:      sync.WaitGroup{},
 		limiter:     rate.NewLimiter(rate.Limit(config.RateLimit), 1),
@@ -91,8 +91,7 @@ type BrutePool struct {
 
 	reqPool     *ants.PoolWithFunc
 	scopePool   *ants.PoolWithFunc
-	handlerCh   chan *pkg.Baseline // 待处理的baseline
-	checkCh     chan struct{}      // 独立的check管道， 防止与redirect/crawl冲突
+	checkCh     chan struct{} // 独立的check管道， 防止与redirect/crawl冲突
 	closed      bool
 	wordOffset  int
 	failedCount int32
@@ -406,7 +405,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	case parsers.WordSource:
 		// 异步进行性能消耗较大的深度对比
-		pool.handlerCh <- bl
+		pool.processCh <- bl
 		if int(pool.Statistor.ReqTotal)%pool.CheckPeriod == 0 {
 			pool.doCheck()
 		} else if pool.failedCount%pool.ErrPeriod == 0 {
@@ -416,9 +415,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.Bar.Done()
 	case parsers.RedirectSource:
 		bl.FrontURL = unit.frontUrl
-		pool.handlerCh <- bl
+		pool.processCh <- bl
 	default:
-		pool.handlerCh <- bl
+		pool.processCh <- bl
 	}
 }
 
@@ -454,7 +453,7 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 }
 
 func (pool *BrutePool) Handler() {
-	for bl := range pool.handlerCh {
+	for bl := range pool.processCh {
 		if bl.IsValid {
 			pool.addFuzzyBaseline(bl)
 		}
