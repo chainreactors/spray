@@ -7,10 +7,10 @@ toolchain go1.22.2
 require (
 	github.com/antonmedv/expr v1.15.5
 	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
-	github.com/chainreactors/fingers v0.0.0-20240521093617-f8ffb3ecdc18
+	github.com/chainreactors/fingers v0.0.0-20240603064620-e83951a40541
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
 	github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc
-	github.com/chainreactors/utils v0.0.0-20240302165634-2b8494c9cfc3
+	github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1
 	github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508
 	github.com/gookit/config/v2 v2.2.5
 	github.com/jessevdk/go-flags v1.5.0

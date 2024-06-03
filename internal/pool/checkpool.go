@@ -173,6 +173,7 @@ func (pool *CheckPool) Handler() {
 		pool.putToOutput(bl)
 	}
 }
+
 func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
 	if depth >= MaxRedirect {
 		return

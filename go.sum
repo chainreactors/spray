@@ -17,6 +17,8 @@ github.com/chainreactors/fingers v0.0.0-20240425063355-2ed9bd9149d2 h1:DHnjmpeZY
 github.com/chainreactors/fingers v0.0.0-20240425063355-2ed9bd9149d2/go.mod h1:cO2a79lRNSaM6hu17xIyws5eWCWxjcRxY9IFPlss2lE=
 github.com/chainreactors/fingers v0.0.0-20240521093617-f8ffb3ecdc18 h1:gapflZSatRTQZ2c72wFBSGNEN57pwzUqm+vhlthIkOw=
 github.com/chainreactors/fingers v0.0.0-20240521093617-f8ffb3ecdc18/go.mod h1:cO2a79lRNSaM6hu17xIyws5eWCWxjcRxY9IFPlss2lE=
+github.com/chainreactors/fingers v0.0.0-20240603064620-e83951a40541 h1:aDY5A+G53En6t3Pr4tbl+vxJle2p1VJsqHVlyhnWU8s=
+github.com/chainreactors/fingers v0.0.0-20240603064620-e83951a40541/go.mod h1:s3lvNYcSW7NfM1inpgyn/wY3UEqQIvp6gE6BthFaOVo=
 github.com/chainreactors/logs v0.0.0-20231027080134-7a11bb413460/go.mod h1:VZFqkFDGmp7/JOMeraW+YI7kTGcgz9fgc/HArVFnrGQ=
 github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f h1:tcfp+CEdgiMvjyUzWab5edJtxUwRMSMEIkLybupIx0k=
 github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
@@ -24,6 +26,8 @@ github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc h1:lGgglOE1F
 github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc/go.mod h1:BuI21VlpmYHFr1jva/IN5I5jFvvCtYRyeldGK80wYCg=
 github.com/chainreactors/utils v0.0.0-20240302165634-2b8494c9cfc3 h1:oFpBQBegsjNhKrzcjJUrqOgIJoa3Bc9OUmdRmYFHcXg=
 github.com/chainreactors/utils v0.0.0-20240302165634-2b8494c9cfc3/go.mod h1:JA4eiQZm+7AsfjXBcIzIdVKBEhDCb16eNtWFCGTxlvs=
+github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1 h1:+awuysRKLmdLQbVK+HPSOGvO3dFGdNSbM2jyLh+VYOA=
+github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1/go.mod h1:JA4eiQZm+7AsfjXBcIzIdVKBEhDCb16eNtWFCGTxlvs=
 github.com/chainreactors/words v0.4.1-0.20240220104223-153f52e53f37 h1:QdH1w8MnoAEnXp+CGqwroCRhAs+gu5OnIyW+qnK8Ibg=
 github.com/chainreactors/words v0.4.1-0.20240220104223-153f52e53f37/go.mod h1:DUDx7PdsMEm5PvVhzkFyppzpiUhQb8dOJaWjVc1SMVk=
 github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508 h1:iT4HWkoZzUAfQYcQMRH8XyrMau9tCVE0zSuFQnkhrqw=
