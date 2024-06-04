@@ -50,7 +50,12 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 
 	bl.Raw = append(bl.Header, bl.Body...)
 	bl.Response, err = ParseRawResponse(bl.Raw)
-
+	if err != nil {
+		bl.IsValid = false
+		bl.Reason = ErrResponseError.Error()
+		bl.ErrString = err.Error()
+		return bl
+	}
 	if r := bl.Response.Header.Get("Location"); r != "" {
 		bl.RedirectURL = r
 	} else {
