@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal/ihttp"
@@ -10,6 +9,7 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
+	"github.com/expr-lang/expr/vm"
 	"github.com/panjf2000/ants/v2"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"bytes"
-	"github.com/antonmedv/expr/ast"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
@@ -145,20 +144,20 @@ func loadRuleWithFiles(ruleFiles []string, filter string) ([]rule.Expression, er
 	return rule.Compile(rules.String(), filter).Expressions, nil
 }
 
-type bytesPatcher struct{}
-
-func (p *bytesPatcher) Visit(node *ast.Node) {
-	switch (*node).(type) {
-	case *ast.MemberNode:
-		ast.Patch(node, &ast.CallNode{
-			Callee: &ast.MemberNode{
-				Node:     *node,
-				Name:     "String",
-				Property: &ast.StringNode{Value: "String"},
-			},
-		})
-	}
-}
+//type bytesPatcher struct{}
+//
+//func (p *bytesPatcher) Visit(node *ast.Node) {
+//	switch (*node).(type) {
+//	case *ast.MemberNode:
+//		ast.Patch(node, &ast.CallNode{
+//			Callee: &ast.MemberNode{
+//				Node:     *node,
+//				Name:     "String",
+//				Property: &ast.StringNode{Value: "String"},
+//			},
+//		})
+//	}
+//}
 
 func wrapWordsFunc(f func(string) string) func(string) []string {
 	return func(s string) []string {

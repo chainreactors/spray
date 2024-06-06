@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -16,6 +15,7 @@ import (
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
+	"github.com/expr-lang/expr"
 	"github.com/vbauerster/mpb/v8"
 	"io/ioutil"
 	"net/http"
@@ -632,7 +632,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	logs.Log.Logf(pkg.LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {
-		exp, err := expr.Compile(opt.Match, expr.Patch(&bytesPatcher{}))
+		exp, err := expr.Compile(opt.Match)
 		if err != nil {
 			return nil, err
 		}
@@ -640,7 +640,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Filter != "" {
-		exp, err := expr.Compile(opt.Filter, expr.Patch(&bytesPatcher{}))
+		exp, err := expr.Compile(opt.Filter)
 		if err != nil {
 			return nil, err
 		}
@@ -662,7 +662,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if express != "" {
-		exp, err := expr.Compile(express, expr.Patch(&bytesPatcher{}))
+		exp, err := expr.Compile(express)
 		if err != nil {
 			return nil, err
 		}
