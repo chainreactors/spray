@@ -145,7 +145,16 @@ func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
 	}
 	if strings.ToLower(u.Scheme) == "socks5" {
 		return func(addr string) (net.Conn, error) {
-			dialer, err := proxy.SOCKS5("tcp", u.Host, nil, proxy.Direct)
+			var auth *proxy.Auth
+			username := u.User.Username()
+			password, ok := u.User.Password()
+			if ok {
+				auth = &proxy.Auth{
+					User:     username,
+					Password: password,
+				}
+			}
+			dialer, err := proxy.SOCKS5("tcp", u.Host, auth, proxy.Direct)
 			if err != nil {
 				return nil, err
 			}
