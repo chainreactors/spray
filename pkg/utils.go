@@ -3,10 +3,10 @@ package pkg
 import (
 	"bufio"
 	"bytes"
-	"github.com/antonmedv/expr"
-	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/utils/iutils"
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 	"math/rand"
 	"net/http"
 	"net/url"

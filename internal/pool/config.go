@@ -1,9 +1,9 @@
 package pool
 
 import (
-	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/rule"
+	"github.com/expr-lang/expr/vm"
 	"sync"
 )
 
