@@ -341,11 +341,11 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	if len(opt.Suffixes) != 0 {
 		mask.SpecialWords["suffix"] = opt.Suffixes
-		opt.Word += "{@suffix}"
+		opt.Word += "{?@suffix}"
 	}
 	if len(opt.Prefixes) != 0 {
 		mask.SpecialWords["prefix"] = opt.Prefixes
-		opt.Word = "{@prefix}" + opt.Word
+		opt.Word = "{?@prefix}" + opt.Word
 	}
 
 	if opt.ForceExtension && opt.Extensions != "" {
@@ -356,7 +356,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			}
 		}
 		mask.SpecialWords["ext"] = exts
-		opt.Word += "{@ext}"
+		opt.Word += "{?@ext}"
 	}
 
 	r.Wordlist, err = mask.Run(opt.Word, dicts, nil)
