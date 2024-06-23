@@ -710,7 +710,7 @@ func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 
 func (pool *BrutePool) doBak() {
 	defer pool.wg.Done()
-	worder, err := words.NewWorderWithDsl("{?0}.{@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
+	worder, err := words.NewWorderWithDsl("{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
 	if err != nil {
 		return
 	}
@@ -722,7 +722,7 @@ func (pool *BrutePool) doBak() {
 		})
 	}
 
-	worder, err = words.NewWorderWithDsl("{@bak_name}.{@bak_ext}", nil, nil)
+	worder, err = words.NewWorderWithDsl("{?@bak_name}.{?@bak_ext}", nil, nil)
 	if err != nil {
 		return
 	}
