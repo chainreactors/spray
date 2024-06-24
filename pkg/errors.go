@@ -16,6 +16,7 @@ const (
 	ErrFuzzyRedirect
 	ErrFuzzyNotUnique
 	ErrUrlError
+	ErrResponseError
 )
 
 var ErrMap = map[ErrorType]string{
@@ -32,6 +33,7 @@ var ErrMap = map[ErrorType]string{
 	ErrFuzzyRedirect:       "fuzzy redirect",
 	ErrFuzzyNotUnique:      "not unique",
 	ErrUrlError:            "url parse error",
+	ErrResponseError:       "response parse error",
 }
 
 func (e ErrorType) Error() string {

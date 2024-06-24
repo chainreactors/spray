@@ -1,94 +1,154 @@
 input:
-  append-files: [] # Files, when found valid path, use append file new word with current path
-  append-rules: [] # Files, when found valid path, use append rule generator new word with current path
-  dictionaries: [] # Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt
-  filter-rule: "" # String, filter rule, e.g.: --rule-filter '>8 <4'
-  rules: [] # Files, rule files, e.g.: -r rule1.txt -r rule2.txt
-  word: "" # String, word generate dsl, e.g.: -w test{?ld#4}
-
+  # Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt
+  dictionaries: []
+  # Bool, no dictionary
+  no-dict: false
+  # String, word generate dsl, e.g.: -w test{?ld#4}
+  word: ""
+  # Files, rule files, e.g.: -r rule1.txt -r rule2.txt
+  rules: []
+  # Files, when found valid path , use append rule generator new word with current path
+  append-rules: []
+  # String, filter rule, e.g.: --rule-filter '>8 <4'
+  filter-rule: ""
+  # Files, when found valid path , use append file new word with current path
+  append-files: []
 functions:
-  extension: "" # String, add extensions (separated by commas), e.g.: -e jsp,jspx
-  exclude-extension: "" # String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx
-  force-extension: false # Bool, force add extensions
-  remove-extension: "" # String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx
-  prefix: [] # Strings, add prefix, e.g.: --prefix aaa --prefix bbb
-  suffix: [] # Strings, add suffix, e.g.: --suffix aaa --suffix bbb
-  upper: false # Bool, upper wordlist, e.g.: --uppercase
-  lower: false # Bool, lower wordlist, e.g.: --lowercase
-  replace: null # Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd
-  skip: [ ] # String, skip word when generate. rule, e.g.: --skip aaa
-
-misc:
-  mod: path # String, path/host spray
-  client: auto # String, Client type
-  thread: 20 # Int, number of threads per pool
-  pool: 5 # Int, Pool size
-  timeout: 5 # Int, timeout with request (seconds)
-  deadline: 999999 # Int, deadline (seconds)
-  proxy: "" # String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080
-  quiet: false # Bool, Quiet
-  debug: false # Bool, output debug info
-  verbose: [] # Bool, log verbose level, default 0, level1: -v, level2 -vv
-  no-bar: false # Bool, No progress bar
-  no-color: false # Bool, no color
-
-mode:
-  # status
-  black-status: "400,410" # Strings (comma split), custom black status
-  fuzzy-status: "500,501,502,503" # Strings (comma split), custom fuzzy status
-  unique-status: "403,200,404" # Strings (comma split), custom unique status
-  white-status: "200" # Strings (comma split), custom white status
-
-  # check
-  check-only: false # Bool, check only
-  check-period: 200 # Int, check period when request
-  error-period: 10 # Int, check period when error
-  error-threshold: 20 # Int, break when the error exceeds the threshold
-
-  # recursive
-  recursive: current.IsDir() # String, custom recursive rule, e.g.: --recursive current.IsDir()
-  depth: 0 # Int, recursive depth
-
-  # crawl
-  scope: [] # String, custom scope, e.g.: --scope *.example.com
-  no-scope: false # Bool, no scope
-
-  # other
-  index: / # String, custom index path
-  random: "" # String, custom random path
-  unique: false # Bool, unique response
-  distance: 5 # Int, simhash distance for unique response
-  force: false # Bool, skip error break
-  rate-limit: 0 # Int, request rate limit (rate/s), e.g.: --rate-limit 100
-  retry: 0 # Int, retry count
-
+  # String, add extensions (separated by commas), e.g.: -e jsp,jspx
+  extension: ""
+  # Bool, force add extensions
+  force-extension: false
+  # String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx
+  exclude-extension: ""
+  # String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx
+  remove-extension: ""
+  # Bool, upper wordlist, e.g.: --uppercase
+  upper: false
+  # Bool, lower wordlist, e.g.: --lowercase
+  lower: false
+  # Strings, add prefix, e.g.: --prefix aaa --prefix bbb
+  prefix: []
+  # Strings, add suffix, e.g.: --suffix aaa --suffix bbb
+  suffix: []
+  # Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd
+  replace: {}
+  # String, skip word when generate. rule, e.g.: --skip aaa
+  skip: []
 output:
-  output-file: "" # String, output filename
-  auto-file: false # Bool, auto generator output and fuzzy filename
-  dump: false # Bool, dump all request
-  dump-file: "" # String, dump all request, and write to filename
-  fuzzy: false # Bool, open fuzzy output
-  fuzzy-file: "" # String, fuzzy output filename
-  filter: "" # String, custom filter function, e.g.: --filter 'current.Body contains "hello"'
-  match: "" # String, custom match function, e.g.: --match 'current.Status != 200''
-  format: "" # String, output format, e.g.: --format 1.json
-  output_probe: "" # String, output probes
-
+  # String, custom match function, e.g.: --match 'current.Status != 200''
+  match: ""
+  # String, custom filter function, e.g.: --filter 'current.Body contains "hello"'
+  filter: ""
+  # String, open fuzzy output
+  fuzzy: false
+  # String, output filename
+  output-file: ""
+  # String, fuzzy output filename
+  fuzzy-file: ""
+  # String, dump all request, and write to filename
+  dump-file: ""
+  # Bool, dump all request
+  dump: false
+  # Bool, auto generator output and fuzzy filename
+  auto-file: false
+  # String, output format, e.g.: --format 1.json
+  format: ""
+  # String, output format
+  output_probe: ""
+  # Bool, Quiet
+  quiet: false
+  # Bool, no color
+  no-color: false
+  # Bool, No progress bar
+  no-bar: false
 plugins:
-  all: false # Bool, enable all plugin
-  bak: false # Bool, enable bak found
-  common: false # Bool, enable common file found
-  crawl: false # Bool, enable crawl
-  crawl-depth: 3 # Int, crawl depth
-  extract: [] # Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)
-  file-bak: false # Bool, enable valid result bak found, equal --append-rule rule/filebak.txt
-  finger: false # Bool, enable active finger detect
-  recon: false # Bool, enable recon
-
+  # Bool, enable all plugin
+  all: false
+  # Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)
+  extract: []
+  # String, extract config filename
+  extract-config: ""
+  # Bool, enable recon
+  recon: false
+  # Bool, enable active finger detect
+  finger: false
+  # Bool, enable bak found
+  bak: false
+  # Bool, enable valid result bak found, equal --append-rule rule/filebak.txt
+  file-bak: false
+  # Bool, enable common file found
+  common: false
+  # Bool, enable crawl
+  crawl: false
+  # Int, crawl depth
+  crawl-depth: 3
 request:
-  cookies: [] # Strings, custom cookie
-  headers: [] # Strings, custom headers, e.g.: --headers 'Auth: example_auth'
-  max-body-length: 100 # Int, max response body length (kb), default 100k, e.g. -max-length 1000
-  useragent: "" # String, custom user-agent, e.g.: --user-agent Custom
-  random-useragent: false # Bool, use random with default user-agent
-  read-all: false # Bool, read all response body
+  # Strings, custom headers, e.g.: --headers 'Auth: example_auth'
+  headers: []
+  # String, custom user-agent, e.g.: --user-agent Custom
+  useragent: ""
+  # Bool, use random with default user-agent
+  random-useragent: false
+  # Strings, custom cookie
+  cookies: []
+  # Bool, read all response body
+  read-all: false
+  # Int, max response body length (kb), -1 read-all, 0 not read body, default 100k, e.g. --max-length 1000
+  max-length: 100
+mode:
+  # Int, request rate limit (rate/s), e.g.: --rate-limit 100
+  rate-limit: 0
+  # Bool, skip error break
+  force: false
+  # Bool, check only
+  check-only: false
+  # Bool, no scope
+  no-scope: false
+  # String, custom scope, e.g.: --scope *.example.com
+  scope: []
+  # String,custom recursive rule, e.g.: --recursive current.IsDir()
+  recursive: current.IsDir()
+  # Int, recursive depth
+  depth: 0
+  # String, custom index path
+  index: /
+  # String, custom random path
+  random: ""
+  # Int, check period when request
+  check-period: 200
+  # Int, check period when error
+  error-period: 10
+  # Int, break when the error exceeds the threshold
+  error-threshold: 20
+  # Strings (comma split),custom black status
+  black-status: 400,410
+  # Strings (comma split), custom white status
+  white-status: 200
+  # Strings (comma split), custom fuzzy status
+  fuzzy-status: 500,501,502,503
+  # Strings (comma split), custom unique status
+  unique-status: 403,200,404
+  # Bool, unique response
+  unique: false
+  # Int, retry count
+  retry: 0
+  distance: 5
+misc:
+  # String, path/host spray
+  mod: path
+  # String, Client type
+  client: auto
+  # Int, deadline (seconds)
+  deadline: 999999
+  # Int, timeout with request (seconds)
+  timeout: 5
+  # Int, Pool size
+  pool: 5
+  # Int, number of threads per pool
+  thread: 20
+  # Bool, output debug info
+  debug: false
+  # Bool, log verbose level ,default 0, level1: -v level2 -vv 
+  verbose: []
+  # String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080
+  proxy: ""

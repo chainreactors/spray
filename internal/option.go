@@ -1,10 +1,10 @@
 package internal
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/antonmedv/expr"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -15,14 +15,18 @@ import (
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
-	"github.com/gosuri/uiprogress"
+	"github.com/expr-lang/expr"
+	"github.com/vbauerster/mpb/v8"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -31,8 +35,8 @@ var (
 )
 
 type Option struct {
-	InputOptions    `group:"Input Options" config:"input" default:""`
-	FunctionOptions `group:"Function Options" config:"functions" default:""`
+	InputOptions    `group:"Input Options" config:"input" `
+	FunctionOptions `group:"Function Options" config:"functions" `
 	OutputOptions   `group:"Output Options" config:"output"`
 	PluginOptions   `group:"Plugin Options" config:"plugins"`
 	RequestOptions  `group:"Request Options" config:"request"`
@@ -41,21 +45,22 @@ type Option struct {
 }
 
 type InputOptions struct {
-	ResumeFrom string   `long:"resume" description:"File, resume filename" `
-	Config     string   `short:"c" long:"config" description:"File, config filename"`
-	URL        []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
-	URLFile    string   `short:"l" long:"list" description:"File, input filename"`
-	PortRange  string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
-	CIDRs      string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
-	//Raw          string   `long:"raw" description:"File, input raw request filename"`
+	ResumeFrom   string   `long:"resume" description:"File, resume filename" `
+	Config       string   `short:"c" long:"config" description:"File, config filename"`
+	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
+	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
+	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
+	CIDRs        string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
-	Offset       int      `long:"offset" description:"Int, wordlist offset"`
-	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
 	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
 	AppendFile   []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	Offset       int      `long:"offset" description:"Int, wordlist offset"`
+	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
 
 type FunctionOptions struct {
@@ -83,15 +88,19 @@ type OutputOptions struct {
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json" config:"format"`
 	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output_probe"`
+	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
+	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
+	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
 }
 
 type RequestOptions struct {
+	Method          string   `short:"x" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
 	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --headers 'Auth: example_auth'" config:"headers"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
 	Cookie          []string `long:"cookie" description:"Strings, custom cookie" config:"cookies"`
 	ReadAll         bool     `long:"read-all" description:"Bool, read all response body" config:"read-all"`
-	MaxBodyLength   int      `long:"max-length" default:"100" description:"Int, max response body length (kb), default 100k, e.g. -max-length 1000" config:"max-body-length"`
+	MaxBodyLength   int64    `long:"max-length" default:"100" description:"Int, max response body length (kb), -1 read-all, 0 not read body, default 100k, e.g. --max-length 1000" config:"max-length"`
 }
 
 type PluginOptions struct {
@@ -130,19 +139,17 @@ type ModeOptions struct {
 }
 
 type MiscOptions struct {
-	Mod      string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
-	Client   string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
-	Deadline int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
-	Timeout  int    `long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
-	PoolSize int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
-	Threads  int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
-	Debug    bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
-	Version  bool   `long:"version" description:"Bool, show version"`
-	Verbose  []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
-	Quiet    bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
-	NoColor  bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
-	NoBar    bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
-	Proxy    string `long:"proxy" default:"" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
+	Mod        string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
+	Client     string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
+	Deadline   int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Timeout    int    `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
+	PoolSize   int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
+	Threads    int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
+	Debug      bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
+	Version    bool   `long:"version" description:"Bool, show version"`
+	Verbose    []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
+	Proxy      string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
+	InitConfig bool   `long:"init" description:"Bool, init config file"`
 }
 
 func (opt *Option) PrepareRunner() (*Runner, error) {
@@ -151,7 +158,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	r := &Runner{
-		Progress:        uiprogress.New(),
 		Threads:         opt.Threads,
 		PoolSize:        opt.PoolSize,
 		Mod:             opt.Mod,
@@ -159,12 +165,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		RateLimit:       opt.RateLimit,
 		Deadline:        opt.Deadline,
 		Headers:         make(map[string]string),
+		Method:          opt.Method,
 		Offset:          opt.Offset,
 		Total:           opt.Limit,
 		taskCh:          make(chan *Task),
-		outputCh:        make(chan *pkg.Baseline, 100),
+		outputCh:        make(chan *pkg.Baseline, 256),
 		outwg:           &sync.WaitGroup{},
-		fuzzyCh:         make(chan *pkg.Baseline, 100),
+		fuzzyCh:         make(chan *pkg.Baseline, 256),
 		Fuzzy:           opt.Fuzzy,
 		Force:           opt.Force,
 		CheckOnly:       opt.CheckOnly,
@@ -194,8 +201,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.Color = false
 	}
 	if !(opt.Quiet || opt.NoBar) {
-		r.Progress.Start()
-		logs.Log.SetOutput(r.Progress.Bypass())
+		r.Progress = mpb.New(mpb.WithRefreshRate(100 * time.Millisecond))
+		logs.Log.SetOutput(r.Progress)
 	}
 
 	// configuration
@@ -307,7 +314,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	// prepare word
 	dicts := make([][]string, len(opt.Dictionaries))
-	if len(opt.Dictionaries) == 0 {
+	if len(opt.Dictionaries) == 0 && opt.Word == "" && !opt.NoDict {
 		dicts = append(dicts, pkg.LoadDefaultDict())
 		logs.Log.Warn("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
 	} else {
@@ -332,13 +339,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		opt.Word += "}"
 	}
 
-	if opt.Suffixes != nil {
+	if len(opt.Suffixes) != 0 {
 		mask.SpecialWords["suffix"] = opt.Suffixes
-		opt.Word += "{@suffix}"
+		opt.Word += "{?@suffix}"
 	}
-	if opt.Prefixes != nil {
+	if len(opt.Prefixes) != 0 {
 		mask.SpecialWords["prefix"] = opt.Prefixes
-		opt.Word = "{@prefix}" + opt.Word
+		opt.Word = "{?@prefix}" + opt.Word
 	}
 
 	if opt.ForceExtension && opt.Extensions != "" {
@@ -349,7 +356,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			}
 		}
 		mask.SpecialWords["ext"] = exts
-		opt.Word += "{@ext}"
+		opt.Word += "{?@ext}"
 	}
 
 	r.Wordlist, err = mask.Run(opt.Word, dicts, nil)
@@ -360,7 +367,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		logs.Log.Logf(pkg.LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
 	}
 
-	if opt.Rules != nil {
+	if len(opt.Rules) != 0 {
 		rules, err := loadRuleAndCombine(opt.Rules)
 		if err != nil {
 			return nil, err
@@ -389,7 +396,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Total:        r.Total,
 	}
 
-	if opt.AppendRule != nil {
+	if len(opt.AppendRule) != 0 {
 		content, err := loadRuleAndCombine(opt.AppendRule)
 		if err != nil {
 			return nil, err
@@ -397,7 +404,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.AppendRules = rule.Compile(string(content), "")
 	}
 
-	if opt.AppendFile != nil {
+	if len(opt.AppendFile) != 0 {
 		var bs bytes.Buffer
 		for _, f := range opt.AppendFile {
 			content, err := ioutil.ReadFile(f)
@@ -415,7 +422,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	ports := utils.ParsePort(opt.PortRange)
-
 	// prepare task
 	tasks := make(chan *Task, opt.PoolSize)
 	var taskfrom string
@@ -437,15 +443,12 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 		// 根据不同的输入类型生成任务
 		if len(opt.URL) == 1 {
-			u, err := url.Parse(opt.URL[0])
-			if err != nil {
-				u, _ = url.Parse("http://" + opt.URL[0])
-			}
 			go func() {
-				opt.GenerateTasks(tasks, u.String(), ports)
+				opt.GenerateTasks(tasks, opt.URL[0], ports)
 				close(tasks)
 			}()
-			taskfrom = u.Host
+			parsed, _ := url.Parse(opt.URL[0])
+			taskfrom = parsed.Host
 			r.Count = 1
 		} else if len(opt.URL) > 1 {
 			go func() {
@@ -457,6 +460,24 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 			taskfrom = "cmd"
 			r.Count = len(opt.URL)
+		} else if opt.RawFile != "" {
+			raw, err := os.Open(opt.RawFile)
+			if err != nil {
+				return nil, err
+			}
+
+			req, err := http.ReadRequest(bufio.NewReader(raw))
+			if err != nil {
+				return nil, err
+			}
+			go func() {
+				opt.GenerateTasks(tasks, fmt.Sprintf("http://%s%s", req.Host, req.URL.String()), ports)
+				close(tasks)
+			}()
+			r.Method = req.Method
+			for k, _ := range req.Header {
+				r.Headers[k] = req.Header.Get(k)
+			}
 		} else if opt.CIDRs != "" {
 			if len(ports) == 0 {
 				ports = []string{"80", "443"}
@@ -484,14 +505,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		} else if opt.URLFile != "" {
 			file, err = os.Open(opt.URLFile)
 			if err != nil {
-				logs.Log.Error(err.Error())
+				return nil, err
 			}
-			taskfrom = opt.URLFile
+			taskfrom = filepath.Base(opt.URLFile)
 		} else if files.HasStdin() {
 			file = os.Stdin
 			taskfrom = "stdin"
 		}
-
 		if file != nil {
 			content, err := ioutil.ReadAll(file)
 			if err != nil {
@@ -612,7 +632,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	logs.Log.Logf(pkg.LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {
-		exp, err := expr.Compile(opt.Match, expr.Patch(&bytesPatcher{}))
+		exp, err := expr.Compile(opt.Match)
 		if err != nil {
 			return nil, err
 		}
@@ -620,7 +640,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if opt.Filter != "" {
-		exp, err := expr.Compile(opt.Filter, expr.Patch(&bytesPatcher{}))
+		exp, err := expr.Compile(opt.Filter)
 		if err != nil {
 			return nil, err
 		}
@@ -642,7 +662,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	if express != "" {
-		exp, err := expr.Compile(express, expr.Patch(&bytesPatcher{}))
+		exp, err := expr.Compile(express)
 		if err != nil {
 			return nil, err
 		}
@@ -738,7 +758,7 @@ func (opt *Option) Validate() error {
 		return errors.New("--resume and --depth cannot be used at the same time")
 	}
 
-	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" {
+	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" && opt.RawFile == "" {
 		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
 	}
 	return nil
@@ -748,7 +768,7 @@ func (opt *Option) Validate() error {
 func (opt *Option) GenerateTasks(ch chan *Task, u string, ports []string) {
 	parsed, err := url.Parse(u)
 	if err != nil {
-		logs.Log.Warn(err.Error())
+		logs.Log.Warnf("parse %s, %s ", u, err.Error())
 		return
 	}
 
@@ -761,7 +781,7 @@ func (opt *Option) GenerateTasks(ch chan *Task, u string, ports []string) {
 	}
 
 	if len(ports) == 0 {
-		ch <- &Task{baseUrl: u}
+		ch <- &Task{baseUrl: parsed.String()}
 		return
 	}
 

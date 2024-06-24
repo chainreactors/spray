@@ -16,8 +16,18 @@ import (
 )
 
 var (
-	DefaultMaxBodySize = 1024 * 100 // 100k
+	DefaultMaxBodySize int64 = 1024 * 100 // 100k
 )
+
+func CheckBodySize(size int64) bool {
+	if DefaultMaxBodySize == -1 {
+		return true
+	}
+	if DefaultMaxBodySize == 0 {
+		return false
+	}
+	return size < DefaultMaxBodySize
+}
 
 const (
 	Auto = iota
@@ -38,10 +48,10 @@ func NewClient(config *ClientConfig) *Client {
 				MaxConnsPerHost:     config.Thread * 3 / 2,
 				MaxIdleConnDuration: config.Timeout,
 				//MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
-				//ReadTimeout:                   time.Duration(timeout) * time.Second,
-				//WriteTimeout:                  time.Duration(timeout) * time.Second,
+				//ReadTimeout:                   config.Timeout * time.Second,
+				//WriteTimeout:                  config.Timeout * time.Second,
 				ReadBufferSize:                16384, // 16k
-				MaxResponseBodySize:           DefaultMaxBodySize,
+				MaxResponseBodySize:           int(DefaultMaxBodySize),
 				NoDefaultUserAgentHeader:      true,
 				DisablePathNormalizing:        true,
 				DisableHeaderNamesNormalizing: true,
@@ -58,9 +68,10 @@ func NewClient(config *ClientConfig) *Client {
 						Renegotiation:      tls.RenegotiateOnceAsClient,
 						InsecureSkipVerify: true,
 					},
-					MaxConnsPerHost: config.Thread * 3 / 2,
-					IdleConnTimeout: config.Timeout,
-					ReadBufferSize:  16384, // 16k
+					TLSHandshakeTimeout: config.Timeout,
+					MaxConnsPerHost:     config.Thread * 3 / 2,
+					IdleConnTimeout:     config.Timeout,
+					ReadBufferSize:      16384, // 16k
 				},
 				Timeout: config.Timeout,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -133,9 +144,17 @@ func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
 		return nil
 	}
 	if strings.ToLower(u.Scheme) == "socks5" {
-
 		return func(addr string) (net.Conn, error) {
-			dialer, err := proxy.SOCKS5("tcp", u.Host, nil, proxy.Direct)
+			var auth *proxy.Auth
+			username := u.User.Username()
+			password, ok := u.User.Password()
+			if ok {
+				auth = &proxy.Auth{
+					User:     username,
+					Password: password,
+				}
+			}
+			dialer, err := proxy.SOCKS5("tcp", u.Host, auth, proxy.Direct)
 			if err != nil {
 				return nil, err
 			}
@@ -155,6 +174,6 @@ func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
 			return conn, nil
 		}
 	} else {
-		return fasthttpproxy.FasthttpHTTPDialerTimeout(proxyAddr, timeout)
+		return fasthttpproxy.FasthttpHTTPDialerTimeout(u.Host, timeout)
 	}
 }

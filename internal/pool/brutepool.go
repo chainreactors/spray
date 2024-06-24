@@ -2,6 +2,7 @@ package pool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -37,7 +38,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &BrutePool{
 		Baselines: NewBaselines(),
-		This: &This{
+		BasePool: &BasePool{
 			Config: config,
 			ctx:    pctx,
 			Cancel: cancel,
@@ -49,6 +50,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			}),
 			additionCh: make(chan *Unit, config.Thread),
 			closeCh:    make(chan struct{}),
+			processCh:  make(chan *pkg.Baseline, config.Thread),
 			wg:         sync.WaitGroup{},
 		},
 		base:  u.Scheme + "://" + u.Host,
@@ -57,7 +59,6 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
-		handlerCh:   make(chan *pkg.Baseline, config.Thread),
 		checkCh:     make(chan struct{}, config.Thread),
 		initwg:      sync.WaitGroup{},
 		limiter:     rate.NewLimiter(rate.Limit(config.RateLimit), 1),
@@ -83,15 +84,14 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 
 type BrutePool struct {
 	*Baselines
-	*This
+	*BasePool
 	base  string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
 	isDir bool
 	url   *url.URL
 
 	reqPool     *ants.PoolWithFunc
 	scopePool   *ants.PoolWithFunc
-	handlerCh   chan *pkg.Baseline // 待处理的baseline
-	checkCh     chan struct{}      // 独立的check管道， 防止与redirect/crawl冲突
+	checkCh     chan struct{} // 独立的check管道， 防止与redirect/crawl冲突
 	closed      bool
 	wordOffset  int
 	failedCount int32
@@ -125,7 +125,7 @@ func (pool *BrutePool) genReq(mod SprayMod, s string) (*ihttp.Request, error) {
 	if mod == HostSpray {
 		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
 	} else if mod == PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s)
+		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s, pool.Method)
 	}
 	return nil, fmt.Errorf("unknown mod")
 }
@@ -237,7 +237,7 @@ Loop:
 			pool.Statistor.End++
 			if w == "" {
 				pool.Statistor.Skipped++
-				continue
+				pool.Bar.Done()
 			}
 
 			pool.wordOffset++
@@ -311,7 +311,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	}
 
 	req.SetHeaders(pool.Headers)
-	req.SetHeader("User-Agent", pkg.RandomUA())
+	if pool.RandomUserAgent {
+		req.SetHeader("User-Agent", pkg.RandomUA())
+	}
 
 	start := time.Now()
 	resp, reqerr := pool.client.Do(pool.ctx, req)
@@ -322,7 +324,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	// compare与各种错误处理
 	var bl *pkg.Baseline
-	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
+	if reqerr != nil && !errors.Is(reqerr, fasthttp.ErrBodyTooLarge) {
 		atomic.AddInt32(&pool.failedCount, 1)
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
 		bl = &pkg.Baseline{
@@ -356,7 +358,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.doRedirect(bl, unit.depth)
 	}
 
-	if ihttp.DefaultMaxBodySize != 0 && bl.BodyLength > ihttp.DefaultMaxBodySize {
+	if !ihttp.CheckBodySize(int64(bl.BodyLength)) {
 		bl.ExceedLength = true
 	}
 	bl.Source = unit.source
@@ -403,7 +405,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	case parsers.WordSource:
 		// 异步进行性能消耗较大的深度对比
-		pool.handlerCh <- bl
+		pool.processCh <- bl
 		if int(pool.Statistor.ReqTotal)%pool.CheckPeriod == 0 {
 			pool.doCheck()
 		} else if pool.failedCount%pool.ErrPeriod == 0 {
@@ -413,16 +415,16 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.Bar.Done()
 	case parsers.RedirectSource:
 		bl.FrontURL = unit.frontUrl
-		pool.handlerCh <- bl
+		pool.processCh <- bl
 	default:
-		pool.handlerCh <- bl
+		pool.processCh <- bl
 	}
 }
 
 func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 	defer pool.wg.Done()
 	unit := v.(*Unit)
-	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "")
+	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "", pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -451,7 +453,7 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 }
 
 func (pool *BrutePool) Handler() {
-	for bl := range pool.handlerCh {
+	for bl := range pool.processCh {
 		if bl.IsValid {
 			pool.addFuzzyBaseline(bl)
 		}
@@ -708,7 +710,7 @@ func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 
 func (pool *BrutePool) doBak() {
 	defer pool.wg.Done()
-	worder, err := words.NewWorderWithDsl("{?0}.{@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
+	worder, err := words.NewWorderWithDsl("{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
 	if err != nil {
 		return
 	}
@@ -720,7 +722,7 @@ func (pool *BrutePool) doBak() {
 		})
 	}
 
-	worder, err = words.NewWorderWithDsl("{@bak_name}.{@bak_ext}", nil, nil)
+	worder, err = words.NewWorderWithDsl("{?@bak_name}.{?@bak_ext}", nil, nil)
 	if err != nil {
 		return
 	}
@@ -763,17 +765,4 @@ func (pool *BrutePool) safePath(u string) string {
 func (pool *BrutePool) resetFailed() {
 	pool.failedCount = 1
 	pool.FailedBaselines = nil
-}
-
-func NewBaselines() *Baselines {
-	return &Baselines{
-		baselines: map[int]*pkg.Baseline{},
-	}
-}
-
-type Baselines struct {
-	FailedBaselines []*pkg.Baseline
-	random          *pkg.Baseline
-	index           *pkg.Baseline
-	baselines       map[int]*pkg.Baseline
 }

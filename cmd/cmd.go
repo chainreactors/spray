@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
@@ -16,10 +17,29 @@ import (
 	"time"
 )
 
-var ver = "v0.9.5"
+var ver = "v0.9.6"
+var DefaultConfig = "config.yaml"
+
+func init() {
+	logs.Log.SetColorMap(map[logs.Level]func(string) string{
+		logs.Info:      logs.PurpleBold,
+		logs.Important: logs.GreenBold,
+		pkg.LogVerbose: logs.Green,
+	})
+}
 
 func Spray() {
 	var option internal.Option
+
+	if files.IsExist(DefaultConfig) {
+		logs.Log.Debug("config.yaml exist, loading")
+		err := internal.LoadConfig(DefaultConfig, &option)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			return
+		}
+	}
+
 	parser := flags.NewParser(&option, flags.Default)
 	parser.Usage = `
 
@@ -57,18 +77,29 @@ func Spray() {
 	} else if len(option.Verbose) > 0 {
 		logs.Log.SetLevel(pkg.LogVerbose)
 	}
-
-	logs.Log.SetColorMap(map[logs.Level]func(string) string{
-		logs.Info:      logs.PurpleBold,
-		logs.Important: logs.GreenBold,
-		pkg.LogVerbose: logs.Green,
-	})
-
+	if option.InitConfig {
+		configStr := internal.InitDefaultConfig(&option, 0)
+		err := os.WriteFile(DefaultConfig, []byte(configStr), 0o744)
+		if err != nil {
+			logs.Log.Warn("cannot create config: config.yaml, " + err.Error())
+			return
+		}
+		if files.IsExist(DefaultConfig) {
+			logs.Log.Warn("override default config: ./config.yaml")
+		}
+		logs.Log.Info("init default config: ./config.yaml")
+		return
+	}
 	if option.Config != "" {
 		err := internal.LoadConfig(option.Config, &option)
 		if err != nil {
 			logs.Log.Error(err.Error())
 			return
+		}
+		if files.IsExist(DefaultConfig) {
+			logs.Log.Warnf("custom config %s, override default config", option.Config)
+		} else {
+			logs.Log.Important("load config: " + option.Config)
 		}
 	}
 
@@ -89,7 +120,12 @@ func Spray() {
 
 	// 初始化全局变量
 	pkg.Distance = uint8(option.SimhashDistance)
-	ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
+	if option.MaxBodyLength == -1 {
+		ihttp.DefaultMaxBodySize = -1
+	} else {
+		ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
+	}
+
 	pool.MaxCrawl = option.CrawlDepth
 
 	var runner *internal.Runner
@@ -103,7 +139,7 @@ func Spray() {
 		return
 	}
 	if option.ReadAll || runner.Crawl {
-		ihttp.DefaultMaxBodySize = 0
+		ihttp.DefaultMaxBodySize = -1
 	}
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)

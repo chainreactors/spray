@@ -7,7 +7,6 @@ import (
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/panjf2000/ants/v2"
-	"github.com/valyala/fasthttp"
 	"net/url"
 	"strings"
 	"sync"
@@ -17,11 +16,13 @@ import (
 // 类似httpx的无状态, 无scope, 无并发池的检测模式
 func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
+	config.ClientType = ihttp.STANDARD
 	pool := &CheckPool{
-		&This{
-			Config: config,
-			ctx:    pctx,
-			Cancel: cancel,
+		&BasePool{
+			Config:    config,
+			Statistor: pkg.NewStatistor(""),
+			ctx:       pctx,
+			Cancel:    cancel,
 			client: ihttp.NewClient(&ihttp.ClientConfig{
 				Thread:    config.Thread,
 				Type:      config.ClientType,
@@ -29,19 +30,21 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 				ProxyAddr: config.ProxyAddr,
 			}),
 			wg:         sync.WaitGroup{},
-			additionCh: make(chan *Unit, 100),
+			additionCh: make(chan *Unit, 1024),
 			closeCh:    make(chan struct{}),
+			processCh:  make(chan *pkg.Baseline, config.Thread),
 		},
 	}
 	pool.Headers = map[string]string{"Connection": "close"}
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
 
-	pool.This.Pool = p
+	pool.BasePool.Pool = p
+	go pool.Handler()
 	return pool, nil
 }
 
 type CheckPool struct {
-	*This
+	*BasePool
 }
 
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
@@ -79,12 +82,12 @@ Loop:
 			}
 
 			pool.wg.Add(1)
-			_ = pool.This.Pool.Invoke(newUnit(u, parsers.CheckSource))
+			_ = pool.BasePool.Pool.Invoke(newUnit(u, parsers.CheckSource))
 		case u, ok := <-pool.additionCh:
 			if !ok {
 				continue
 			}
-			_ = pool.This.Pool.Invoke(u)
+			_ = pool.BasePool.Pool.Invoke(u)
 		case <-pool.closeCh:
 			break Loop
 		case <-ctx.Done():
@@ -98,21 +101,32 @@ Loop:
 }
 
 func (pool *CheckPool) Invoke(v interface{}) {
+	defer func() {
+		pool.reqCount++
+		pool.wg.Done()
+	}()
+
 	unit := v.(*Unit)
 	req, err := pool.genReq(unit.path)
 	if err != nil {
-		logs.Log.Error(err.Error())
+		logs.Log.Debug(err.Error())
+		bl := &pkg.Baseline{
+			SprayResult: &parsers.SprayResult{
+				UrlString: unit.path,
+				IsValid:   false,
+				ErrString: err.Error(),
+				Reason:    pkg.ErrUrlError.Error(),
+				ReqDepth:  unit.depth,
+			},
+		}
+		pool.processCh <- bl
+		return
 	}
 	req.SetHeaders(pool.Headers)
 	start := time.Now()
 	var bl *pkg.Baseline
 	resp, reqerr := pool.client.Do(pool.ctx, req)
-	if pool.ClientType == ihttp.FAST {
-		defer fasthttp.ReleaseResponse(resp.FastResponse)
-		defer fasthttp.ReleaseRequest(req.FastRequest)
-	}
-
-	if reqerr != nil && reqerr != fasthttp.ErrBodyTooLarge {
+	if reqerr != nil {
 		pool.failedCount++
 		bl = &pkg.Baseline{
 			SprayResult: &parsers.SprayResult{
@@ -123,13 +137,8 @@ func (pool *CheckPool) Invoke(v interface{}) {
 				ReqDepth:  unit.depth,
 			},
 		}
-
-		if strings.Contains(reqerr.Error(), "timed out") || strings.Contains(reqerr.Error(), "actively refused") {
-
-		} else {
-			pool.doUpgrade(bl)
-		}
-
+		logs.Log.Debugf("%s, %s", unit.path, reqerr.Error())
+		pool.doUpgrade(bl)
 	} else {
 		bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 		bl.Collect()
@@ -137,28 +146,32 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	bl.ReqDepth = unit.depth
 	bl.Source = unit.source
 	bl.Spended = time.Since(start).Milliseconds()
+	pool.processCh <- bl
+}
 
-	// 手动处理重定向
-	if bl.IsValid {
-		if bl.RedirectURL != "" {
-			pool.doRedirect(bl, unit.depth)
-			pool.putToFuzzy(bl)
-		} else if bl.Status == 400 {
-			pool.doUpgrade(bl)
-			pool.putToFuzzy(bl)
-		} else {
-			params := map[string]interface{}{
-				"current": bl,
-			}
-			if pool.MatchExpr == nil || pkg.CompareWithExpr(pool.MatchExpr, params) {
-				pool.putToOutput(bl)
+func (pool *CheckPool) Handler() {
+	for bl := range pool.processCh {
+		if bl.IsValid {
+			if bl.RedirectURL != "" {
+				pool.doRedirect(bl, bl.ReqDepth)
+				pool.putToFuzzy(bl)
+			} else if bl.Status == 400 {
+				pool.doUpgrade(bl)
+				pool.putToFuzzy(bl)
+			} else {
+				params := map[string]interface{}{
+					"current": bl,
+				}
+				if pool.MatchExpr != nil && pkg.CompareWithExpr(pool.MatchExpr, params) {
+					bl.IsValid = true
+				}
 			}
 		}
+		if bl.Source == parsers.CheckSource {
+			pool.Bar.Done()
+		}
+		pool.putToOutput(bl)
 	}
-
-	pool.reqCount++
-	pool.wg.Done()
-	pool.Bar.Done()
 }
 
 func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {

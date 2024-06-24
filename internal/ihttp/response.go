@@ -29,7 +29,7 @@ func (r *Response) Body() []byte {
 	if r.FastResponse != nil {
 		return r.FastResponse.Body()
 	} else if r.StandardResponse != nil {
-		if DefaultMaxBodySize == 0 {
+		if DefaultMaxBodySize == -1 {
 			body, err := io.ReadAll(r.StandardResponse.Body)
 			if err != nil {
 				return nil
@@ -37,10 +37,10 @@ func (r *Response) Body() []byte {
 			return body
 		} else {
 			var body []byte
-			if r.StandardResponse.ContentLength > 0 && r.StandardResponse.ContentLength < int64(DefaultMaxBodySize) {
+			if r.StandardResponse.ContentLength > 0 && CheckBodySize(r.StandardResponse.ContentLength) {
 				body = make([]byte, r.StandardResponse.ContentLength)
 			} else {
-				body = make([]byte, DefaultMaxBodySize)
+				return nil
 			}
 
 			n, err := io.ReadFull(r.StandardResponse.Body, body)
@@ -62,11 +62,11 @@ func (r *Response) Body() []byte {
 	}
 }
 
-func (r *Response) ContentLength() int {
+func (r *Response) ContentLength() int64 {
 	if r.FastResponse != nil {
-		return r.FastResponse.Header.ContentLength()
+		return int64(r.FastResponse.Header.ContentLength())
 	} else if r.StandardResponse != nil {
-		return int(r.StandardResponse.ContentLength)
+		return r.StandardResponse.ContentLength
 	} else {
 		return 0
 	}

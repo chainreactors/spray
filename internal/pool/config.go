@@ -1,9 +1,9 @@
 package pool
 
 import (
-	"github.com/antonmedv/expr/vm"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/rule"
+	"github.com/expr-lang/expr/vm"
 	"sync"
 )
 
@@ -27,6 +27,7 @@ type Config struct {
 	Thread          int
 	Wordlist        []string
 	Timeout         int
+	ProcessCh       chan *pkg.Baseline
 	OutputCh        chan *pkg.Baseline
 	FuzzyCh         chan *pkg.Baseline
 	OutLocker       *sync.WaitGroup
