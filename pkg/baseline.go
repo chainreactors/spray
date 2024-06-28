@@ -137,10 +137,10 @@ func (bl *Baseline) IsDir() bool {
 func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
-		bl.Frameworks = FingersDetect(bl.Raw)
 		if EnableAllFingerEngine {
-			bl.Frameworks.Merge(FingerPrintHubDetect(bl.Response.Header, string(bl.Body)))
-			bl.Frameworks.Merge(WappalyzerDetect(bl.Response.Header, bl.Body))
+			bl.Frameworks = EngineDetect(bl.Raw)
+		} else {
+			bl.Frameworks = FingersDetect(bl.Raw)
 		}
 	}
 
