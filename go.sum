@@ -94,11 +94,15 @@ github.com/chainreactors/fingers v0.0.0-20240628165118-3f8dcb553f8b h1:1KeC7d+Pc
 github.com/chainreactors/fingers v0.0.0-20240628165118-3f8dcb553f8b/go.mod h1:P9RWZA2j7AALdNbpsZmxBtDa96y8CRpC4mRmwt9PwE8=
 github.com/chainreactors/fingers v0.0.0-20240628165313-8c7e41bf9ab5 h1:tmr3wbiwZZ+d8pgmD7LdjRY5Qp8bDm1STU0u3ADazRI=
 github.com/chainreactors/fingers v0.0.0-20240628165313-8c7e41bf9ab5/go.mod h1:P9RWZA2j7AALdNbpsZmxBtDa96y8CRpC4mRmwt9PwE8=
+github.com/chainreactors/fingers v0.0.0-20240628190949-7257c400d3da h1:5kX/KxHFFjKzpZ7H8Ofdu7ukyrj7IXURhToWpeL3ID0=
+github.com/chainreactors/fingers v0.0.0-20240628190949-7257c400d3da/go.mod h1:P9RWZA2j7AALdNbpsZmxBtDa96y8CRpC4mRmwt9PwE8=
 github.com/chainreactors/logs v0.0.0-20231027080134-7a11bb413460/go.mod h1:VZFqkFDGmp7/JOMeraW+YI7kTGcgz9fgc/HArVFnrGQ=
 github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f h1:tcfp+CEdgiMvjyUzWab5edJtxUwRMSMEIkLybupIx0k=
 github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
 github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc h1:lGgglOE1FGWD7gVZuF0cufxd7i9HJ2gltUewxXCfvs4=
 github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc/go.mod h1:BuI21VlpmYHFr1jva/IN5I5jFvvCtYRyeldGK80wYCg=
+github.com/chainreactors/parsers v0.0.0-20240628194456-a176ea53b412 h1:GobKh1fztHQvslp8Ya6AgduYQshc1+CaomLYAf37yK8=
+github.com/chainreactors/parsers v0.0.0-20240628194456-a176ea53b412/go.mod h1:0zPZn7glHadCyL2lvThINGU57UrLS7Mf+gf/kFW+k28=
 github.com/chainreactors/utils v0.0.0-20240302165634-2b8494c9cfc3/go.mod h1:JA4eiQZm+7AsfjXBcIzIdVKBEhDCb16eNtWFCGTxlvs=
 github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1 h1:+awuysRKLmdLQbVK+HPSOGvO3dFGdNSbM2jyLh+VYOA=
 github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1/go.mod h1:JA4eiQZm+7AsfjXBcIzIdVKBEhDCb16eNtWFCGTxlvs=
