@@ -148,10 +148,8 @@ func (bl *Baseline) Collect() {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
-			if name, ok := Md5Fingers[encode.Md5Hash(bl.Body)]; ok {
-				bl.Frameworks[name] = &common.Framework{Name: name}
-			} else if name, ok := Mmh3Fingers[encode.Mmh3Hash32(bl.Body)]; ok {
-				bl.Frameworks[name] = &common.Framework{Name: name}
+			if frame := FingerEngine.HashContentMatch(bl.Body); frame != nil {
+				bl.Frameworks.Add(frame)
 			}
 		}
 	}

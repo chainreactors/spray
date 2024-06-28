@@ -12,10 +12,8 @@ import (
 )
 
 var (
-	Md5Fingers     map[string]string = make(map[string]string)
-	Mmh3Fingers    map[string]string = make(map[string]string)
-	ExtractRegexps                   = make(parsers.Extractors)
-	Extractors                       = make(parsers.Extractors)
+	ExtractRegexps = make(parsers.Extractors)
+	Extractors     = make(parsers.Extractors)
 
 	FingerEngine *fingers.Engine
 	ActivePath   []string
@@ -33,22 +31,11 @@ func LoadTemplates() error {
 			if rule.SendDataStr != "" {
 				ActivePath = append(ActivePath, rule.SendDataStr)
 			}
-			if rule.Favicon != nil {
-				for _, mmh3 := range rule.Favicon.Mmh3 {
-					Mmh3Fingers[mmh3] = f.Name
-				}
-				for _, md5 := range rule.Favicon.Md5 {
-					Md5Fingers[md5] = f.Name
-				}
-			}
 		}
 	}
-	for _, f := range FingerEngine.FingerPrintEngine {
+	for _, f := range FingerEngine.FingerPrintEngine.FingerPrints {
 		if f.Path != "/" {
 			ActivePath = append(ActivePath, f.Path)
-		}
-		for _, ico := range f.FaviconHash {
-			Md5Fingers[ico] = f.Name
 		}
 	}
 

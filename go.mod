@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
-	github.com/chainreactors/fingers v0.0.0-20240603064620-e83951a40541
+	github.com/chainreactors/fingers v0.0.0-20240628165313-8c7e41bf9ab5
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
 	github.com/chainreactors/parsers v0.0.0-20240422094636-b88693700dfc
 	github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1
@@ -27,6 +27,7 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/facebookincubator/nvdtools v0.1.5 // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/go-dedup/megophone v0.0.0-20170830025436-f01be21026f5 // indirect
 	github.com/go-dedup/simhash v0.0.0-20170904020510-9ecaca7b509c // indirect
