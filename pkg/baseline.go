@@ -135,8 +135,15 @@ func (bl *Baseline) IsDir() bool {
 
 // Collect 深度收集信息
 func (bl *Baseline) Collect() {
+	if bl.Collected { // 防止重复收集
+		return
+	} else {
+		bl.Collected = true
+	}
+
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
+		//fmt.Println(bl.Source, bl.Url.String()+bl.Path, bl.RedirectURL, "call fingersengine")
 		if EnableAllFingerEngine {
 			bl.Frameworks = EngineDetect(bl.Raw)
 		} else {
@@ -160,13 +167,6 @@ func (bl *Baseline) Collect() {
 }
 
 func (bl *Baseline) CollectURL() {
-	if bl.Collected {
-		// 防止重复收集
-		return
-	} else {
-		bl.Collected = true
-	}
-
 	if len(bl.Body) == 0 {
 		return
 	}

@@ -606,7 +606,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 		}
 	}
 
-	bl.Collect()
+	bl.Hashes = parsers.NewHashes(bl.Raw)
 
 	//if !pool.IgnoreWaf {
 	//	// 部分情况下waf的特征可能是全局, 指定了--ignore-waf则不会进行waf的指纹检测
