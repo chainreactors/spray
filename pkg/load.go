@@ -26,14 +26,14 @@ func LoadTemplates() error {
 	if err != nil {
 		return err
 	}
-	for _, f := range FingerEngine.FingersEngine.HTTPFingers {
+	for _, f := range FingerEngine.Fingers().HTTPFingers {
 		for _, rule := range f.Rules {
 			if rule.SendDataStr != "" {
 				ActivePath = append(ActivePath, rule.SendDataStr)
 			}
 		}
 	}
-	for _, f := range FingerEngine.FingerPrintEngine.FingerPrints {
+	for _, f := range FingerEngine.FingerPrintHub().FingerPrints {
 		if f.Path != "/" {
 			ActivePath = append(ActivePath, f.Path)
 		}

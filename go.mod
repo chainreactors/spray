@@ -6,9 +6,9 @@ toolchain go1.22.2
 
 require (
 	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
-	github.com/chainreactors/fingers v0.0.0-20240628190949-7257c400d3da
+	github.com/chainreactors/fingers v0.0.0-20240701112353-ecc7954b4673
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
-	github.com/chainreactors/parsers v0.0.0-20240628195954-201bdc68bdf8
+	github.com/chainreactors/parsers v0.0.0-20240701110332-2f9057256d29
 	github.com/chainreactors/utils v0.0.0-20240528085651-ba1b255482c1
 	github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508
 	github.com/expr-lang/expr v1.16.9
@@ -43,6 +43,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/twmb/murmur3 v1.1.8 // indirect
@@ -55,4 +56,5 @@ require (
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
