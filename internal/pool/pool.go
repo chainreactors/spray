@@ -150,6 +150,9 @@ func (pool *BasePool) genReq(s string) (*ihttp.Request, error) {
 }
 
 func (pool *BasePool) putToOutput(bl *pkg.Baseline) {
+	if bl.IsValid || bl.IsFuzzy {
+		bl.Collect()
+	}
 	pool.OutLocker.Add(1)
 	pool.OutputCh <- bl
 }

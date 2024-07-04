@@ -407,8 +407,10 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		// 异步进行性能消耗较大的深度对比
 		pool.processCh <- bl
 		if int(pool.Statistor.ReqTotal)%pool.CheckPeriod == 0 {
+			// 间歇插入check waf的探针
 			pool.doCheck()
 		} else if pool.failedCount%pool.ErrPeriod == 0 {
+			// 发生错误时插入探针, 如果超过阈值提前退出
 			atomic.AddInt32(&pool.failedCount, 1)
 			pool.doCheck()
 		}
@@ -553,9 +555,9 @@ func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
-	if pool.random.Status != 200 && pool.random.Status == status {
-		return pkg.ErrSameStatus
-	}
+	//if pool.random.Status != 200 && pool.random.Status == status {
+	//	return pkg.ErrSameStatus
+	//}
 
 	if iutils.IntsContains(pkg.BlackStatus, status) {
 		return pkg.ErrBadStatus
@@ -604,7 +606,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 		}
 	}
 
-	bl.Collect()
+	bl.Hashes = parsers.NewHashes(bl.Raw)
 
 	//if !pool.IgnoreWaf {
 	//	// 部分情况下waf的特征可能是全局, 指定了--ignore-waf则不会进行waf的指纹检测
