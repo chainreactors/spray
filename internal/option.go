@@ -87,6 +87,7 @@ type OutputOptions struct {
 	Dump        bool   `long:"dump" description:"Bool, dump all request" config:"dump"`
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json" config:"format"`
+	Json        bool   `short:"j" long:"json" description:"Bool, output json" config:"json"`
 	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output_probe"`
 	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
 	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
@@ -158,36 +159,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		return nil, err
 	}
 	r := &Runner{
-		Threads:         opt.Threads,
-		PoolSize:        opt.PoolSize,
-		Mod:             opt.Mod,
-		Timeout:         opt.Timeout,
-		RateLimit:       opt.RateLimit,
-		Deadline:        opt.Deadline,
-		Headers:         make(map[string]string),
-		Method:          opt.Method,
-		Offset:          opt.Offset,
-		Total:           opt.Limit,
-		taskCh:          make(chan *Task),
-		outputCh:        make(chan *pkg.Baseline, 256),
-		outwg:           &sync.WaitGroup{},
-		fuzzyCh:         make(chan *pkg.Baseline, 256),
-		Fuzzy:           opt.Fuzzy,
-		Force:           opt.Force,
-		CheckOnly:       opt.CheckOnly,
-		CheckPeriod:     opt.CheckPeriod,
-		ErrPeriod:       opt.ErrPeriod,
-		BreakThreshold:  opt.BreakThreshold,
-		Crawl:           opt.Crawl,
-		Scope:           opt.Scope,
-		Finger:          opt.Finger,
-		Bak:             opt.Bak,
-		Common:          opt.Common,
-		RetryCount:      opt.RetryCount,
-		RandomUserAgent: opt.RandomUserAgent,
-		Random:          opt.Random,
-		Index:           opt.Index,
-		Proxy:           opt.Proxy,
+		Option:   opt,
+		taskCh:   make(chan *Task),
+		outputCh: make(chan *pkg.Baseline, 256),
+		outwg:    &sync.WaitGroup{},
+		fuzzyCh:  make(chan *pkg.Baseline, 256),
+		Headers:  make(map[string]string),
+		Total:    opt.Limit,
 	}
 
 	// log and bar
