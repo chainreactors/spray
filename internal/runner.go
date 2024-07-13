@@ -14,7 +14,6 @@ import (
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 	"sync"
-	"time"
 )
 
 var (
@@ -36,7 +35,7 @@ type Runner struct {
 	outputCh      chan *pkg.Baseline
 	fuzzyCh       chan *pkg.Baseline
 	bar           *mpb.Bar
-	finished      int
+	IsCheck       bool
 	Pools         *ants.PoolWithFunc
 	PoolName      map[string]bool
 	Tasks         chan *Task
@@ -73,7 +72,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Mod:            pool.ModMap[r.Mod],
 		OutputCh:       r.outputCh,
 		FuzzyCh:        r.fuzzyCh,
-		OutLocker:      r.outwg,
+		Outwg:          r.outwg,
 		Fuzzy:          r.Fuzzy,
 		CheckPeriod:    r.CheckPeriod,
 		ErrPeriod:      int32(r.ErrPeriod),
@@ -113,15 +112,15 @@ func (r *Runner) AppendFunction(fn func(string) []string) {
 
 func (r *Runner) Prepare(ctx context.Context) error {
 	var err error
-	if r.CheckOnly {
+	if r.IsCheck {
 		// 仅check, 类似httpx
 		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
 			config := r.PrepareConfig()
 
-			pool, err := pool.NewCheckPool(ctx, config)
+			checkPool, err := pool.NewCheckPool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
-				pool.Cancel()
+				checkPool.Cancel()
 				r.poolwg.Done()
 				return
 			}
@@ -133,10 +132,10 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 				close(ch)
 			}()
-			pool.Worder = words.NewWorderWithChan(ch)
-			pool.Worder.Fns = r.Fns
-			pool.Bar = pkg.NewBar("check", r.Count-r.Offset, pool.Statistor, r.Progress)
-			pool.Run(ctx, r.Offset, r.Count)
+			checkPool.Worder = words.NewWorderWithChan(ch)
+			checkPool.Worder.Fns = r.Fns
+			checkPool.Bar = pkg.NewBar("check", r.Count-r.Offset, checkPool.Statistor, r.Progress)
+			checkPool.Run(ctx, r.Offset, r.Count)
 			r.poolwg.Done()
 		})
 	} else {
@@ -162,57 +161,57 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			config := r.PrepareConfig()
 			config.BaseURL = t.baseUrl
 
-			pool, err := pool.NewBrutePool(ctx, config)
+			brutePool, err := pool.NewBrutePool(ctx, config)
 			if err != nil {
 				logs.Log.Error(err.Error())
-				pool.Cancel()
+				brutePool.Cancel()
 				r.Done()
 				return
 			}
 			if t.origin != nil && len(r.Wordlist) == 0 {
 				// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
-				pool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
-				pool.Worder, err = t.origin.InitWorder(r.Fns)
+				brutePool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
+				brutePool.Worder, err = t.origin.InitWorder(r.Fns)
 				if err != nil {
 					logs.Log.Error(err.Error())
 					r.Done()
 					return
 				}
-				pool.Statistor.Total = t.origin.sum
+				brutePool.Statistor.Total = t.origin.sum
 			} else {
-				pool.Statistor = pkg.NewStatistor(t.baseUrl)
-				pool.Worder = words.NewWorder(r.Wordlist)
-				pool.Worder.Fns = r.Fns
-				pool.Worder.Rules = r.Rules.Expressions
+				brutePool.Statistor = pkg.NewStatistor(t.baseUrl)
+				brutePool.Worder = words.NewWorder(r.Wordlist)
+				brutePool.Worder.Fns = r.Fns
+				brutePool.Worder.Rules = r.Rules.Expressions
 			}
 
 			var limit int
-			if pool.Statistor.Total > r.Limit && r.Limit != 0 {
+			if brutePool.Statistor.Total > r.Limit && r.Limit != 0 {
 				limit = r.Limit
 			} else {
-				limit = pool.Statistor.Total
+				limit = brutePool.Statistor.Total
 			}
-			pool.Bar = pkg.NewBar(config.BaseURL, limit-pool.Statistor.Offset, pool.Statistor, r.Progress)
-			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", pool.BaseURL, limit-pool.Statistor.Offset, pool.Thread, pool.ProxyAddr)
-			err = pool.Init()
+			brutePool.Bar = pkg.NewBar(config.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Statistor, r.Progress)
+			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", brutePool.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Thread, brutePool.ProxyAddr)
+			err = brutePool.Init()
 			if err != nil {
-				pool.Statistor.Error = err.Error()
+				brutePool.Statistor.Error = err.Error()
 				if !r.Force {
 					// 如果没开启force, init失败将会关闭pool
-					pool.Close()
-					r.PrintStat(pool)
+					brutePool.Close()
+					r.PrintStat(brutePool)
 					r.Done()
 					return
 				}
 			}
 
-			pool.Run(pool.Statistor.Offset, limit)
+			brutePool.Run(brutePool.Statistor.Offset, limit)
 
-			if pool.IsFailed && len(pool.FailedBaselines) > 0 {
+			if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
-				pool.Statistor.End = pool.FailedBaselines[0].Number
+				brutePool.Statistor.End = brutePool.FailedBaselines[0].Number
 			}
-			r.PrintStat(pool)
+			r.PrintStat(brutePool)
 			r.Done()
 		})
 	}
@@ -222,28 +221,6 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	}
 	r.OutputHandler()
 	return nil
-}
-
-func (r *Runner) AddRecursive(bl *pkg.Baseline) {
-	// 递归新任务
-	task := &Task{
-		baseUrl: bl.UrlString,
-		depth:   bl.RecuDepth + 1,
-		origin:  NewOrigin(pkg.NewStatistor(bl.UrlString)),
-	}
-
-	r.AddPool(task)
-}
-
-func (r *Runner) AddPool(task *Task) {
-	// 递归新任务
-	if _, ok := r.PoolName[task.baseUrl]; ok {
-		logs.Log.Importantf("already added pool, skip %s", task.baseUrl)
-		return
-	}
-	task.depth++
-	r.poolwg.Add(1)
-	r.Pools.Invoke(task)
 }
 
 func (r *Runner) Run(ctx context.Context) {
@@ -294,13 +271,29 @@ Loop:
 		}
 	}
 
-	for {
-		if len(r.outputCh) == 0 {
-			break
-		}
+	r.outwg.Wait()
+}
+
+func (r *Runner) AddRecursive(bl *pkg.Baseline) {
+	// 递归新任务
+	task := &Task{
+		baseUrl: bl.UrlString,
+		depth:   bl.RecuDepth + 1,
+		origin:  NewOrigin(pkg.NewStatistor(bl.UrlString)),
 	}
 
-	time.Sleep(100 * time.Millisecond) // 延迟100ms, 等所有数据处理完毕
+	r.AddPool(task)
+}
+
+func (r *Runner) AddPool(task *Task) {
+	// 递归新任务
+	if _, ok := r.PoolName[task.baseUrl]; ok {
+		logs.Log.Importantf("already added pool, skip %s", task.baseUrl)
+		return
+	}
+	task.depth++
+	r.poolwg.Add(1)
+	r.Pools.Invoke(task)
 }
 
 func (r *Runner) addBar(total int) {
@@ -329,7 +322,6 @@ func (r *Runner) Done() {
 	if r.bar != nil {
 		r.bar.Increment()
 	}
-	r.finished++
 	r.poolwg.Done()
 }
 
