@@ -154,7 +154,9 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
 			t := i.(*Task)
 			if t.origin != nil && t.origin.End == t.origin.Total {
-				r.StatFile.SafeWrite(t.origin.Json())
+				if r.StatFile != nil {
+					r.StatFile.SafeWrite(t.origin.Json())
+				}
 				r.Done()
 				return
 			}
@@ -231,10 +233,14 @@ Loop:
 			if len(r.taskCh) > 0 {
 				for t := range r.taskCh {
 					stat := pkg.NewStatistor(t.baseUrl)
-					r.StatFile.SafeWrite(stat.Json())
+					if r.StatFile != nil {
+						r.StatFile.SafeWrite(stat.Json())
+					}
 				}
 			}
-			logs.Log.Importantf("already save all stat to %s", r.StatFile.Filename)
+			if r.StatFile != nil {
+				logs.Log.Importantf("already save all stat to %s", r.StatFile.Filename)
+			}
 			break Loop
 		case t, ok := <-r.taskCh:
 			if !ok {
