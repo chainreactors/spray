@@ -160,7 +160,7 @@ func Spray() {
 		}()
 	}()
 
-	if runner.CheckOnly {
+	if runner.IsCheck {
 		runner.RunWithCheck(ctx)
 	} else {
 		runner.Run(ctx)

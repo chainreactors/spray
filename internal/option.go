@@ -50,17 +50,18 @@ type InputOptions struct {
 	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
-	CIDRs        string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	CIDRs        string   `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
-	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
-	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
-	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
-	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
-	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
-	AppendFile   []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
-	Offset       int      `long:"offset" description:"Int, wordlist offset"`
-	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	//NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
+	DefaultDict bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
+	Word        string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
+	Rules       []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
+	AppendRule  []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
+	FilterRule  string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
+	AppendFile  []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	Offset      int      `long:"offset" description:"Int, wordlist offset"`
+	Limit       int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
 
 type FunctionOptions struct {
@@ -118,9 +119,9 @@ type PluginOptions struct {
 }
 
 type ModeOptions struct {
-	RateLimit       int      `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100" config:"rate-limit"`
-	Force           bool     `long:"force" description:"Bool, skip error break" config:"force"`
-	CheckOnly       bool     `long:"check-only" description:"Bool, check only" config:"check-only"`
+	RateLimit int  `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100" config:"rate-limit"`
+	Force     bool `long:"force" description:"Bool, skip error break" config:"force"`
+	//CheckOnly       bool     `long:"check-only" description:"Bool, check only" config:"check-only"`
 	NoScope         bool     `long:"no-scope" description:"Bool, no scope" config:"no-scope"`
 	Scope           []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com" config:"scope"`
 	Recursive       string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()" config:"recursive"`
@@ -136,7 +137,7 @@ type ModeOptions struct {
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
-	SimhashDistance int      `long:"distance" default:"5" config:"distance"`
+	SimhashDistance int      `long:"sim-distance" default:"5" config:"sim-distance"`
 }
 
 type MiscOptions struct {
@@ -200,7 +201,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.ClientType = ihttp.STANDARD
 	}
 
-	if opt.Threads == DefaultThreads && opt.CheckOnly {
+	if opt.Threads == DefaultThreads && len(opt.Dictionaries) == 0 {
 		r.Threads = 1000
 	}
 
@@ -291,22 +292,28 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	}
 
 	// prepare word
-	dicts := make([][]string, len(opt.Dictionaries))
-	if len(opt.Dictionaries) == 0 && opt.Word == "" && !opt.NoDict {
+	var dicts [][]string
+	if opt.DefaultDict {
 		dicts = append(dicts, pkg.LoadDefaultDict())
-		logs.Log.Warn("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
-	} else {
-		for i, f := range opt.Dictionaries {
-			dicts[i], err = loadFileToSlice(f)
-			if opt.ResumeFrom != "" {
-				dictCache[f] = dicts[i]
-			}
-			if err != nil {
-				return nil, err
-			}
-
-			logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
+		logs.Log.Info("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
+	}
+	for i, f := range opt.Dictionaries {
+		dict, err := loadFileToSlice(f)
+		if err != nil {
+			return nil, err
 		}
+		if err != nil {
+			return nil, err
+		}
+		dicts = append(dicts, dict)
+		if opt.ResumeFrom != "" {
+			dictCache[f] = dicts[i]
+		}
+
+		logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
+	}
+	if len(dicts) == 0 {
+		r.IsCheck = true
 	}
 
 	if opt.Word == "" {

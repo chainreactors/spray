@@ -153,12 +153,12 @@ func (pool *BasePool) putToOutput(bl *pkg.Baseline) {
 	if bl.IsValid || bl.IsFuzzy {
 		bl.Collect()
 	}
-	pool.OutLocker.Add(1)
+	pool.Outwg.Add(1)
 	pool.OutputCh <- bl
 }
 
 func (pool *BasePool) putToFuzzy(bl *pkg.Baseline) {
-	pool.OutLocker.Add(1)
+	pool.Outwg.Add(1)
 	bl.IsFuzzy = true
 	pool.FuzzyCh <- bl
 }
