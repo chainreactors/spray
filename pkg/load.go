@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"os"
@@ -63,6 +64,14 @@ func LoadTemplates() error {
 		}
 		mask.SpecialWords[k] = t
 	}
+
+	// load ports
+	var ports []*utils.PortConfig
+	err = json.Unmarshal(LoadConfig("port"), &ports)
+	if err != nil {
+		return err
+	}
+	utils.PrePort = utils.NewPortPreset(ports)
 
 	var extracts []*parsers.Extractor
 	err = json.Unmarshal(LoadConfig("extract"), &extracts)
