@@ -399,7 +399,7 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.AppendWords = append(r.AppendWords, lines...)
 	}
 
-	ports := utils.ParsePort(opt.PortRange)
+	ports := utils.ParsePortsString(opt.PortRange)
 	// prepare task
 	tasks := make(chan *Task, opt.PoolSize)
 	var taskfrom string
