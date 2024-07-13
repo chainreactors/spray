@@ -93,6 +93,7 @@ type OutputOptions struct {
 	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
 	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
 	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
+	NoStat      bool   `long:"no-stat" description:"Bool, No stat file output" config:"no-stat"`
 }
 
 type RequestOptions struct {
@@ -719,10 +720,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
-	err = r.StatFile.Init()
-	if err != nil {
-		return nil, err
+
+	if !opt.NoStat {
+		r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
+		err = r.StatFile.Init()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return r, nil
 }
