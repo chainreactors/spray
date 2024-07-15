@@ -9,7 +9,7 @@ require (
 	github.com/chainreactors/fingers v0.0.0-20240711193807-8c1518dc63fc
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
 	github.com/chainreactors/parsers v0.0.0-20240708072709-07deeece7ce2
-	github.com/chainreactors/utils v0.0.0-20240711195624-66696b0879b2
+	github.com/chainreactors/utils v0.0.0-20240715080349-d2d0484c95ed
 	github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508
 	github.com/expr-lang/expr v1.16.9
 	github.com/gookit/config/v2 v2.2.5
