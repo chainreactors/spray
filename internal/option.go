@@ -50,7 +50,7 @@ type InputOptions struct {
 	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
-	CIDRs        string   `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	CIDRs        []string `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
 	//NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
@@ -464,24 +464,19 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 			for k, _ := range req.Header {
 				r.Headers[k] = req.Header.Get(k)
 			}
-		} else if opt.CIDRs != "" {
+		} else if len(opt.CIDRs) != 0 {
+			cidrs := utils.ParseCIDRs(opt.CIDRs)
 			if len(ports) == 0 {
 				ports = []string{"80", "443"}
 			}
 
-			for _, cidr := range strings.Split(opt.CIDRs, ",") {
-				ips := utils.ParseCIDR(cidr)
-				if ips != nil {
-					r.Count += ips.Count()
-				}
-			}
+			r.Count = cidrs.Count()
 			go func() {
-				for _, cidr := range strings.Split(opt.CIDRs, ",") {
-					ips := utils.ParseCIDR(cidr)
-					if ips == nil {
-						logs.Log.Error("cidr format error: " + cidr)
+				for _, cidr := range cidrs {
+					if cidr == nil {
+						logs.Log.Error("cidr format error: " + cidr.String())
 					}
-					for ip := range ips.Range() {
+					for ip := range cidr.Range() {
 						opt.GenerateTasks(tasks, ip.String(), ports)
 					}
 				}
@@ -747,7 +742,7 @@ func (opt *Option) Validate() error {
 		return errors.New("--resume and --depth cannot be used at the same time")
 	}
 
-	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" && opt.RawFile == "" {
+	if opt.ResumeFrom == "" && len(opt.URL) == 0 && opt.URLFile == "" && len(opt.CIDRs) == 0 && opt.RawFile == "" {
 		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
 	}
 	return nil
