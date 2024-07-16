@@ -128,7 +128,7 @@ func (opt *FingerOptions) downloadConfig(name string) (bool, error) {
 	url := baseURL + fingerPath
 	resp, err := http.Get(url)
 	if err != nil {
-		return false, fmt.Errorf("error fetching file: %w", err)
+		return false, err
 	}
 	defer resp.Body.Close()
 
@@ -136,15 +136,35 @@ func (opt *FingerOptions) downloadConfig(name string) (bool, error) {
 		return false, fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	filePath := path.Join(opt.FingerPath, fingerPath)
-	out, err := os.Create(filePath)
-	if err != nil {
-		return false, fmt.Errorf("error creating file: %w", err)
-	}
-	defer out.Close()
 	content, err := io.ReadAll(resp.Body)
+	filePath := path.Join(opt.FingerPath, fingerPath)
+	if files.IsExist(filePath) {
+		origin, err := os.ReadFile(filePath)
+		if err != nil {
+			return false, err
+		}
+		if resources.CheckSum[name] != encode.Md5Hash(origin) {
+			logs.Log.Importantf("update %s config from %s save to %s", name, url, fingerPath)
+			err = os.WriteFile(filePath, content, 0644)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	} else {
+		out, err := os.Create(filePath)
+		if err != nil {
+			return false, err
+		}
+		defer out.Close()
+		logs.Log.Importantf("download %s config from %s save to %s", name, url, fingerPath)
+		err = os.WriteFile(filePath, content, 0644)
+		if err != nil {
+			return false, err
+		}
+	}
 	if err != nil {
-		return false, fmt.Errorf("error writing to file: %w", err)
+		return false, err
 	}
 
 	if origin, err := os.ReadFile(filePath); err == nil {
