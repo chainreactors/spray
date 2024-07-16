@@ -20,9 +20,19 @@ var (
 	ActivePath   []string
 )
 
-func LoadTemplates() error {
+func LoadPorts() error {
 	var err error
-	// load fingers
+	var ports []*utils.PortConfig
+	err = json.Unmarshal(LoadConfig("port"), &ports)
+	if err != nil {
+		return err
+	}
+	utils.PrePort = utils.NewPortPreset(ports)
+	return nil
+}
+
+func LoadFingers() error {
+	var err error
 	FingerEngine, err = fingers.NewEngine()
 	if err != nil {
 		return err
@@ -39,7 +49,11 @@ func LoadTemplates() error {
 			ActivePath = append(ActivePath, f.Path)
 		}
 	}
+	return nil
+}
 
+func LoadTemplates() error {
+	var err error
 	// load rule
 	var data map[string]interface{}
 	err = json.Unmarshal(LoadConfig("spray_rule"), &data)
@@ -64,14 +78,6 @@ func LoadTemplates() error {
 		}
 		mask.SpecialWords[k] = t
 	}
-
-	// load ports
-	var ports []*utils.PortConfig
-	err = json.Unmarshal(LoadConfig("port"), &ports)
-	if err != nil {
-		return err
-	}
-	utils.PrePort = utils.NewPortPreset(ports)
 
 	var extracts []*parsers.Extractor
 	err = json.Unmarshal(LoadConfig("extract"), &extracts)
@@ -114,11 +120,15 @@ func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
 }
 
 func Load() error {
-	// load fingers
-	err := LoadTemplates()
+	err := LoadPorts()
 	if err != nil {
 		return err
 	}
+	err = LoadTemplates()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

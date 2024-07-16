@@ -7,9 +7,7 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
-	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
@@ -113,27 +111,13 @@ func Spray() {
 		return
 	}
 
-	err = pkg.Load()
+	err = option.PreCompare()
 	if err != nil {
-		iutils.Fatal(err.Error())
+		logs.Log.Errorf(err.Error())
+		return
 	}
 
-	// 初始化全局变量
-	pkg.Distance = uint8(option.SimhashDistance)
-	if option.MaxBodyLength == -1 {
-		ihttp.DefaultMaxBodySize = -1
-	} else {
-		ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
-	}
-
-	pool.MaxCrawl = option.CrawlDepth
-
-	var runner *internal.Runner
-	if option.ResumeFrom != "" {
-		runner, err = option.PrepareRunner()
-	} else {
-		runner, err = option.PrepareRunner()
-	}
+	runner, err := option.Compare()
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return

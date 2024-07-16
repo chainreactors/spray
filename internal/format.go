@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
-	"io/ioutil"
+	"io"
 	"os"
 )
 
@@ -13,9 +13,9 @@ func Format(filename string, color bool) {
 	var content []byte
 	var err error
 	if filename == "stdin" {
-		content, err = ioutil.ReadAll(os.Stdin)
+		content, err = io.ReadAll(os.Stdin)
 	} else {
-		content, err = ioutil.ReadFile(filename)
+		content, err = os.ReadFile(filename)
 	}
 
 	if err != nil {

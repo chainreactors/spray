@@ -1,0 +1,162 @@
+package internal
+
+import (
+	"fmt"
+	"github.com/chainreactors/files"
+	"github.com/chainreactors/fingers"
+	"github.com/chainreactors/fingers/resources"
+	"github.com/chainreactors/logs"
+	"github.com/chainreactors/utils/encode"
+	"github.com/chainreactors/utils/iutils"
+	"io"
+	"net/http"
+	"os"
+	"path"
+	"strings"
+)
+
+var (
+	DefaultFingerPath     = "fingers"
+	DefaultFingerTemplate = "fingers/templates"
+
+	FingerConfigs = map[string]string{
+		fingers.FingersEngine:     "fingers_http.json",
+		fingers.FingerPrintEngine: "fingerprinthub_v3.json",
+		fingers.WappalyzerEngine:  "wappalyzer.json",
+		fingers.EHoleEngine:       "ehole.json",
+		fingers.GobyEngine:        "goby.json",
+	}
+	baseURL = "https://raw.githubusercontent.com/chainreactors/fingers/master/resources/"
+)
+
+type FingerOptions struct {
+	Finger               bool   `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
+	FingerUpdate         bool   `long:"update" description:"Bool, update finger database" config:"update"`
+	FingerPath           string `long:"finger-path" default:"fingers" description:"String, 3rd finger config path" config:"finger-path"`
+	FingersTemplatesPath string `long:"finger-template" default:"fingers/templates" description:"Bool, use finger templates path" config:"finger-template"`
+	FingerEngines        string `long:"finger-engine" default:"all" description:"String, custom finger engine, e.g. --finger-engine ehole,goby" config:"finger-engine"`
+}
+
+func (opt *FingerOptions) Validate() error {
+	var err error
+	if opt.FingerUpdate {
+		if opt.FingerPath != DefaultFingerPath && !files.IsExist(opt.FingerPath) {
+			err = os.MkdirAll(opt.FingerPath, 0755)
+			if err != nil {
+				return err
+			}
+		} else if !files.IsExist(DefaultFingerPath) {
+			opt.FingerPath = DefaultFingerPath
+			err = os.MkdirAll(DefaultFingerPath, 0755)
+			if err != nil {
+				return err
+			}
+		}
+
+		if opt.FingersTemplatesPath != DefaultFingerTemplate && !files.IsExist(opt.FingersTemplatesPath) {
+			err = os.MkdirAll(opt.FingersTemplatesPath, 0755)
+			if err != nil {
+				return err
+			}
+		} else if !files.IsExist(DefaultFingerTemplate) {
+			err = os.MkdirAll(DefaultFingerTemplate, 0755)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if opt.FingerEngines != "all" {
+		for _, name := range strings.Split(opt.FingerEngines, ",") {
+			if !iutils.StringsContains(fingers.AllEngines, name) {
+				return fmt.Errorf("invalid finger engine: %s, please input one of %v", name, fingers.FingersEngine)
+			}
+		}
+	}
+	return nil
+}
+
+func (opt *FingerOptions) LoadLocalFingerConfig() error {
+	for name, fingerPath := range FingerConfigs {
+		if content, err := os.ReadFile(fingerPath); err == nil {
+			if encode.Md5Hash(content) != resources.CheckSum[name] {
+				logs.Log.Importantf("found %s difference, use %s replace embed", name, fingerPath)
+				switch name {
+				case fingers.FingersEngine:
+					resources.FingersHTTPData = content
+				case fingers.FingerPrintEngine:
+					resources.Fingerprinthubdata = content
+				case fingers.EHoleEngine:
+					resources.EholeData = content
+				case fingers.GobyEngine:
+					resources.GobyData = content
+				case fingers.WappalyzerEngine:
+					resources.WappalyzerData = content
+				default:
+					return fmt.Errorf("unknown engine name")
+				}
+			} else {
+				logs.Log.Infof("%s config is up to date", name)
+			}
+		}
+	}
+	return nil
+}
+
+func (opt *FingerOptions) UpdateFinger() error {
+	modified := false
+	for name, _ := range FingerConfigs {
+		if ok, err := opt.downloadConfig(name); err != nil {
+			return err
+		} else {
+			if ok {
+				modified = ok
+			}
+		}
+	}
+	if !modified {
+		logs.Log.Importantf("everything is up to date")
+	}
+	return nil
+}
+
+func (opt *FingerOptions) downloadConfig(name string) (bool, error) {
+	fingerPath, ok := FingerConfigs[name]
+	if !ok {
+		return false, fmt.Errorf("unknown engine name")
+	}
+	url := baseURL + fingerPath
+	resp, err := http.Get(url)
+	if err != nil {
+		return false, fmt.Errorf("error fetching file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	filePath := path.Join(opt.FingerPath, fingerPath)
+	out, err := os.Create(filePath)
+	if err != nil {
+		return false, fmt.Errorf("error creating file: %w", err)
+	}
+	defer out.Close()
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("error writing to file: %w", err)
+	}
+
+	if origin, err := os.ReadFile(filePath); err == nil {
+		if encode.Md5Hash(content) != encode.Md5Hash(origin) {
+			logs.Log.Infof("download %s config from %s save to %s", name, url, fingerPath)
+			err = os.WriteFile(filePath, content, 0644)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
