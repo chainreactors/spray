@@ -39,6 +39,7 @@ type Option struct {
 	FunctionOptions `group:"Function Options" config:"functions" `
 	OutputOptions   `group:"Output Options" config:"output"`
 	PluginOptions   `group:"Plugin Options" config:"plugins"`
+	FingerOptions   `group:"Finger Options" config:"finger"`
 	RequestOptions  `group:"Request Options" config:"request"`
 	ModeOptions     `group:"Modify Options" config:"mode"`
 	MiscOptions     `group:"Miscellaneous Options" config:"misc"`
@@ -111,7 +112,6 @@ type PluginOptions struct {
 	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
 	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
 	Recon         bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
-	Finger        bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
 	Bak           bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
 	FileBak       bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
 	Common        bool     `long:"common" description:"Bool, enable common file found" config:"common"`
@@ -155,11 +155,88 @@ type MiscOptions struct {
 	InitConfig bool   `long:"init" description:"Bool, init config file"`
 }
 
-func (opt *Option) PrepareRunner() (*Runner, error) {
-	err := opt.Validate()
-	if err != nil {
-		return nil, err
+func (opt *Option) PreCompare() error {
+	var err error
+	logs.Log.SetColor(true)
+	if err = opt.FingerOptions.Validate(); err != nil {
+		return err
 	}
+
+	if opt.FingerUpdate {
+		err = opt.UpdateFinger()
+		if err != nil {
+			return err
+		}
+	}
+	err = opt.LoadLocalFingerConfig()
+	if err != nil {
+		return err
+	}
+
+	err = opt.Validate()
+	if err != nil {
+		return err
+	}
+	err = pkg.LoadFingers()
+	if err != nil {
+		return err
+	}
+
+	if opt.Extracts != nil {
+		for _, e := range opt.Extracts {
+			if reg, ok := pkg.ExtractRegexps[e]; ok {
+				pkg.Extractors[e] = reg
+			} else {
+				pkg.Extractors[e] = []*parsers.Extractor{
+					&parsers.Extractor{
+						Name:            e,
+						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
+					},
+				}
+			}
+		}
+	}
+	if opt.ExtractConfig != "" {
+		extracts, err := pkg.LoadExtractorConfig(opt.ExtractConfig)
+		if err != nil {
+			return err
+		}
+		pkg.Extractors[opt.ExtractConfig] = extracts
+	}
+
+	err = pkg.Load()
+	if err != nil {
+		iutils.Fatal(err.Error())
+	}
+
+	// 初始化全局变量
+	pkg.Distance = uint8(opt.SimhashDistance)
+	if opt.MaxBodyLength == -1 {
+		ihttp.DefaultMaxBodySize = -1
+	} else {
+		ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
+	}
+
+	pkg.BlackStatus = parseStatus(pkg.BlackStatus, opt.BlackStatus)
+	pkg.WhiteStatus = parseStatus(pkg.WhiteStatus, opt.WhiteStatus)
+	if opt.FuzzyStatus == "all" {
+		pool.EnableAllFuzzy = true
+	} else {
+		pkg.FuzzyStatus = parseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
+	}
+
+	if opt.Unique {
+		pool.EnableAllUnique = true
+	} else {
+		pkg.UniqueStatus = parseStatus(pkg.UniqueStatus, opt.UniqueStatus)
+	}
+	pool.MaxCrawl = opt.CrawlDepth
+
+	return nil
+}
+
+func (opt *Option) Compare() (*Runner, error) {
+	var err error
 	r := &Runner{
 		Option:   opt,
 		taskCh:   make(chan *Task),
@@ -168,12 +245,13 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		fuzzyCh:  make(chan *pkg.Baseline, 256),
 		Headers:  make(map[string]string),
 		Total:    opt.Limit,
+		Color:    true,
 	}
 
 	// log and bar
-	if !opt.NoColor {
-		logs.Log.SetColor(true)
-		r.Color = true
+	if opt.NoColor {
+		logs.Log.SetColor(false)
+		r.Color = false
 	}
 	if opt.Quiet {
 		logs.Log.SetQuiet(true)
@@ -204,28 +282,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	if opt.Threads == DefaultThreads && len(opt.Dictionaries) == 0 {
 		r.Threads = 1000
-	}
-
-	if opt.Extracts != nil {
-		for _, e := range opt.Extracts {
-			if reg, ok := pkg.ExtractRegexps[e]; ok {
-				pkg.Extractors[e] = reg
-			} else {
-				pkg.Extractors[e] = []*parsers.Extractor{
-					&parsers.Extractor{
-						Name:            e,
-						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
-					},
-				}
-			}
-		}
-	}
-	if opt.ExtractConfig != "" {
-		extracts, err := pkg.LoadExtractorConfig(opt.ExtractConfig)
-		if err != nil {
-			return nil, err
-		}
-		pkg.Extractors[opt.ExtractConfig] = extracts
 	}
 
 	if opt.Recon {
@@ -276,20 +332,6 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 
 	if opt.NoScope {
 		r.Scope = []string{"*"}
-	}
-
-	pkg.BlackStatus = parseStatus(pkg.BlackStatus, opt.BlackStatus)
-	pkg.WhiteStatus = parseStatus(pkg.WhiteStatus, opt.WhiteStatus)
-	if opt.FuzzyStatus == "all" {
-		pool.EnableAllFuzzy = true
-	} else {
-		pkg.FuzzyStatus = parseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
-	}
-
-	if opt.Unique {
-		pool.EnableAllUnique = true
-	} else {
-		pkg.UniqueStatus = parseStatus(pkg.UniqueStatus, opt.UniqueStatus)
 	}
 
 	// prepare word
@@ -745,6 +787,7 @@ func (opt *Option) Validate() error {
 	if opt.ResumeFrom == "" && len(opt.URL) == 0 && opt.URLFile == "" && len(opt.CIDRs) == 0 && opt.RawFile == "" {
 		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
 	}
+
 	return nil
 }
 
