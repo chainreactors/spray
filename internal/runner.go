@@ -38,7 +38,7 @@ type Runner struct {
 	IsCheck       bool
 	Pools         *ants.PoolWithFunc
 	PoolName      map[string]bool
-	Tasks         chan *Task
+	Tasks         *TaskGenerator
 	Rules         *rule.Program
 	AppendRules   *rule.Program
 	Headers       map[string]string
@@ -127,7 +127,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 
 			ch := make(chan string)
 			go func() {
-				for t := range r.Tasks {
+				for t := range r.Tasks.tasks {
 					ch <- t.baseUrl
 				}
 				close(ch)
@@ -141,7 +141,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	} else {
 		// 完整探测模式
 		go func() {
-			for t := range r.Tasks {
+			for t := range r.Tasks.tasks {
 				r.taskCh <- t
 			}
 			close(r.taskCh)
