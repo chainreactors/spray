@@ -111,13 +111,13 @@ func Spray() {
 		return
 	}
 
-	err = option.PreCompare()
+	err = option.Prepare()
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return
 	}
 
-	runner, err := option.Compare()
+	runner, err := option.NewRunner()
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return

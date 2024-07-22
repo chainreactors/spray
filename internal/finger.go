@@ -20,11 +20,11 @@ var (
 	DefaultFingerTemplate = "fingers/templates"
 
 	FingerConfigs = map[string]string{
-		fingers.FingersEngine:     "fingers_http.json",
-		fingers.FingerPrintEngine: "fingerprinthub_v3.json",
-		fingers.WappalyzerEngine:  "wappalyzer.json",
-		fingers.EHoleEngine:       "ehole.json",
-		fingers.GobyEngine:        "goby.json",
+		fingers.FingersEngine:     "fingers_http.json.gz",
+		fingers.FingerPrintEngine: "fingerprinthub_v3.json.gz",
+		fingers.WappalyzerEngine:  "wappalyzer.json.gz",
+		fingers.EHoleEngine:       "ehole.json.gz",
+		fingers.GobyEngine:        "goby.json.gz",
 	}
 	baseURL = "https://raw.githubusercontent.com/chainreactors/fingers/master/resources/"
 )
