@@ -18,7 +18,7 @@ type Task struct {
 func NewTaskGenerator(port string) *TaskGenerator {
 	gen := &TaskGenerator{
 		ports: utils.ParsePortsString(port),
-		tasks: make(chan *Task, 256),
+		tasks: make(chan *Task),
 		In:    make(chan *Task),
 	}
 
@@ -56,6 +56,7 @@ func (gen *TaskGenerator) Run(baseurl string) {
 
 	if len(gen.ports) == 0 {
 		gen.In <- &Task{baseUrl: parsed.String()}
+		return
 	}
 
 	for _, p := range gen.ports {

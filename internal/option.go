@@ -456,7 +456,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
 	} else {
-		r.StatFile, err = files.NewFile(strings.ReplaceAll(r.Tasks.Name, ":", "_")+".stat", false, true, true)
+		r.StatFile, err = files.NewFile(safeFilename(r.Tasks.Name)+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
@@ -506,7 +506,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 	var err error
 	if opt.DefaultDict {
 		dicts = append(dicts, pkg.LoadDefaultDict())
-		logs.Log.Info("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
+		logs.Log.Info("use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
 	}
 	for i, f := range opt.Dictionaries {
 		dict, err := loadFileToSlice(f)
