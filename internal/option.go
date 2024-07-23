@@ -281,6 +281,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		logs.Log.SetColor(false)
 		r.Color = false
 	}
+
 	if !(opt.Quiet || opt.NoBar) {
 		r.Progress = mpb.New(mpb.WithRefreshRate(100 * time.Millisecond))
 		logs.Log.SetOutput(r.Progress)

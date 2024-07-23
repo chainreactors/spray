@@ -135,12 +135,22 @@ func Spray() {
 	}
 
 	go func() {
-		c := make(chan os.Signal, 2)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		exitChan := make(chan os.Signal, 2)
+		signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
+
 		go func() {
-			<-c
-			logs.Log.Important("exit signal, save stat and exit")
-			canceler()
+			sigCount := 0
+			for {
+				<-exitChan
+				sigCount++
+				if sigCount == 1 {
+					logs.Log.Infof("Exit signal received, saving task and exiting...")
+					canceler()
+				} else if sigCount == 2 {
+					logs.Log.Infof("forcing exit...")
+					os.Exit(1)
+				}
+			}
 		}()
 	}()
 
