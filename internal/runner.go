@@ -148,7 +148,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		}()
 
 		if r.Count > 0 {
-			r.addBar(r.Count)
+			r.newBar(r.Count)
 		}
 
 		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
@@ -298,7 +298,7 @@ func (r *Runner) AddPool(task *Task) {
 	r.Pools.Invoke(task)
 }
 
-func (r *Runner) addBar(total int) {
+func (r *Runner) newBar(total int) {
 	if r.Progress == nil {
 		return
 	}
