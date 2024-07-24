@@ -159,4 +159,5 @@ func Spray() {
 	} else {
 		runner.Run(ctx)
 	}
+	time.Sleep(1 * time.Second)
 }
