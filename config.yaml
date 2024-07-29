@@ -101,7 +101,7 @@ mode:
   # Bool, skip error break
   force: false
   # Bool, check only
-  check-only: false
+  default: false
   # Bool, no scope
   no-scope: false
   # String, custom scope, e.g.: --scope *.example.com
@@ -132,7 +132,7 @@ mode:
   unique: false
   # Int, retry count
   retry: 0
-  distance: 5
+  sim-distance: 5
 misc:
   # String, path/host spray
   mod: path

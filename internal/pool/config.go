@@ -30,7 +30,7 @@ type Config struct {
 	ProcessCh       chan *pkg.Baseline
 	OutputCh        chan *pkg.Baseline
 	FuzzyCh         chan *pkg.Baseline
-	OutLocker       *sync.WaitGroup
+	Outwg           *sync.WaitGroup
 	RateLimit       int
 	CheckPeriod     int
 	ErrPeriod       int32

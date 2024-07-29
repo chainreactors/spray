@@ -7,9 +7,7 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
-	"github.com/chainreactors/spray/internal/pool"
 	"github.com/chainreactors/spray/pkg"
-	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
@@ -17,7 +15,7 @@ import (
 	"time"
 )
 
-var ver = "v0.9.6"
+var ver = "v1.0.0"
 var DefaultConfig = "config.yaml"
 
 func init() {
@@ -113,27 +111,13 @@ func Spray() {
 		return
 	}
 
-	err = pkg.Load()
+	err = option.Prepare()
 	if err != nil {
-		iutils.Fatal(err.Error())
+		logs.Log.Errorf(err.Error())
+		return
 	}
 
-	// 初始化全局变量
-	pkg.Distance = uint8(option.SimhashDistance)
-	if option.MaxBodyLength == -1 {
-		ihttp.DefaultMaxBodySize = -1
-	} else {
-		ihttp.DefaultMaxBodySize = option.MaxBodyLength * 1024
-	}
-
-	pool.MaxCrawl = option.CrawlDepth
-
-	var runner *internal.Runner
-	if option.ResumeFrom != "" {
-		runner, err = option.PrepareRunner()
-	} else {
-		runner, err = option.PrepareRunner()
-	}
+	runner, err := option.NewRunner()
 	if err != nil {
 		logs.Log.Errorf(err.Error())
 		return
@@ -151,18 +135,29 @@ func Spray() {
 	}
 
 	go func() {
-		c := make(chan os.Signal, 2)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		exitChan := make(chan os.Signal, 2)
+		signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
+
 		go func() {
-			<-c
-			logs.Log.Important("exit signal, save stat and exit")
-			canceler()
+			sigCount := 0
+			for {
+				<-exitChan
+				sigCount++
+				if sigCount == 1 {
+					logs.Log.Infof("Exit signal received, saving task and exiting...")
+					canceler()
+				} else if sigCount == 2 {
+					logs.Log.Infof("forcing exit...")
+					os.Exit(1)
+				}
+			}
 		}()
 	}()
 
-	if runner.CheckOnly {
+	if runner.IsCheck {
 		runner.RunWithCheck(ctx)
 	} else {
 		runner.Run(ctx)
 	}
+	time.Sleep(1 * time.Second)
 }

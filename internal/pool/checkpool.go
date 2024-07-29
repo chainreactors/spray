@@ -154,10 +154,10 @@ func (pool *CheckPool) Handler() {
 		if bl.IsValid {
 			if bl.RedirectURL != "" {
 				pool.doRedirect(bl, bl.ReqDepth)
-				pool.putToFuzzy(bl)
+				pool.putToOutput(bl)
 			} else if bl.Status == 400 {
 				pool.doUpgrade(bl)
-				pool.putToFuzzy(bl)
+				pool.putToOutput(bl)
 			} else {
 				params := map[string]interface{}{
 					"current": bl,

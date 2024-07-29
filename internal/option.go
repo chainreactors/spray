@@ -39,6 +39,7 @@ type Option struct {
 	FunctionOptions `group:"Function Options" config:"functions" `
 	OutputOptions   `group:"Output Options" config:"output"`
 	PluginOptions   `group:"Plugin Options" config:"plugins"`
+	FingerOptions   `group:"Finger Options" config:"finger"`
 	RequestOptions  `group:"Request Options" config:"request"`
 	ModeOptions     `group:"Modify Options" config:"mode"`
 	MiscOptions     `group:"Miscellaneous Options" config:"misc"`
@@ -50,17 +51,18 @@ type InputOptions struct {
 	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
 	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
-	CIDRs        string   `long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
+	CIDRs        []string `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
-	NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
-	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
-	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
-	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
-	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
-	AppendFile   []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
-	Offset       int      `long:"offset" description:"Int, wordlist offset"`
-	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	//NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
+	DefaultDict bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
+	Word        string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
+	Rules       []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
+	AppendRule  []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
+	FilterRule  string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
+	AppendFile  []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	Offset      int      `long:"offset" description:"Int, wordlist offset"`
+	Limit       int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
 
 type FunctionOptions struct {
@@ -92,6 +94,7 @@ type OutputOptions struct {
 	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
 	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
 	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
+	NoStat      bool   `long:"no-stat" description:"Bool, No stat file output" config:"no-stat"`
 }
 
 type RequestOptions struct {
@@ -109,7 +112,6 @@ type PluginOptions struct {
 	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
 	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
 	Recon         bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
-	Finger        bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
 	Bak           bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
 	FileBak       bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
 	Common        bool     `long:"common" description:"Bool, enable common file found" config:"common"`
@@ -118,9 +120,9 @@ type PluginOptions struct {
 }
 
 type ModeOptions struct {
-	RateLimit       int      `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100" config:"rate-limit"`
-	Force           bool     `long:"force" description:"Bool, skip error break" config:"force"`
-	CheckOnly       bool     `long:"check-only" description:"Bool, check only" config:"check-only"`
+	RateLimit int  `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100" config:"rate-limit"`
+	Force     bool `long:"force" description:"Bool, skip error break" config:"force"`
+	//CheckOnly       bool     `long:"check-only" description:"Bool, check only" config:"check-only"`
 	NoScope         bool     `long:"no-scope" description:"Bool, no scope" config:"no-scope"`
 	Scope           []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com" config:"scope"`
 	Recursive       string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()" config:"recursive"`
@@ -136,7 +138,7 @@ type ModeOptions struct {
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
-	SimhashDistance int      `long:"distance" default:"5" config:"distance"`
+	SimhashDistance int      `long:"sim-distance" default:"5" config:"sim-distance"`
 }
 
 type MiscOptions struct {
@@ -153,11 +155,111 @@ type MiscOptions struct {
 	InitConfig bool   `long:"init" description:"Bool, init config file"`
 }
 
-func (opt *Option) PrepareRunner() (*Runner, error) {
-	err := opt.Validate()
-	if err != nil {
-		return nil, err
+func (opt *Option) Validate() error {
+	if opt.Uppercase && opt.Lowercase {
+		return errors.New("cannot set -U and -L at the same time")
 	}
+
+	if (opt.Offset != 0 || opt.Limit != 0) && opt.Depth > 0 {
+		// 偏移和上限与递归同时使用时也会造成混淆.
+		return errors.New("--offset and --limit cannot be used with --depth at the same time")
+	}
+
+	if opt.Depth > 0 && opt.ResumeFrom != "" {
+		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
+
+		return errors.New("--resume and --depth cannot be used at the same time")
+	}
+
+	if opt.ResumeFrom == "" && len(opt.URL) == 0 && opt.URLFile == "" && len(opt.CIDRs) == 0 && opt.RawFile == "" {
+		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
+	}
+
+	return nil
+}
+
+func (opt *Option) Prepare() error {
+	var err error
+	logs.Log.SetColor(true)
+	if err = opt.FingerOptions.Validate(); err != nil {
+		return err
+	}
+
+	if opt.FingerUpdate {
+		err = opt.UpdateFinger()
+		if err != nil {
+			return err
+		}
+	}
+	err = opt.LoadLocalFingerConfig()
+	if err != nil {
+		return err
+	}
+
+	err = opt.Validate()
+	if err != nil {
+		return err
+	}
+	err = pkg.LoadFingers()
+	if err != nil {
+		return err
+	}
+
+	if opt.Extracts != nil {
+		for _, e := range opt.Extracts {
+			if reg, ok := pkg.ExtractRegexps[e]; ok {
+				pkg.Extractors[e] = reg
+			} else {
+				pkg.Extractors[e] = []*parsers.Extractor{
+					&parsers.Extractor{
+						Name:            e,
+						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
+					},
+				}
+			}
+		}
+	}
+	if opt.ExtractConfig != "" {
+		extracts, err := pkg.LoadExtractorConfig(opt.ExtractConfig)
+		if err != nil {
+			return err
+		}
+		pkg.Extractors[opt.ExtractConfig] = extracts
+	}
+
+	err = pkg.Load()
+	if err != nil {
+		iutils.Fatal(err.Error())
+	}
+
+	// 初始化全局变量
+	pkg.Distance = uint8(opt.SimhashDistance)
+	if opt.MaxBodyLength == -1 {
+		ihttp.DefaultMaxBodySize = -1
+	} else {
+		ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
+	}
+
+	pkg.BlackStatus = parseStatus(pkg.BlackStatus, opt.BlackStatus)
+	pkg.WhiteStatus = parseStatus(pkg.WhiteStatus, opt.WhiteStatus)
+	if opt.FuzzyStatus == "all" {
+		pool.EnableAllFuzzy = true
+	} else {
+		pkg.FuzzyStatus = parseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
+	}
+
+	if opt.Unique {
+		pool.EnableAllUnique = true
+	} else {
+		pkg.UniqueStatus = parseStatus(pkg.UniqueStatus, opt.UniqueStatus)
+	}
+	pool.MaxCrawl = opt.CrawlDepth
+
+	return nil
+}
+
+func (opt *Option) NewRunner() (*Runner, error) {
+	var err error
 	r := &Runner{
 		Option:   opt,
 		taskCh:   make(chan *Task),
@@ -166,18 +268,20 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		fuzzyCh:  make(chan *pkg.Baseline, 256),
 		Headers:  make(map[string]string),
 		Total:    opt.Limit,
+		Color:    true,
 	}
 
 	// log and bar
-	if !opt.NoColor {
-		logs.Log.SetColor(true)
-		r.Color = true
+	if opt.NoColor {
+		logs.Log.SetColor(false)
+		r.Color = false
 	}
 	if opt.Quiet {
 		logs.Log.SetQuiet(true)
 		logs.Log.SetColor(false)
 		r.Color = false
 	}
+
 	if !(opt.Quiet || opt.NoBar) {
 		r.Progress = mpb.New(mpb.WithRefreshRate(100 * time.Millisecond))
 		logs.Log.SetOutput(r.Progress)
@@ -200,30 +304,8 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		r.ClientType = ihttp.STANDARD
 	}
 
-	if opt.Threads == DefaultThreads && opt.CheckOnly {
+	if opt.Threads == DefaultThreads && len(opt.Dictionaries) == 0 {
 		r.Threads = 1000
-	}
-
-	if opt.Extracts != nil {
-		for _, e := range opt.Extracts {
-			if reg, ok := pkg.ExtractRegexps[e]; ok {
-				pkg.Extractors[e] = reg
-			} else {
-				pkg.Extractors[e] = []*parsers.Extractor{
-					&parsers.Extractor{
-						Name:            e,
-						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
-					},
-				}
-			}
-		}
-	}
-	if opt.ExtractConfig != "" {
-		extracts, err := pkg.LoadExtractorConfig(opt.ExtractConfig)
-		if err != nil {
-			return nil, err
-		}
-		pkg.Extractors[opt.ExtractConfig] = extracts
 	}
 
 	if opt.Recon {
@@ -238,130 +320,28 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		pkg.EnableAllFingerEngine = true
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 		opt.AppendRule = append(opt.AppendRule, "filebak")
-	} else if opt.FileBak {
+	}
+
+	if opt.FileBak {
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
-
-	var s strings.Builder
-	if r.Crawl {
-		s.WriteString("crawl enable; ")
+	if opt.Common {
+		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
 	}
-	if r.Finger {
+	if opt.Finger {
 		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
 		pkg.EnableAllFingerEngine = true
-		s.WriteString("active fingerprint enable; ")
-	}
-	if r.Bak {
-		s.WriteString("bak file enable; ")
-	}
-	if r.Common {
-		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
-		s.WriteString("common file enable; ")
-	}
-	if opt.Recon {
-		s.WriteString("recon enable; ")
-	}
-	if len(opt.AppendRule) > 0 {
-		s.WriteString("file bak enable; ")
 	}
 
-	if r.RetryCount > 0 {
-		s.WriteString("Retry Count: " + strconv.Itoa(r.RetryCount))
-	}
-	if s.Len() > 0 {
-		logs.Log.Important(s.String())
-	}
+	opt.PrintPlugin()
 
 	if opt.NoScope {
 		r.Scope = []string{"*"}
 	}
 
-	pkg.BlackStatus = parseStatus(pkg.BlackStatus, opt.BlackStatus)
-	pkg.WhiteStatus = parseStatus(pkg.WhiteStatus, opt.WhiteStatus)
-	if opt.FuzzyStatus == "all" {
-		pool.EnableAllFuzzy = true
-	} else {
-		pkg.FuzzyStatus = parseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
-	}
-
-	if opt.Unique {
-		pool.EnableAllUnique = true
-	} else {
-		pkg.UniqueStatus = parseStatus(pkg.UniqueStatus, opt.UniqueStatus)
-	}
-
-	// prepare word
-	dicts := make([][]string, len(opt.Dictionaries))
-	if len(opt.Dictionaries) == 0 && opt.Word == "" && !opt.NoDict {
-		dicts = append(dicts, pkg.LoadDefaultDict())
-		logs.Log.Warn("not set any dictionary, use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
-	} else {
-		for i, f := range opt.Dictionaries {
-			dicts[i], err = loadFileToSlice(f)
-			if opt.ResumeFrom != "" {
-				dictCache[f] = dicts[i]
-			}
-			if err != nil {
-				return nil, err
-			}
-
-			logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
-		}
-	}
-
-	if opt.Word == "" {
-		opt.Word = "{?"
-		for i, _ := range dicts {
-			opt.Word += strconv.Itoa(i)
-		}
-		opt.Word += "}"
-	}
-
-	if len(opt.Suffixes) != 0 {
-		mask.SpecialWords["suffix"] = opt.Suffixes
-		opt.Word += "{?@suffix}"
-	}
-	if len(opt.Prefixes) != 0 {
-		mask.SpecialWords["prefix"] = opt.Prefixes
-		opt.Word = "{?@prefix}" + opt.Word
-	}
-
-	if opt.ForceExtension && opt.Extensions != "" {
-		exts := strings.Split(opt.Extensions, ",")
-		for i, e := range exts {
-			if !strings.HasPrefix(e, ".") {
-				exts[i] = "." + e
-			}
-		}
-		mask.SpecialWords["ext"] = exts
-		opt.Word += "{?@ext}"
-	}
-
-	r.Wordlist, err = mask.Run(opt.Word, dicts, nil)
+	err = opt.BuildWords(r)
 	if err != nil {
-		return nil, fmt.Errorf("%s %w", opt.Word, err)
-	}
-	if len(r.Wordlist) > 0 {
-		logs.Log.Logf(pkg.LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
-	}
-
-	if len(opt.Rules) != 0 {
-		rules, err := loadRuleAndCombine(opt.Rules)
-		if err != nil {
-			return nil, err
-		}
-		r.Rules = rule.Compile(rules, opt.FilterRule)
-	} else if opt.FilterRule != "" {
-		// if filter rule is not empty, set rules to ":", force to open filter mode
-		r.Rules = rule.Compile(":", opt.FilterRule)
-	} else {
-		r.Rules = new(rule.Program)
-	}
-
-	if len(r.Rules.Expressions) > 0 {
-		r.Total = len(r.Wordlist) * len(r.Rules.Expressions)
-	} else {
-		r.Total = len(r.Wordlist)
+		return nil, err
 	}
 
 	pkg.DefaultStatistor = pkg.Statistor{
@@ -374,240 +354,10 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 		Total:        r.Total,
 	}
 
-	if len(opt.AppendRule) != 0 {
-		content, err := loadRuleAndCombine(opt.AppendRule)
-		if err != nil {
-			return nil, err
-		}
-		r.AppendRules = rule.Compile(string(content), "")
+	r.Tasks, err = opt.BuildTasks(r)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(opt.AppendFile) != 0 {
-		var bs bytes.Buffer
-		for _, f := range opt.AppendFile {
-			content, err := ioutil.ReadFile(f)
-			if err != nil {
-				return nil, err
-			}
-			bs.Write(bytes.TrimSpace(content))
-			bs.WriteString("\n")
-		}
-		lines := strings.Split(bs.String(), "\n")
-		for i, line := range lines {
-			lines[i] = strings.TrimSpace(line)
-		}
-		r.AppendWords = append(r.AppendWords, lines...)
-	}
-
-	ports := utils.ParsePort(opt.PortRange)
-	// prepare task
-	tasks := make(chan *Task, opt.PoolSize)
-	var taskfrom string
-	if opt.ResumeFrom != "" {
-		stats, err := pkg.ReadStatistors(opt.ResumeFrom)
-		if err != nil {
-			logs.Log.Error(err.Error())
-		}
-		r.Count = len(stats)
-		taskfrom = "resume " + opt.ResumeFrom
-		go func() {
-			for _, stat := range stats {
-				tasks <- &Task{baseUrl: stat.BaseUrl, origin: NewOrigin(stat)}
-			}
-			close(tasks)
-		}()
-	} else {
-		var file *os.File
-
-		// 根据不同的输入类型生成任务
-		if len(opt.URL) == 1 {
-			go func() {
-				opt.GenerateTasks(tasks, opt.URL[0], ports)
-				close(tasks)
-			}()
-			parsed, _ := url.Parse(opt.URL[0])
-			taskfrom = parsed.Host
-			r.Count = 1
-		} else if len(opt.URL) > 1 {
-			go func() {
-				for _, u := range opt.URL {
-					opt.GenerateTasks(tasks, u, ports)
-				}
-				close(tasks)
-			}()
-
-			taskfrom = "cmd"
-			r.Count = len(opt.URL)
-		} else if opt.RawFile != "" {
-			raw, err := os.Open(opt.RawFile)
-			if err != nil {
-				return nil, err
-			}
-
-			req, err := http.ReadRequest(bufio.NewReader(raw))
-			if err != nil {
-				return nil, err
-			}
-			go func() {
-				opt.GenerateTasks(tasks, fmt.Sprintf("http://%s%s", req.Host, req.URL.String()), ports)
-				close(tasks)
-			}()
-			r.Method = req.Method
-			for k, _ := range req.Header {
-				r.Headers[k] = req.Header.Get(k)
-			}
-		} else if opt.CIDRs != "" {
-			if len(ports) == 0 {
-				ports = []string{"80", "443"}
-			}
-
-			for _, cidr := range strings.Split(opt.CIDRs, ",") {
-				ips := utils.ParseCIDR(cidr)
-				if ips != nil {
-					r.Count += ips.Count()
-				}
-			}
-			go func() {
-				for _, cidr := range strings.Split(opt.CIDRs, ",") {
-					ips := utils.ParseCIDR(cidr)
-					if ips == nil {
-						logs.Log.Error("cidr format error: " + cidr)
-					}
-					for ip := range ips.Range() {
-						opt.GenerateTasks(tasks, ip.String(), ports)
-					}
-				}
-				close(tasks)
-			}()
-			taskfrom = "cidr"
-		} else if opt.URLFile != "" {
-			file, err = os.Open(opt.URLFile)
-			if err != nil {
-				return nil, err
-			}
-			taskfrom = filepath.Base(opt.URLFile)
-		} else if files.HasStdin() {
-			file = os.Stdin
-			taskfrom = "stdin"
-		}
-		if file != nil {
-			content, err := ioutil.ReadAll(file)
-			if err != nil {
-				return nil, err
-			}
-			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
-			for _, u := range urls {
-				u = strings.TrimSpace(u)
-				if _, err := url.Parse(u); err == nil {
-					r.Count++
-				} else if ip := utils.ParseIP(u); ip != nil {
-					r.Count++
-				} else if cidr := utils.ParseCIDR(u); cidr != nil {
-					r.Count += cidr.Count()
-				}
-			}
-
-			go func() {
-				for _, u := range urls {
-					u = strings.TrimSpace(u)
-					if _, err := url.Parse(u); err == nil {
-						opt.GenerateTasks(tasks, u, ports)
-					} else if ip := utils.ParseIP(u); ip != nil {
-						opt.GenerateTasks(tasks, u, ports)
-					} else if cidr := utils.ParseCIDR(u); cidr != nil {
-						for ip := range cidr.Range() {
-							opt.GenerateTasks(tasks, ip.String(), ports)
-						}
-					}
-				}
-				close(tasks)
-			}()
-		}
-	}
-
-	if len(ports) > 0 {
-		r.Count = r.Count * len(ports)
-	}
-
-	r.Tasks = tasks
-	logs.Log.Logf(pkg.LogVerbose, "Loaded %d urls from %s", len(tasks), taskfrom)
-
-	//  类似dirsearch中的
-	if opt.Extensions != "" {
-		r.AppendFunction(func(s string) []string {
-			exts := strings.Split(opt.Extensions, ",")
-			ss := make([]string, len(exts))
-			for i, e := range exts {
-				if strings.Contains(s, "%EXT%") {
-					ss[i] = strings.Replace(s, "%EXT%", e, -1)
-				}
-			}
-			return ss
-		})
-	} else {
-		r.AppendFunction(func(s string) []string {
-			if strings.Contains(s, "%EXT%") {
-				return nil
-			}
-			return []string{s}
-		})
-	}
-
-	if opt.Uppercase {
-		r.AppendFunction(wrapWordsFunc(strings.ToUpper))
-	}
-	if opt.Lowercase {
-		r.AppendFunction(wrapWordsFunc(strings.ToLower))
-	}
-
-	if opt.RemoveExtensions != "" {
-		rexts := strings.Split(opt.ExcludeExtensions, ",")
-		r.AppendFunction(func(s string) []string {
-			if ext := parseExtension(s); iutils.StringsContains(rexts, ext) {
-				return []string{strings.TrimSuffix(s, "."+ext)}
-			}
-			return []string{s}
-		})
-	}
-
-	if opt.ExcludeExtensions != "" {
-		exexts := strings.Split(opt.ExcludeExtensions, ",")
-		r.AppendFunction(func(s string) []string {
-			if ext := parseExtension(s); iutils.StringsContains(exexts, ext) {
-				return nil
-			}
-			return []string{s}
-		})
-	}
-
-	if len(opt.Replaces) > 0 {
-		r.AppendFunction(func(s string) []string {
-			for k, v := range opt.Replaces {
-				s = strings.Replace(s, k, v, -1)
-			}
-			return []string{s}
-		})
-	}
-
-	// default skip function, skip %EXT%
-	r.AppendFunction(func(s string) []string {
-		if strings.Contains(s, "%EXT%") {
-			return nil
-		}
-		return []string{s}
-	})
-	if len(opt.Skips) > 0 {
-		r.AppendFunction(func(s string) []string {
-			for _, skip := range opt.Skips {
-				if strings.Contains(s, skip) {
-					return nil
-				}
-			}
-			return []string{s}
-		})
-	}
-
-	logs.Log.Logf(pkg.LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 
 	if opt.Match != "" {
 		exp, err := expr.Compile(opt.Match)
@@ -707,67 +457,354 @@ func (opt *Option) PrepareRunner() (*Runner, error) {
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
 	} else {
-		r.StatFile, err = files.NewFile(strings.ReplaceAll(taskfrom, ":", "_")+".stat", false, true, true)
+		r.StatFile, err = files.NewFile(safeFilename(r.Tasks.Name)+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
 	}
-	r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
-	err = r.StatFile.Init()
-	if err != nil {
-		return nil, err
+
+	if !opt.NoStat {
+		r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
+		err = r.StatFile.Init()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return r, nil
 }
 
-func (opt *Option) Validate() error {
-	if opt.Uppercase && opt.Lowercase {
-		return errors.New("cannot set -U and -L at the same time")
+func (opt *Option) PrintPlugin() {
+	var s strings.Builder
+	if opt.Crawl {
+		s.WriteString("crawl enable; ")
+	}
+	if opt.Finger {
+		s.WriteString("active fingerprint enable; ")
+	}
+	if opt.Bak {
+		s.WriteString("bak file enable; ")
+	}
+	if opt.Common {
+		s.WriteString("common file enable; ")
+	}
+	if opt.Recon {
+		s.WriteString("recon enable; ")
+	}
+	if opt.FileBak {
+		s.WriteString("file bak enable; ")
 	}
 
-	if (opt.Offset != 0 || opt.Limit != 0) && opt.Depth > 0 {
-		// 偏移和上限与递归同时使用时也会造成混淆.
-		return errors.New("--offset and --limit cannot be used with --depth at the same time")
+	if opt.RetryCount > 0 {
+		s.WriteString("Retry Count: " + strconv.Itoa(opt.RetryCount))
+	}
+	if s.Len() > 0 {
+		logs.Log.Important(s.String())
+	}
+}
+
+func (opt *Option) BuildWords(r *Runner) error {
+	var dicts [][]string
+	var err error
+	if opt.DefaultDict {
+		dicts = append(dicts, pkg.LoadDefaultDict())
+		logs.Log.Info("use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
+	}
+	for i, f := range opt.Dictionaries {
+		dict, err := loadFileToSlice(f)
+		if err != nil {
+			return err
+		}
+		dicts = append(dicts, dict)
+		if opt.ResumeFrom != "" {
+			dictCache[f] = dicts[i]
+		}
+
+		logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
+	}
+	if len(dicts) == 0 {
+		r.IsCheck = true
 	}
 
-	if opt.Depth > 0 && opt.ResumeFrom != "" {
-		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
-
-		return errors.New("--resume and --depth cannot be used at the same time")
+	if opt.Word == "" {
+		opt.Word = "{?"
+		for i, _ := range dicts {
+			opt.Word += strconv.Itoa(i)
+		}
+		opt.Word += "}"
 	}
 
-	if opt.ResumeFrom == "" && opt.URL == nil && opt.URLFile == "" && opt.CIDRs == "" && opt.RawFile == "" {
-		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
+	if len(opt.Suffixes) != 0 {
+		mask.SpecialWords["suffix"] = opt.Suffixes
+		opt.Word += "{?@suffix}"
 	}
+	if len(opt.Prefixes) != 0 {
+		mask.SpecialWords["prefix"] = opt.Prefixes
+		opt.Word = "{?@prefix}" + opt.Word
+	}
+
+	if opt.ForceExtension && opt.Extensions != "" {
+		exts := strings.Split(opt.Extensions, ",")
+		for i, e := range exts {
+			if !strings.HasPrefix(e, ".") {
+				exts[i] = "." + e
+			}
+		}
+		mask.SpecialWords["ext"] = exts
+		opt.Word += "{?@ext}"
+	}
+
+	r.Wordlist, err = mask.Run(opt.Word, dicts, nil)
+	if err != nil {
+		return fmt.Errorf("%s %w", opt.Word, err)
+	}
+	if len(r.Wordlist) > 0 {
+		logs.Log.Logf(pkg.LogVerbose, "Parsed %d words by %s", len(r.Wordlist), opt.Word)
+	}
+
+	if len(opt.Rules) != 0 {
+		rules, err := loadRuleAndCombine(opt.Rules)
+		if err != nil {
+			return err
+		}
+		r.Rules = rule.Compile(rules, opt.FilterRule)
+	} else if opt.FilterRule != "" {
+		// if filter rule is not empty, set rules to ":", force to open filter mode
+		r.Rules = rule.Compile(":", opt.FilterRule)
+	} else {
+		r.Rules = new(rule.Program)
+	}
+
+	if len(r.Rules.Expressions) > 0 {
+		r.Total = len(r.Wordlist) * len(r.Rules.Expressions)
+	} else {
+		r.Total = len(r.Wordlist)
+	}
+
+	if len(opt.AppendRule) != 0 {
+		content, err := loadRuleAndCombine(opt.AppendRule)
+		if err != nil {
+			return err
+		}
+		r.AppendRules = rule.Compile(string(content), "")
+	}
+
+	if len(opt.AppendFile) != 0 {
+		var bs bytes.Buffer
+		for _, f := range opt.AppendFile {
+			content, err := ioutil.ReadFile(f)
+			if err != nil {
+				return err
+			}
+			bs.Write(bytes.TrimSpace(content))
+			bs.WriteString("\n")
+		}
+		lines := strings.Split(bs.String(), "\n")
+		for i, line := range lines {
+			lines[i] = strings.TrimSpace(line)
+		}
+		r.AppendWords = append(r.AppendWords, lines...)
+	}
+
+	//  类似dirsearch中的
+	if opt.Extensions != "" {
+		r.AppendFunction(func(s string) []string {
+			exts := strings.Split(opt.Extensions, ",")
+			ss := make([]string, len(exts))
+			for i, e := range exts {
+				if strings.Contains(s, "%EXT%") {
+					ss[i] = strings.Replace(s, "%EXT%", e, -1)
+				}
+			}
+			return ss
+		})
+	} else {
+		r.AppendFunction(func(s string) []string {
+			if strings.Contains(s, "%EXT%") {
+				return nil
+			}
+			return []string{s}
+		})
+	}
+
+	if opt.Uppercase {
+		r.AppendFunction(wrapWordsFunc(strings.ToUpper))
+	}
+	if opt.Lowercase {
+		r.AppendFunction(wrapWordsFunc(strings.ToLower))
+	}
+
+	if opt.RemoveExtensions != "" {
+		rexts := strings.Split(opt.ExcludeExtensions, ",")
+		r.AppendFunction(func(s string) []string {
+			if ext := parseExtension(s); iutils.StringsContains(rexts, ext) {
+				return []string{strings.TrimSuffix(s, "."+ext)}
+			}
+			return []string{s}
+		})
+	}
+
+	if opt.ExcludeExtensions != "" {
+		exexts := strings.Split(opt.ExcludeExtensions, ",")
+		r.AppendFunction(func(s string) []string {
+			if ext := parseExtension(s); iutils.StringsContains(exexts, ext) {
+				return nil
+			}
+			return []string{s}
+		})
+	}
+
+	if len(opt.Replaces) > 0 {
+		r.AppendFunction(func(s string) []string {
+			for k, v := range opt.Replaces {
+				s = strings.Replace(s, k, v, -1)
+			}
+			return []string{s}
+		})
+	}
+
+	// default skip function, skip %EXT%
+	r.AppendFunction(func(s string) []string {
+		if strings.Contains(s, "%EXT%") {
+			return nil
+		}
+		return []string{s}
+	})
+	if len(opt.Skips) > 0 {
+		r.AppendFunction(func(s string) []string {
+			for _, skip := range opt.Skips {
+				if strings.Contains(s, skip) {
+					return nil
+				}
+			}
+			return []string{s}
+		})
+	}
+
+	logs.Log.Logf(pkg.LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
 	return nil
 }
 
-// Generate Tasks
-func (opt *Option) GenerateTasks(ch chan *Task, u string, ports []string) {
-	parsed, err := url.Parse(u)
-	if err != nil {
-		logs.Log.Warnf("parse %s, %s ", u, err.Error())
-		return
-	}
+func (opt *Option) BuildTasks(r *Runner) (*TaskGenerator, error) {
+	// prepare task`
+	var err error
+	gen := NewTaskGenerator(opt.PortRange)
+	if opt.ResumeFrom != "" {
+		stats, err := pkg.ReadStatistors(opt.ResumeFrom)
+		if err != nil {
+			logs.Log.Error(err.Error())
+		}
+		r.Count = len(stats)
+		gen.Name = "resume " + opt.ResumeFrom
+		go func() {
+			for _, stat := range stats {
+				gen.In <- &Task{baseUrl: stat.BaseUrl, origin: NewOrigin(stat)}
+			}
+			close(gen.In)
+		}()
+	} else {
+		var file *os.File
 
-	if parsed.Scheme == "" {
-		if parsed.Port() == "443" {
-			parsed.Scheme = "https"
-		} else {
-			parsed.Scheme = "http"
+		// 根据不同的输入类型生成任务
+		if len(opt.URL) == 1 {
+			gen.Name = opt.URL[0]
+			go func() {
+				gen.Run(opt.URL[0])
+				close(gen.In)
+			}()
+			r.Count = 1
+		} else if len(opt.URL) > 1 {
+			go func() {
+				for _, u := range opt.URL {
+					gen.Run(u)
+				}
+				close(gen.In)
+			}()
+			gen.Name = "cmd"
+			r.Count = len(opt.URL)
+		} else if opt.RawFile != "" {
+			raw, err := os.Open(opt.RawFile)
+			if err != nil {
+				return nil, err
+			}
+
+			req, err := http.ReadRequest(bufio.NewReader(raw))
+			if err != nil {
+				return nil, err
+			}
+			go func() {
+				gen.Run(fmt.Sprintf("http://%s%s", req.Host, req.URL.String()))
+				close(gen.In)
+			}()
+			r.Method = req.Method
+			for k, _ := range req.Header {
+				r.Headers[k] = req.Header.Get(k)
+			}
+			r.Count = 1
+		} else if len(opt.CIDRs) != 0 {
+			cidrs := utils.ParseCIDRs(opt.CIDRs)
+			if len(gen.ports) == 0 {
+				gen.ports = []string{"80", "443"}
+			}
+			gen.Name = "cidr"
+			r.Count = cidrs.Count()
+			go func() {
+				for _, cidr := range cidrs {
+					if cidr == nil {
+						logs.Log.Error("cidr format error: " + cidr.String())
+					}
+					for ip := range cidr.Range() {
+						gen.Run(ip.String())
+					}
+				}
+				close(gen.In)
+			}()
+		} else if opt.URLFile != "" {
+			file, err = os.Open(opt.URLFile)
+			if err != nil {
+				return nil, err
+			}
+			gen.Name = filepath.Base(opt.URLFile)
+		} else if files.HasStdin() {
+			file = os.Stdin
+			gen.Name = "stdin"
+		}
+		if file != nil {
+			content, err := ioutil.ReadAll(file)
+			if err != nil {
+				return nil, err
+			}
+			urls := strings.Split(strings.TrimSpace(string(content)), "\n")
+			for _, u := range urls {
+				u = strings.TrimSpace(u)
+				if _, err := url.Parse(u); err == nil {
+					r.Count++
+				} else if ip := utils.ParseIP(u); ip != nil {
+					r.Count++
+				} else if cidr := utils.ParseCIDR(u); cidr != nil {
+					r.Count += cidr.Count()
+				}
+			}
+
+			go func() {
+				for _, u := range urls {
+					u = strings.TrimSpace(u)
+					if _, err := url.Parse(u); err == nil {
+						gen.Run(u)
+					} else if ip := utils.ParseIP(u); ip != nil {
+						gen.Run(u)
+					} else if cidr := utils.ParseCIDR(u); cidr != nil {
+						for ip := range cidr.Range() {
+							gen.Run(ip.String())
+						}
+					}
+				}
+				close(gen.In)
+			}()
 		}
 	}
 
-	if len(ports) == 0 {
-		ch <- &Task{baseUrl: parsed.String()}
-		return
+	if len(gen.ports) > 0 {
+		r.Count = r.Count * len(gen.ports)
 	}
-
-	for _, p := range ports {
-		if parsed.Host == "" {
-			ch <- &Task{baseUrl: fmt.Sprintf("%s://%s:%s", parsed.Scheme, parsed.Path, p)}
-		} else {
-			ch <- &Task{baseUrl: fmt.Sprintf("%s://%s:%s/%s", parsed.Scheme, parsed.Host, p, parsed.Path)}
-		}
-	}
+	return gen, nil
 }

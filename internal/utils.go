@@ -164,3 +164,11 @@ func wrapWordsFunc(f func(string) string) func(string) []string {
 		return []string{f(s)}
 	}
 }
+
+func safeFilename(filename string) string {
+	filename = strings.ReplaceAll(filename, "http://", "")
+	filename = strings.ReplaceAll(filename, "https://", "")
+	filename = strings.ReplaceAll(filename, ":", "_")
+	filename = strings.ReplaceAll(filename, "/", "_")
+	return filename
+}

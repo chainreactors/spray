@@ -5,11 +5,11 @@ go 1.22
 toolchain go1.22.2
 
 require (
-	github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8
-	github.com/chainreactors/fingers v0.0.0-20240704063230-de8fec05ff8b
+	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
+	github.com/chainreactors/fingers v0.0.0-20240716172449-2fc3147b9c2a
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
-	github.com/chainreactors/parsers v0.0.0-20240704071623-9d0ee90230a6
-	github.com/chainreactors/utils v0.0.0-20240704062557-662d623b74f4
+	github.com/chainreactors/parsers v0.0.0-20240708072709-07deeece7ce2
+	github.com/chainreactors/utils v0.0.0-20240716182459-e85f2b01ee16
 	github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508
 	github.com/expr-lang/expr v1.16.9
 	github.com/gookit/config/v2 v2.2.5

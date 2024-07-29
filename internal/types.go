@@ -3,15 +3,7 @@ package internal
 import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
-	"github.com/chainreactors/words/rule"
 )
-
-type Task struct {
-	baseUrl string
-	depth   int
-	rule    []rule.Expression
-	origin  *Origin
-}
 
 func NewOrigin(stat *pkg.Statistor) *Origin {
 	return &Origin{Statistor: stat}
