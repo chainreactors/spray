@@ -50,35 +50,21 @@ type CheckPool struct {
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
 	pool.Worder.Run()
 
-	var done bool
-	// 挂起一个监控goroutine, 每100ms判断一次done, 如果已经done, 则关闭closeCh, 然后通过Loop中的select case closeCh去break, 实现退出
-	go func() {
-		for {
-			if done {
-				pool.wg.Wait()
-				close(pool.closeCh)
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-
 Loop:
 	for {
 		select {
 		case u, ok := <-pool.Worder.C:
 			if !ok {
-				done = true
-				continue
+				break Loop
 			}
 
 			if pool.reqCount < offset {
 				pool.reqCount++
-				continue
+				break Loop
 			}
 
 			if pool.reqCount > limit {
-				continue
+				break Loop
 			}
 
 			pool.wg.Add(1)
@@ -96,7 +82,7 @@ Loop:
 			break Loop
 		}
 	}
-
+	pool.wg.Wait()
 	pool.Close()
 }
 

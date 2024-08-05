@@ -98,6 +98,8 @@ github.com/chainreactors/utils v0.0.0-20240704062557-662d623b74f4/go.mod h1:JA4e
 github.com/chainreactors/utils v0.0.0-20240715080349-d2d0484c95ed/go.mod h1:LajXuvESQwP+qCMAvlcoSXppQCjuLlBrnQpu9XQ1HtU=
 github.com/chainreactors/utils v0.0.0-20240716182459-e85f2b01ee16 h1:TCOshCp7PrWqhP/HSAM5kT3VxoOe7EoJbRseyoSX3RM=
 github.com/chainreactors/utils v0.0.0-20240716182459-e85f2b01ee16/go.mod h1:LajXuvESQwP+qCMAvlcoSXppQCjuLlBrnQpu9XQ1HtU=
+github.com/chainreactors/utils v0.0.0-20240805193040-ff3b97aa3c3f h1:2NKmadFYP9vCwC0YrazgttFACleOhxScTPzg0i76YAY=
+github.com/chainreactors/utils v0.0.0-20240805193040-ff3b97aa3c3f/go.mod h1:LajXuvESQwP+qCMAvlcoSXppQCjuLlBrnQpu9XQ1HtU=
 github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508 h1:iT4HWkoZzUAfQYcQMRH8XyrMau9tCVE0zSuFQnkhrqw=
 github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508/go.mod h1:DUDx7PdsMEm5PvVhzkFyppzpiUhQb8dOJaWjVc1SMVk=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=

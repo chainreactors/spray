@@ -111,6 +111,7 @@ func (r *Runner) AppendFunction(fn func(string) []string) {
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
+	r.OutputHandler()
 	var err error
 	if r.IsCheck {
 		// 仅check, 类似httpx
@@ -138,6 +139,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			checkPool.Run(ctx, r.Offset, r.Count)
 			r.poolwg.Done()
 		})
+		r.RunWithCheck(ctx)
 	} else {
 		// 完整探测模式
 		go func() {
@@ -214,12 +216,12 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			r.PrintStat(brutePool)
 			r.Done()
 		})
+		r.Run(ctx)
 	}
-
 	if err != nil {
 		return err
 	}
-	r.OutputHandler()
+
 	return nil
 }
 
