@@ -521,7 +521,8 @@ func (opt *Option) BuildWords(r *Runner) error {
 
 		logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
 	}
-	if len(dicts) == 0 {
+
+	if len(dicts) == 0 && opt.Word == "" {
 		r.IsCheck = true
 	}
 
