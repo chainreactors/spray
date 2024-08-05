@@ -1,8 +1,8 @@
 package ihttp
 
 import (
-	"bytes"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/utils/httputils"
 	"github.com/valyala/fasthttp"
 	"io"
 	"net/http"
@@ -93,15 +93,7 @@ func (r *Response) Header() []byte {
 	if r.FastResponse != nil {
 		return r.FastResponse.Header.Header()
 	} else if r.StandardResponse != nil {
-		var header bytes.Buffer
-		header.WriteString(r.StandardResponse.Proto + " " + r.StandardResponse.Status)
-		for k, v := range r.StandardResponse.Header {
-			for _, i := range v {
-				header.WriteString(k + ": " + i + "\r\n")
-			}
-		}
-		header.WriteString("\r\n")
-		return header.Bytes()
+		return append(httputils.ReadRawHeader(r.StandardResponse), []byte("\r\n")...)
 	} else {
 		return nil
 	}
