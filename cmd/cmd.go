@@ -127,13 +127,6 @@ func Spray() {
 	}
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)
-
-	err = runner.Prepare(ctx)
-	if err != nil {
-		logs.Log.Errorf(err.Error())
-		return
-	}
-
 	go func() {
 		exitChan := make(chan os.Signal, 2)
 		signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
@@ -154,10 +147,11 @@ func Spray() {
 		}()
 	}()
 
-	if runner.IsCheck {
-		runner.RunWithCheck(ctx)
-	} else {
-		runner.Run(ctx)
+	err = runner.Prepare(ctx)
+	if err != nil {
+		logs.Log.Errorf(err.Error())
+		return
 	}
+
 	time.Sleep(1 * time.Second)
 }
