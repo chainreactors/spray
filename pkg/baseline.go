@@ -36,9 +36,10 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl.HeaderLength = len(bl.Header)
 
 	if i := resp.ContentLength(); ihttp.CheckBodySize(i) {
-		body := resp.Body()
-		bl.Body = make([]byte, len(body))
-		copy(bl.Body, body)
+		if body := resp.Body(); body != nil {
+			bl.Body = make([]byte, len(body))
+			copy(bl.Body, body)
+		}
 
 		if i == -1 {
 			bl.Chunked = true
