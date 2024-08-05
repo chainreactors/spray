@@ -111,6 +111,7 @@ type PluginOptions struct {
 	Advance       bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
 	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
 	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
+	Active        bool     `long:"active" description:"Bool, enable active finger path"`
 	Recon         bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
 	Bak           bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
 	FileBak       bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
@@ -312,25 +313,39 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
 	}
 
+	if opt.Finger {
+		pkg.EnableAllFingerEngine = true
+	}
+
+	// brute only
 	if opt.Advance {
 		r.Crawl = true
 		r.Finger = true
 		r.Bak = true
 		r.Common = true
+		r.Active = true
 		pkg.EnableAllFingerEngine = true
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
+		r.IsCheck = false
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
 
 	if opt.FileBak {
+		r.IsCheck = false
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
 	if opt.Common {
+		r.IsCheck = false
 		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
 	}
-	if opt.Finger {
+
+	if opt.Active {
+		r.IsCheck = false
 		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
-		pkg.EnableAllFingerEngine = true
+	}
+
+	if opt.Crawl {
+		r.IsCheck = false
 	}
 
 	opt.PrintPlugin()
