@@ -349,6 +349,9 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	}
 
 	opt.PrintPlugin()
+	if r.IsCheck == false {
+		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
+	}
 
 	if opt.NoScope {
 		r.Scope = []string{"*"}
@@ -512,6 +515,7 @@ func (opt *Option) PrintPlugin() {
 	if opt.RetryCount > 0 {
 		s.WriteString("Retry Count: " + strconv.Itoa(opt.RetryCount))
 	}
+
 	if s.Len() > 0 {
 		logs.Log.Important(s.String())
 	}
