@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var ver = "v1.0.0"
+var ver = "v1.0.1"
 var DefaultConfig = "config.yaml"
 
 func init() {
@@ -44,13 +44,19 @@ func Spray() {
   WIKI: https://chainreactors.github.io/wiki/spray
   
   QUICKSTART:
-    simple example:
+	basic:
+	  spray -u http://example.com
+
+	basic cidr and port:
+	  spray -i example -p top2,top3
+
+    simple brute:
       spray -u http://example.com -d wordlist1.txt -d wordlist2.txt
 
-    mask-base wordlist:
+    mask-base brute with wordlist:
       spray -u http://example.com -w "/aaa/bbb{?l#4}/ccc"
 
-    rule-base wordlist:
+    rule-base brute with wordlist:
       spray -u http://example.com -r rule.txt -d 1.txt
 
     list input spray:
