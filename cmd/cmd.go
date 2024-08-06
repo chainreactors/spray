@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var ver = "v1.0.0"
+var ver = "v1.0.1"
 var DefaultConfig = "config.yaml"
 
 func init() {
@@ -44,13 +44,19 @@ func Spray() {
   WIKI: https://chainreactors.github.io/wiki/spray
   
   QUICKSTART:
-    simple example:
+	basic:
+	  spray -u http://example.com
+
+	basic cidr and port:
+	  spray -i example -p top2,top3
+
+    simple brute:
       spray -u http://example.com -d wordlist1.txt -d wordlist2.txt
 
-    mask-base wordlist:
+    mask-base brute with wordlist:
       spray -u http://example.com -w "/aaa/bbb{?l#4}/ccc"
 
-    rule-base wordlist:
+    rule-base brute with wordlist:
       spray -u http://example.com -r rule.txt -d 1.txt
 
     list input spray:
@@ -127,13 +133,6 @@ func Spray() {
 	}
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)
-
-	err = runner.Prepare(ctx)
-	if err != nil {
-		logs.Log.Errorf(err.Error())
-		return
-	}
-
 	go func() {
 		exitChan := make(chan os.Signal, 2)
 		signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
@@ -154,10 +153,11 @@ func Spray() {
 		}()
 	}()
 
-	if runner.IsCheck {
-		runner.RunWithCheck(ctx)
-	} else {
-		runner.Run(ctx)
+	err = runner.Prepare(ctx)
+	if err != nil {
+		logs.Log.Errorf(err.Error())
+		return
 	}
+
 	time.Sleep(1 * time.Second)
 }
