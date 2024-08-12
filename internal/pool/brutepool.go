@@ -51,7 +51,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			additionCh: make(chan *Unit, config.Thread),
 			closeCh:    make(chan struct{}),
 			processCh:  make(chan *pkg.Baseline, config.Thread),
-			wg:         sync.WaitGroup{},
+			wg:         &sync.WaitGroup{},
 		},
 		base:  u.Scheme + "://" + u.Host,
 		isDir: strings.HasSuffix(u.Path, "/"),
@@ -196,7 +196,7 @@ func (pool *BrutePool) Upgrade(bl *pkg.Baseline) error {
 	return nil
 }
 
-func (pool *BrutePool) Run(offset, limit int) {
+func (pool *BrutePool) Run(ctx context.Context, offset, limit int) {
 	pool.Worder.Run()
 	if pool.Active {
 		pool.wg.Add(1)
@@ -279,7 +279,7 @@ Loop:
 			}
 		case <-pool.closeCh:
 			break Loop
-		case <-pool.ctx.Done():
+		case <-ctx.Done():
 			break Loop
 		case <-pool.ctx.Done():
 			break Loop

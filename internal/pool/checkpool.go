@@ -29,7 +29,7 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 				Timeout:   time.Duration(config.Timeout) * time.Second,
 				ProxyAddr: config.ProxyAddr,
 			}),
-			wg:         sync.WaitGroup{},
+			wg:         &sync.WaitGroup{},
 			additionCh: make(chan *Unit, 1024),
 			closeCh:    make(chan struct{}),
 			processCh:  make(chan *pkg.Baseline, config.Thread),
@@ -50,21 +50,35 @@ type CheckPool struct {
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
 	pool.Worder.Run()
 
+	var done bool
+	// 挂起一个监控goroutine, 每100ms判断一次done, 如果已经done, 则关闭closeCh, 然后通过Loop中的select case closeCh去break, 实现退出
+	go func() {
+		for {
+			if done {
+				pool.wg.Wait()
+				close(pool.closeCh)
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
 Loop:
 	for {
 		select {
 		case u, ok := <-pool.Worder.C:
 			if !ok {
-				break Loop
+				done = true
+				continue
 			}
 
 			if pool.reqCount < offset {
 				pool.reqCount++
-				break Loop
+				continue
 			}
 
 			if pool.reqCount > limit {
-				break Loop
+				continue
 			}
 
 			pool.wg.Add(1)
@@ -82,7 +96,7 @@ Loop:
 			break Loop
 		}
 	}
-	pool.wg.Wait()
+
 	pool.Close()
 }
 
@@ -128,6 +142,9 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	} else {
 		bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
 		bl.Collect()
+		if bl.Status == 400 {
+			pool.doUpgrade(bl)
+		}
 	}
 	bl.ReqDepth = unit.depth
 	bl.Source = unit.source
@@ -140,9 +157,6 @@ func (pool *CheckPool) Handler() {
 		if bl.IsValid {
 			if bl.RedirectURL != "" {
 				pool.doRedirect(bl, bl.ReqDepth)
-				pool.putToOutput(bl)
-			} else if bl.Status == 400 {
-				pool.doUpgrade(bl)
 				pool.putToOutput(bl)
 			} else {
 				params := map[string]interface{}{

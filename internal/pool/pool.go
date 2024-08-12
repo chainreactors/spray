@@ -29,7 +29,7 @@ type BasePool struct {
 	failedCount int
 	additionCh  chan *Unit
 	closeCh     chan struct{}
-	wg          sync.WaitGroup
+	wg          *sync.WaitGroup
 }
 
 func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
