@@ -207,7 +207,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			brutePool.Run(brutePool.Statistor.Offset, limit)
+			brutePool.Run(ctx, brutePool.Statistor.Offset, limit)
 
 			if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标

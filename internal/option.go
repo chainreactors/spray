@@ -349,7 +349,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	}
 
 	opt.PrintPlugin()
-	if r.IsCheck == false {
+	if r.IsCheck == true {
 		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
 	}
 
