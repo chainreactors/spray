@@ -141,6 +141,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		pool.doUpgrade(bl)
 	} else {
 		bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+		bl.ReqDepth = unit.depth
 		bl.Collect()
 		if bl.Status == 400 {
 			pool.doUpgrade(bl)
