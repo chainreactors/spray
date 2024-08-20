@@ -35,6 +35,7 @@ type Runner struct {
 	outputCh      chan *pkg.Baseline
 	fuzzyCh       chan *pkg.Baseline
 	bar           *mpb.Bar
+	bruteMod      bool
 	IsCheck       bool
 	Pools         *ants.PoolWithFunc
 	PoolName      map[string]bool
@@ -111,6 +112,9 @@ func (r *Runner) AppendFunction(fn func(string) []string) {
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
+	if r.bruteMod {
+		r.IsCheck = false
+	}
 	r.OutputHandler()
 	var err error
 	if r.IsCheck {
@@ -207,7 +211,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			brutePool.Run(brutePool.Statistor.Offset, limit)
+			brutePool.Run(ctx, brutePool.Statistor.Offset, limit)
 
 			if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
