@@ -326,30 +326,30 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Active = true
 		pkg.EnableAllFingerEngine = true
 		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
-		r.IsCheck = false
+		r.bruteMod = true
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
 
 	if opt.FileBak {
-		r.IsCheck = false
+		r.bruteMod = true
 		opt.AppendRule = append(opt.AppendRule, "filebak")
 	}
 	if opt.Common {
-		r.IsCheck = false
+		r.bruteMod = true
 		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
 	}
 
 	if opt.Active {
-		r.IsCheck = false
+		r.bruteMod = true
 		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
 	}
 
 	if opt.Crawl {
-		r.IsCheck = false
+		r.bruteMod = true
 	}
 
 	opt.PrintPlugin()
-	if r.IsCheck == true {
+	if r.bruteMod {
 		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
 	}
 
