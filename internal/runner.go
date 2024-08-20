@@ -35,6 +35,7 @@ type Runner struct {
 	outputCh      chan *pkg.Baseline
 	fuzzyCh       chan *pkg.Baseline
 	bar           *mpb.Bar
+	bruteMod      bool
 	IsCheck       bool
 	Pools         *ants.PoolWithFunc
 	PoolName      map[string]bool
@@ -111,6 +112,9 @@ func (r *Runner) AppendFunction(fn func(string) []string) {
 }
 
 func (r *Runner) Prepare(ctx context.Context) error {
+	if r.bruteMod {
+		r.IsCheck = false
+	}
 	r.OutputHandler()
 	var err error
 	if r.IsCheck {
