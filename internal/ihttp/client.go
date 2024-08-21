@@ -62,10 +62,8 @@ func NewClient(config *ClientConfig) *Client {
 		client = &Client{
 			standardClient: &http.Client{
 				Transport: &http.Transport{
-					//Proxy: Proxy,
-					//TLSHandshakeTimeout : delay * time.Second,
 					TLSClientConfig: &tls.Config{
-						Renegotiation:      tls.RenegotiateOnceAsClient,
+						Renegotiation:      tls.RenegotiateNever,
 						InsecureSkipVerify: true,
 					},
 					TLSHandshakeTimeout: config.Timeout,
