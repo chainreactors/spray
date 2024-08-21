@@ -740,6 +740,9 @@ func (pool *BrutePool) doBak() {
 func (pool *BrutePool) recover() {
 	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
 	for i, bl := range pool.FailedBaselines {
+		if i > int(pool.BreakThreshold) {
+			break
+		}
 		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
 	}
 }
