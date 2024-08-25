@@ -68,7 +68,7 @@ func LoadTemplates() error {
 		return err
 	}
 	for name, wordlist := range dicts {
-		Dicts[strings.TrimRight(name, ".txt")] = strings.Split(strings.TrimSpace(wordlist), "\n")
+		Dicts[strings.TrimSuffix(name, ".txt")] = strings.Split(strings.TrimSpace(wordlist), "\n")
 	}
 
 	// load mask

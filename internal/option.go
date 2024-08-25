@@ -54,15 +54,15 @@ type InputOptions struct {
 	CIDRs        []string `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
-	//NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
-	DefaultDict bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
-	Word        string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
-	Rules       []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
-	AppendRule  []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
-	FilterRule  string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
-	AppendFile  []string `long:"append" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
-	Offset      int      `long:"offset" description:"Int, wordlist offset"`
-	Limit       int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	PrintPreset  bool     `long:"print" description:"Bool, print preset all preset config "`
+	DefaultDict  bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
+	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
+	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
+	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
+	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
+	AppendFile   []string `long:"append" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	Offset       int      `long:"offset" description:"Int, wordlist offset"`
+	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
 
 type FunctionOptions struct {
@@ -527,8 +527,8 @@ func (opt *Option) BuildWords(r *Runner) error {
 	var dicts [][]string
 	var err error
 	if opt.DefaultDict {
-		dicts = append(dicts, pkg.LoadDefaultDict())
-		logs.Log.Info("use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
+		//dicts = append(dicts, pkg.LoadDefaultDict())
+		//logs.Log.Info("use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
 	}
 	for i, f := range opt.Dictionaries {
 		dict, err := loadFileToSlice(f)
