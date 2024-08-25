@@ -47,20 +47,20 @@ type Runner struct {
 	MatchExpr     *vm.Program
 	RecursiveExpr *vm.Program
 	OutputFile    *files.File
-	FuzzyFile     *files.File
-	DumpFile      *files.File
-	StatFile      *files.File
-	Progress      *mpb.Progress
-	Fns           []func(string) []string
-	Count         int // tasks total number
-	Wordlist      []string
-	AppendWords   []string
-	RecuDepth     int
-	ClientType    int
-	Probes        []string
-	Total         int // wordlist total number
-	Color         bool
-	Jsonify       bool
+	//FuzzyFile     *files.File
+	DumpFile    *files.File
+	StatFile    *files.File
+	Progress    *mpb.Progress
+	Fns         []func(string) []string
+	Count       int // tasks total number
+	Wordlist    []string
+	AppendWords []string
+	RecuDepth   int
+	ClientType  int
+	Probes      []string
+	Total       int // wordlist total number
+	Color       bool
+	Jsonify     bool
 }
 
 func (r *Runner) PrepareConfig() *pool.Config {
@@ -358,62 +358,31 @@ func (r *Runner) saveStat(content string) {
 	}
 }
 
-func (r *Runner) OutputHandler() {
-	debugPrint := func(bl *pkg.Baseline) {
-		if r.Color {
-			logs.Log.Debug(bl.ColorString())
-		} else {
-			logs.Log.Debug(bl.String())
-		}
+func (r *Runner) Output(bl *pkg.Baseline) {
+	var out string
+	if r.Option.Json {
+		out = bl.Jsonify()
+	} else if len(r.Probes) > 0 {
+		out = bl.Format(r.Probes)
+	} else if r.Color {
+		out = bl.ColorString()
+	} else {
+		out = bl.String()
 	}
 
-	var saveFunc func(string)
+	if bl.IsFuzzy {
+		logs.Log.Console("[fuzzy] " + out + "\n")
+	} else {
+		logs.Log.Console(out + "\n")
+	}
+
 	if r.OutputFile != nil {
-		saveFunc = func(line string) {
-			r.OutputFile.SafeWrite(line + "\n")
-			r.OutputFile.SafeSync()
-		}
-	} else {
-		saveFunc = func(line string) {
-			logs.Log.Console(line + "\n")
-		}
+		r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
+		r.OutputFile.SafeSync()
 	}
+}
 
-	var fuzzySaveFunc func(string)
-	if r.FuzzyFile != nil {
-		fuzzySaveFunc = func(line string) {
-			r.FuzzyFile.SafeWrite(line + "\n")
-			r.FuzzyFile.SafeSync()
-		}
-	} else {
-		fuzzySaveFunc = func(line string) {
-			logs.Log.Console("[fuzzy] " + line + "\n")
-		}
-	}
-	outputPrint := func(bl *pkg.Baseline) {
-		var outFunc func(string)
-		if bl.IsFuzzy {
-			outFunc = fuzzySaveFunc
-		} else {
-			outFunc = saveFunc
-		}
-		if r.Option.Json {
-			outFunc(bl.Jsonify())
-		} else if r.Color {
-			if len(r.Probes) > 0 {
-				outFunc(logs.GreenBold(bl.Format(r.Probes)))
-			} else {
-				outFunc(logs.GreenBold(bl.ColorString()))
-			}
-		} else {
-			if len(r.Probes) > 0 {
-				outFunc(bl.Format(r.Probes))
-			} else {
-				outFunc(bl.String())
-			}
-		}
-	}
-
+func (r *Runner) OutputHandler() {
 	go func() {
 		for {
 			select {
@@ -426,12 +395,16 @@ func (r *Runner) OutputHandler() {
 					r.DumpFile.SafeSync()
 				}
 				if bl.IsValid {
-					outputPrint(bl)
+					r.Output(bl)
 					if bl.Recu {
 						r.AddRecursive(bl)
 					}
 				} else {
-					debugPrint(bl)
+					if r.Color {
+						logs.Log.Debug(bl.ColorString())
+					} else {
+						logs.Log.Debug(bl.String())
+					}
 				}
 				r.outwg.Done()
 			}
@@ -446,7 +419,7 @@ func (r *Runner) OutputHandler() {
 					return
 				}
 				if r.Fuzzy {
-					outputPrint(bl)
+					r.Output(bl)
 				}
 				r.outwg.Done()
 			}

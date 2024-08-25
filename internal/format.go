@@ -6,22 +6,23 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
 	"io"
+	"net/url"
 	"os"
 )
 
-func Format(filename string, color bool) {
+func Format(opts Option) {
 	var content []byte
 	var err error
-	if filename == "stdin" {
+	if opts.Format == "stdin" {
 		content, err = io.ReadAll(os.Stdin)
 	} else {
-		content, err = os.ReadFile(filename)
+		content, err = os.ReadFile(opts.Format)
 	}
 
 	if err != nil {
 		return
 	}
-	var results []*pkg.Baseline
+	group := make(map[string][]*pkg.Baseline)
 	for _, line := range bytes.Split(bytes.TrimSpace(content), []byte("\n")) {
 		var result pkg.Baseline
 		err := json.Unmarshal(line, &result)
@@ -29,13 +30,25 @@ func Format(filename string, color bool) {
 			logs.Log.Error(err.Error())
 			return
 		}
-		results = append(results, &result)
+		result.Url, err = url.Parse(result.UrlString)
+		if err != nil {
+			continue
+		}
+		group[result.Url.Host] = append(group[result.Url.Host], &result)
 	}
-	for _, result := range results {
-		if color {
-			logs.Log.Info(result.ColorString())
-		} else {
-			logs.Log.Info(result.String())
+
+	// 分组
+
+	for _, results := range group {
+		for _, result := range results {
+			if !opts.Fuzzy && result.IsFuzzy {
+				continue
+			}
+			if !opts.NoColor {
+				logs.Log.Info(result.ColorString())
+			} else {
+				logs.Log.Info(result.String())
+			}
 		}
 	}
 }

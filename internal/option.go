@@ -80,11 +80,11 @@ type FunctionOptions struct {
 }
 
 type OutputOptions struct {
-	Match       string `long:"match" description:"String, custom match function, e.g.: --match 'current.Status != 200''" config:"match" `
-	Filter      string `long:"filter" description:"String, custom filter function, e.g.: --filter 'current.Body contains \"hello\"'" config:"filter"`
-	Fuzzy       bool   `long:"fuzzy" description:"String, open fuzzy output" config:"fuzzy"`
-	OutputFile  string `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty" config:"output-file"`
-	FuzzyFile   string `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty" config:"fuzzy-file"`
+	Match      string `long:"match" description:"String, custom match function, e.g.: --match 'current.Status != 200''" config:"match" `
+	Filter     string `long:"filter" description:"String, custom filter function, e.g.: --filter 'current.Body contains \"hello\"'" config:"filter"`
+	Fuzzy      bool   `long:"fuzzy" description:"String, open fuzzy output" config:"fuzzy"`
+	OutputFile string `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty" config:"output-file"`
+	//FuzzyFile   string `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty" config:"fuzzy-file"`
 	DumpFile    string `long:"dump-file" description:"String, dump all request, and write to filename" config:"dump-file"`
 	Dump        bool   `long:"dump" description:"Bool, dump all request" config:"dump"`
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
@@ -450,17 +450,17 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		}
 	}
 
-	if opt.FuzzyFile != "" {
-		r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
-		if err != nil {
-			return nil, err
-		}
-	} else if opt.AutoFile {
-		r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if opt.FuzzyFile != "" {
+	//	r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//} else if opt.AutoFile {
+	//	r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	if opt.DumpFile != "" {
 		r.DumpFile, err = files.NewFile(opt.DumpFile, false, false, true)

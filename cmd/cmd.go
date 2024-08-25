@@ -113,7 +113,7 @@ func Spray() {
 	}
 
 	if option.Format != "" {
-		internal.Format(option.Format, !option.NoColor)
+		internal.Format(option)
 		return
 	}
 
