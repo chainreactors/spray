@@ -12,14 +12,6 @@ import (
 	"strings"
 )
 
-var (
-	ExtractRegexps = make(parsers.Extractors)
-	Extractors     = make(parsers.Extractors)
-
-	FingerEngine *fingers.Engine
-	ActivePath   []string
-)
-
 func LoadPorts() error {
 	var err error
 	var ports []*utils.PortConfig
@@ -68,7 +60,11 @@ func LoadTemplates() error {
 		return err
 	}
 	for name, wordlist := range dicts {
-		Dicts[strings.TrimSuffix(name, ".txt")] = strings.Split(strings.TrimSpace(wordlist), "\n")
+		dict := strings.Split(strings.TrimSpace(wordlist), "\n")
+		for i, d := range dict {
+			dict[i] = strings.TrimSpace(d)
+		}
+		Dicts[strings.TrimSuffix(name, ".txt")] = dict
 	}
 
 	// load mask
