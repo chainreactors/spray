@@ -8,6 +8,7 @@ import (
 	"github.com/chainreactors/spray/internal"
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"os/signal"
@@ -109,6 +110,21 @@ func Spray() {
 
 	if option.Version {
 		fmt.Println(ver)
+		return
+	}
+
+	if option.PrintPreset {
+		err = pkg.Load()
+		if err != nil {
+			iutils.Fatal(err.Error())
+		}
+
+		err = pkg.LoadFingers()
+		if err != nil {
+			iutils.Fatal(err.Error())
+		}
+		internal.PrintPreset()
+
 		return
 	}
 

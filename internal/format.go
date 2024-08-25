@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/words/mask"
 	"io"
 	"net/url"
 	"os"
+	"strings"
 )
 
 func Format(opts Option) {
@@ -51,4 +53,33 @@ func Format(opts Option) {
 			}
 		}
 	}
+}
+
+func PrintPreset() {
+	logs.Log.Console("internal rules:\n")
+	for name, rule := range pkg.Rules {
+		logs.Log.Consolef("\t%s\t%d rules\n", name, len(strings.Split(rule, "\n")))
+	}
+
+	logs.Log.Console("\ninternal dicts:\n")
+	for name, dict := range pkg.Dicts {
+		logs.Log.Consolef("\t%s\t%d items\n", name, len(dict))
+	}
+
+	logs.Log.Console("\ninternal words keyword:\n")
+	for name, words := range mask.SpecialWords {
+		logs.Log.Consolef("\t%s\t%d words\n", name, len(words))
+	}
+
+	logs.Log.Console("\ninternal extractor:\n")
+	for name, _ := range pkg.ExtractRegexps {
+		logs.Log.Consolef("\t%s\n", name)
+	}
+
+	logs.Log.Console("\ninternal fingers:\n")
+	for name, engine := range pkg.FingerEngine.EnginesImpl {
+		logs.Log.Consolef("\t%s\t%d fingerprints \n", name, engine.Len())
+	}
+
+	logs.Log.Consolef("\nload %d active path\n", len(pkg.ActivePath))
 }
