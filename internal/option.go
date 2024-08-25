@@ -265,6 +265,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		Option:   opt,
 		taskCh:   make(chan *Task),
 		outputCh: make(chan *pkg.Baseline, 256),
+		poolwg:   &sync.WaitGroup{},
 		outwg:    &sync.WaitGroup{},
 		fuzzyCh:  make(chan *pkg.Baseline, 256),
 		Headers:  make(map[string]string),
@@ -541,7 +542,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 		logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
 	}
 
-	if len(dicts) == 0 && opt.Word == "" {
+	if len(dicts) == 0 && opt.Word == "" && len(opt.Rules) == 0 && len(opt.AppendRule) == 0 {
 		r.IsCheck = true
 	}
 

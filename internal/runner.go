@@ -30,7 +30,7 @@ type Runner struct {
 	*Option
 
 	taskCh        chan *Task
-	poolwg        sync.WaitGroup
+	poolwg        *sync.WaitGroup
 	outwg         *sync.WaitGroup
 	outputCh      chan *pkg.Baseline
 	fuzzyCh       chan *pkg.Baseline
@@ -81,15 +81,15 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		MatchExpr:      r.MatchExpr,
 		FilterExpr:     r.FilterExpr,
 		RecuExpr:       r.RecursiveExpr,
-		AppendRule:     r.AppendRules,
-		AppendWords:    r.AppendWords,
+		AppendRule:     r.AppendRules, // 对有效目录追加规则, 根据rule生成
+		AppendWords:    r.AppendWords, // 对有效目录追加字典
 		//IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.Crawl,
 		Scope:           r.Scope,
 		Active:          r.Finger,
 		Bak:             r.Bak,
 		Common:          r.Common,
-		Retry:           r.RetryCount,
+		RetryLimit:      r.RetryCount,
 		ClientType:      r.ClientType,
 		RandomUserAgent: r.RandomUserAgent,
 		Random:          r.Random,

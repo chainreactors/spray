@@ -10,11 +10,14 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words"
+	"github.com/chainreactors/words/mask"
+	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/time/rate"
 	"math/rand"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -378,12 +381,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.locker.Lock()
 		pool.index = bl
 		pool.locker.Unlock()
-		if bl.Status == 200 || (bl.Status/100) == 3 {
-			// 保留index输出结果
-			pool.wg.Add(1)
-			pool.doCrawl(bl)
-			pool.putToOutput(bl)
-		}
+		pool.wg.Add(1)
+		pool.doCrawl(bl)
+		pool.putToOutput(bl)
 		pool.initwg.Done()
 	case parsers.CheckSource:
 		if bl.ErrString != "" {
@@ -521,13 +521,10 @@ func (pool *BrutePool) Handler() {
 		}
 
 		if bl.IsValid || bl.IsFuzzy {
-			pool.wg.Add(2)
+			pool.wg.Add(3)
 			pool.doCrawl(bl)
-			pool.doRule(bl)
-			if iutils.IntsContains(pkg.WhiteStatus, bl.Status) || iutils.IntsContains(pkg.UniqueStatus, bl.Status) {
-				pool.wg.Add(1)
-				pool.doAppendWords(bl)
-			}
+			pool.doAppendRule(bl)
+			pool.doAppendWords(bl)
 		}
 
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
@@ -547,6 +544,67 @@ func (pool *BrutePool) Handler() {
 	}
 
 	pool.analyzeDone = true
+}
+
+func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
+	if pool.AppendRule == nil || bl.Source == parsers.RuleSource {
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
+			pool.addAddition(&Unit{
+				path:   pkg.Dir(bl.Url.Path) + u,
+				source: parsers.RuleSource,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
+	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource {
+		// 防止自身递归
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+		for _, u := range pool.AppendWords {
+			pool.addAddition(&Unit{
+				path:   pkg.SafePath(bl.Path, u),
+				source: parsers.AppendSource,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
+	pool.wg.Add(2)
+	pool.doAppendWords(bl)
+	pool.doAppendRule(bl)
+}
+
+func (pool *BrutePool) doActive() {
+	defer pool.wg.Done()
+	for _, u := range pkg.ActivePath {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u[1:],
+			source: parsers.FingerSource,
+		})
+	}
+}
+
+func (pool *BrutePool) doCommonFile() {
+	defer pool.wg.Done()
+	for _, u := range mask.SpecialWords["common_file"] {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u,
+			source: parsers.CommonFileSource,
+		})
+	}
 }
 
 func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {

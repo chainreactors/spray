@@ -7,10 +7,7 @@ import (
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
-	"github.com/chainreactors/words/mask"
-	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
-	"path"
 	"sync"
 )
 
@@ -49,50 +46,8 @@ func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
 	}()
 }
 
-func (pool *BasePool) doRule(bl *pkg.Baseline) {
-	if pool.AppendRule == nil {
-		pool.wg.Done()
-		return
-	}
-	if bl.Source == parsers.RuleSource {
-		pool.wg.Done()
-		return
-	}
-
-	go func() {
-		defer pool.wg.Done()
-		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
-			pool.addAddition(&Unit{
-				path:   pkg.Dir(bl.Url.Path) + u,
-				source: parsers.RuleSource,
-			})
-		}
-	}()
-}
-
-func (pool *BasePool) doAppendWords(bl *pkg.Baseline) {
-	if pool.AppendWords == nil {
-		pool.wg.Done()
-		return
-	}
-	if bl.Source == parsers.AppendSource {
-		pool.wg.Done()
-		return
-	}
-
-	go func() {
-		defer pool.wg.Done()
-		for _, u := range pool.AppendWords {
-			pool.addAddition(&Unit{
-				path:   pkg.SafePath(bl.Path, u),
-				source: parsers.AppendSource,
-			})
-		}
-	}()
-}
-
 func (pool *BasePool) doRetry(bl *pkg.Baseline) {
-	if bl.Retry >= pool.Retry {
+	if bl.Retry >= pool.RetryLimit {
 		return
 	}
 	pool.wg.Add(1)
@@ -104,26 +59,6 @@ func (pool *BasePool) doRetry(bl *pkg.Baseline) {
 			retry:  bl.Retry + 1,
 		})
 	}()
-}
-
-func (pool *BasePool) doActive() {
-	defer pool.wg.Done()
-	for _, u := range pkg.ActivePath {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u[1:],
-			source: parsers.FingerSource,
-		})
-	}
-}
-
-func (pool *BasePool) doCommonFile() {
-	defer pool.wg.Done()
-	for _, u := range mask.SpecialWords["common_file"] {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u,
-			source: parsers.CommonFileSource,
-		})
-	}
 }
 
 func (pool *BasePool) addAddition(u *Unit) {
