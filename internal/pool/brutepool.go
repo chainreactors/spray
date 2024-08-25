@@ -10,7 +10,6 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words"
-	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
@@ -597,7 +596,7 @@ func (pool *BrutePool) doActive() {
 
 func (pool *BrutePool) doCommonFile() {
 	defer pool.wg.Done()
-	for _, u := range mask.SpecialWords["common_file"] {
+	for _, u := range pkg.GetPresetWordList([]string{"common_file", "log_file"}) {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
 			source: parsers.CommonFileSource,
@@ -685,6 +684,50 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 	return true
 }
 
+func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
+	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
+		bl.Collect()
+		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
+		pool.baselines[bl.Status] = bl
+		logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+	}
+}
+
+func (pool *BrutePool) recover() {
+	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
+	for i, bl := range pool.FailedBaselines {
+		if i > int(pool.BreakThreshold) {
+			break
+		}
+		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
+	}
+}
+
+func (pool *BrutePool) Close() {
+	for pool.analyzeDone {
+		// 等待缓存的待处理任务完成
+		time.Sleep(time.Duration(100) * time.Millisecond)
+	}
+	close(pool.additionCh) // 关闭addition管道
+	close(pool.checkCh)    // 关闭check管道
+	pool.Statistor.EndTime = time.Now().Unix()
+	pool.Bar.Close()
+}
+
+func (pool *BrutePool) safePath(u string) string {
+	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
+	if pool.isDir {
+		return pkg.SafePath(pool.dir, u)
+	} else {
+		return pkg.SafePath(pool.url.Path+"/", u)
+	}
+}
+
+func (pool *BrutePool) resetFailed() {
+	pool.failedCount = 1
+	pool.FailedBaselines = nil
+}
+
 func (pool *BrutePool) doCheck() {
 	if pool.failedCount > pool.BreakThreshold {
 		// 当报错次数超过上限是, 结束任务
@@ -755,15 +798,6 @@ func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
-	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
-		bl.Collect()
-		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
-		pool.baselines[bl.Status] = bl
-		logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
-	}
-}
-
 func (pool *BrutePool) doBak() {
 	defer pool.wg.Done()
 	worder, err := words.NewWorderWithDsl("{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
@@ -789,39 +823,4 @@ func (pool *BrutePool) doBak() {
 			source: parsers.BakSource,
 		})
 	}
-}
-
-func (pool *BrutePool) recover() {
-	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
-	for i, bl := range pool.FailedBaselines {
-		if i > int(pool.BreakThreshold) {
-			break
-		}
-		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
-	}
-}
-
-func (pool *BrutePool) Close() {
-	for pool.analyzeDone {
-		// 等待缓存的待处理任务完成
-		time.Sleep(time.Duration(100) * time.Millisecond)
-	}
-	close(pool.additionCh) // 关闭addition管道
-	close(pool.checkCh)    // 关闭check管道
-	pool.Statistor.EndTime = time.Now().Unix()
-	pool.Bar.Close()
-}
-
-func (pool *BrutePool) safePath(u string) string {
-	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
-	if pool.isDir {
-		return pkg.SafePath(pool.dir, u)
-	} else {
-		return pkg.SafePath(pool.url.Path+"/", u)
-	}
-}
-
-func (pool *BrutePool) resetFailed() {
-	pool.failedCount = 1
-	pool.FailedBaselines = nil
 }
