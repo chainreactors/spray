@@ -596,7 +596,13 @@ func (pool *BrutePool) doActive() {
 
 func (pool *BrutePool) doCommonFile() {
 	defer pool.wg.Done()
-	for _, u := range pkg.GetPresetWordList([]string{"common_file", "log_file"}) {
+	for _, u := range pkg.Dicts["common"] {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u,
+			source: parsers.CommonFileSource,
+		})
+	}
+	for _, u := range pkg.Dicts["log"] {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
 			source: parsers.CommonFileSource,

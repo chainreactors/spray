@@ -20,12 +20,6 @@ var (
 	MAX = 2147483647
 )
 
-var (
-	dictCache     = make(map[string][]string)
-	wordlistCache = make(map[string][]string)
-	ruleCache     = make(map[string][]rule.Expression)
-)
-
 type Runner struct {
 	*Option
 

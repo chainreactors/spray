@@ -16,13 +16,13 @@ type Origin struct {
 
 func (o *Origin) InitWorder(fns []func(string) []string) (*words.Worder, error) {
 	var worder *words.Worder
-	wl, err := loadWordlist(o.Word, o.Dictionaries)
+	wl, err := pkg.LoadWordlist(o.Word, o.Dictionaries)
 	if err != nil {
 		return nil, err
 	}
 	worder = words.NewWorder(wl)
 	worder.Fns = fns
-	rules, err := loadRuleWithFiles(o.RuleFiles, o.RuleFilter)
+	rules, err := pkg.LoadRuleWithFiles(o.RuleFiles, o.RuleFilter)
 	if err != nil {
 		return nil, err
 	}
