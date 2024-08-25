@@ -55,13 +55,20 @@ func LoadFingers() error {
 func LoadTemplates() error {
 	var err error
 	// load rule
-	var data map[string]interface{}
-	err = json.Unmarshal(LoadConfig("spray_rule"), &data)
+
+	err = json.Unmarshal(LoadConfig("spray_rule"), &Rules)
 	if err != nil {
 		return err
 	}
-	for k, v := range data {
-		Rules[k] = v.(string)
+
+	// load default words
+	var dicts map[string]string
+	err = json.Unmarshal(LoadConfig("spray_dict"), &dicts)
+	if err != nil {
+		return err
+	}
+	for name, wordlist := range dicts {
+		Dicts[strings.TrimRight(name, ".txt")] = strings.Split(strings.TrimSpace(wordlist), "\n")
 	}
 
 	// load mask
@@ -130,8 +137,4 @@ func Load() error {
 	}
 
 	return nil
-}
-
-func LoadDefaultDict() []string {
-	return strings.Split(strings.TrimSpace(string(LoadConfig("spray_default"))), "\n")
 }
