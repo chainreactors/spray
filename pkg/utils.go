@@ -32,10 +32,10 @@ var (
 	EnableAllFingerEngine = false
 )
 var (
-	Rules map[string]string = make(map[string]string)
-
-	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
-	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
+	Rules  map[string]string   = make(map[string]string)
+	Dicts  map[string][]string = make(map[string][]string)
+	BadExt                     = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
+	BadURL                     = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
 
 	ContentTypeMap = map[string]string{
 		"application/javascript":   "js",
