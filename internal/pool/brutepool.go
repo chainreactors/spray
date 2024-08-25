@@ -381,8 +381,8 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.locker.Lock()
 		pool.index = bl
 		pool.locker.Unlock()
-		pool.wg.Add(1)
 		pool.doCrawl(bl)
+		pool.doAppend(bl)
 		pool.putToOutput(bl)
 		pool.initwg.Done()
 	case parsers.CheckSource:
@@ -520,11 +520,9 @@ func (pool *BrutePool) Handler() {
 			bl.IsValid = false
 		}
 
-		if bl.IsValid || bl.IsFuzzy {
-			pool.wg.Add(3)
+		if bl.IsValid || (bl.IsFuzzy && pool.Fuzzy) {
 			pool.doCrawl(bl)
-			pool.doAppendRule(bl)
-			pool.doAppendWords(bl)
+			pool.doAppend(bl)
 		}
 
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
@@ -705,16 +703,15 @@ func (pool *BrutePool) doCheck() {
 
 func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
-		pool.wg.Done()
-		return
-	}
-	bl.CollectURL()
-	if bl.URLs == nil {
-		pool.wg.Done()
 		return
 	}
 
-	pool.wg.Add(1)
+	bl.CollectURL()
+	if bl.URLs == nil {
+		return
+	}
+
+	pool.wg.Add(2)
 	pool.doScopeCrawl(bl)
 
 	go func() {
@@ -761,7 +758,6 @@ func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
 func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
 		bl.Collect()
-		pool.wg.Add(1)
 		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
 		pool.baselines[bl.Status] = bl
 		logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))

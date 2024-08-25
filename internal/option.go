@@ -60,7 +60,7 @@ type InputOptions struct {
 	Rules       []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
 	AppendRule  []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
 	FilterRule  string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
-	AppendFile  []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	AppendFile  []string `long:"append" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
 	Offset      int      `long:"offset" description:"Int, wordlist offset"`
 	Limit       int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
@@ -135,7 +135,7 @@ type ModeOptions struct {
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold" config:"error-threshold"`
 	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
 	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
-	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
+	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
