@@ -45,9 +45,9 @@ func Format(opts Option) {
 				continue
 			}
 			if !opts.NoColor {
-				logs.Log.Info(result.ColorString())
+				logs.Log.Console(result.ColorString() + "\n")
 			} else {
-				logs.Log.Info(result.String())
+				logs.Log.Console(result.String() + "\n")
 			}
 		}
 	}
