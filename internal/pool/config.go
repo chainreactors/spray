@@ -51,7 +51,7 @@ type Config struct {
 	Active          bool
 	Bak             bool
 	Common          bool
-	Retry           int
+	RetryLimit      int
 	RandomUserAgent bool
 	Random          string
 	Index           string
