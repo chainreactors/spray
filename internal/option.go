@@ -479,6 +479,7 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		opt.BakPlugin = true
 		opt.CommonPlugin = true
 		opt.ActivePlugin = true
+		opt.ReconPlugin = true
 	}
 
 	if opt.ReconPlugin {
