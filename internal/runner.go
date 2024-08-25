@@ -84,11 +84,11 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		AppendRule:     r.AppendRules, // 对有效目录追加规则, 根据rule生成
 		AppendWords:    r.AppendWords, // 对有效目录追加字典
 		//IgnoreWaf:       r.IgnoreWaf,
-		Crawl:           r.Crawl,
+		Crawl:           r.CrawlPlugin,
 		Scope:           r.Scope,
 		Active:          r.Finger,
-		Bak:             r.Bak,
-		Common:          r.Common,
+		Bak:             r.BakPlugin,
+		Common:          r.CommonPlugin,
 		RetryLimit:      r.RetryCount,
 		ClientType:      r.ClientType,
 		RandomUserAgent: r.RandomUserAgent,
@@ -418,9 +418,7 @@ func (r *Runner) OutputHandler() {
 				if !ok {
 					return
 				}
-				if r.Fuzzy {
-					r.Output(bl)
-				}
+				r.Output(bl)
 				r.outwg.Done()
 			}
 		}

@@ -111,12 +111,11 @@ type PluginOptions struct {
 	Advance       bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
 	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
 	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
-	Active        bool     `long:"active" description:"Bool, enable active finger path"`
-	Recon         bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
-	Bak           bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
-	FileBak       bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
-	Common        bool     `long:"common" description:"Bool, enable common file found" config:"common"`
-	Crawl         bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
+	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
+	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
+	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
+	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
+	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
 	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
 }
 
@@ -310,52 +309,9 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Threads = 1000
 	}
 
-	if opt.Recon {
-		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
-	}
-
-	if opt.Finger {
-		pkg.EnableAllFingerEngine = true
-	}
-
-	// brute only
-	if opt.Advance {
-		r.Crawl = true
-		r.Finger = true
-		r.Bak = true
-		r.Common = true
-		r.Active = true
-		pkg.EnableAllFingerEngine = true
-		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
-		r.bruteMod = true
-		opt.AppendRule = append(opt.AppendRule, "filebak")
-	}
-
-	if opt.FileBak {
-		r.bruteMod = true
-		opt.AppendRule = append(opt.AppendRule, "filebak")
-	}
-	if opt.Common {
-		r.bruteMod = true
-		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
-	}
-
-	if opt.Active {
-		r.bruteMod = true
-		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
-	}
-
-	if opt.Crawl {
-		r.bruteMod = true
-	}
-
-	opt.PrintPlugin()
-	if r.bruteMod {
-		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
-	}
-
-	if opt.NoScope {
-		r.Scope = []string{"*"}
+	err = opt.BuildPlugin(r)
+	if err != nil {
+		return nil, err
 	}
 
 	err = opt.BuildWords(r)
@@ -494,25 +450,21 @@ func (opt *Option) NewRunner() (*Runner, error) {
 
 func (opt *Option) PrintPlugin() {
 	var s strings.Builder
-	if opt.Crawl {
+	if opt.CrawlPlugin {
 		s.WriteString("crawl enable; ")
 	}
 	if opt.Finger {
 		s.WriteString("active fingerprint enable; ")
 	}
-	if opt.Bak {
+	if opt.BakPlugin {
 		s.WriteString("bak file enable; ")
 	}
-	if opt.Common {
+	if opt.CommonPlugin {
 		s.WriteString("common file enable; ")
 	}
-	if opt.Recon {
+	if opt.ReconPlugin {
 		s.WriteString("recon enable; ")
 	}
-	if opt.FileBak {
-		s.WriteString("file bak enable; ")
-	}
-
 	if opt.RetryCount > 0 {
 		s.WriteString("Retry Count: " + strconv.Itoa(opt.RetryCount))
 	}
@@ -520,6 +472,55 @@ func (opt *Option) PrintPlugin() {
 	if s.Len() > 0 {
 		logs.Log.Important(s.String())
 	}
+}
+
+func (opt *Option) BuildPlugin(r *Runner) error {
+	// brute only
+	if opt.Advance {
+		opt.CrawlPlugin = true
+		opt.Finger = true
+		opt.BakPlugin = true
+		opt.CommonPlugin = true
+		opt.ActivePlugin = true
+	}
+
+	if opt.ReconPlugin {
+		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
+	}
+
+	if opt.Finger {
+		pkg.EnableAllFingerEngine = true
+	}
+
+	if opt.BakPlugin {
+		r.bruteMod = true
+		opt.AppendRule = append(opt.AppendRule, "filebak")
+		r.AppendWords = append(r.AppendWords, pkg.GetPresetWordList([]string{"bak_file"})...)
+	}
+
+	if opt.CommonPlugin {
+		r.bruteMod = true
+		r.AppendWords = append(r.AppendWords, pkg.GetPresetWordList([]string{"common_file", "log_file"})...)
+	}
+
+	if opt.ActivePlugin {
+		r.bruteMod = true
+		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
+	}
+
+	if opt.CrawlPlugin {
+		r.bruteMod = true
+	}
+
+	opt.PrintPlugin()
+	if r.bruteMod {
+		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
+	}
+
+	if opt.NoScope {
+		r.Scope = []string{"*"}
+	}
+	return nil
 }
 
 func (opt *Option) BuildWords(r *Runner) error {

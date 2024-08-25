@@ -128,7 +128,7 @@ func Spray() {
 		logs.Log.Errorf(err.Error())
 		return
 	}
-	if option.ReadAll || runner.Crawl {
+	if option.ReadAll || runner.CrawlPlugin {
 		ihttp.DefaultMaxBodySize = -1
 	}
 

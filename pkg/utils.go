@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/utils/iutils"
+	"github.com/chainreactors/words/mask"
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"math/rand"
@@ -390,4 +391,15 @@ func ParseRawResponse(raw []byte) (*http.Response, error) {
 	}
 	defer resp.Body.Close()
 	return resp, nil
+}
+
+func GetPresetWordList(key []string) []string {
+	var wordlist []string
+
+	for _, k := range key {
+		if v, ok := mask.SpecialWords[k]; ok {
+			wordlist = append(wordlist, v...)
+		}
+	}
+	return wordlist
 }
