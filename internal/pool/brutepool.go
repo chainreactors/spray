@@ -299,11 +299,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	var req *ihttp.Request
 	var err error
-	if unit.source == parsers.WordSource {
-		req, err = pool.genReq(pool.Mod, unit.path)
-	} else {
-		req, err = pool.genReq(PathSpray, unit.path)
-	}
+	req, err = pool.genReq(pool.Mod, unit.path)
 
 	if err != nil {
 		logs.Log.Error(err.Error())
