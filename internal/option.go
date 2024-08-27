@@ -2,7 +2,6 @@ package internal
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/chainreactors/files"
@@ -54,15 +53,14 @@ type InputOptions struct {
 	CIDRs        []string `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	RawFile      string   `long:"raw" description:"File, input raw request filename"`
 	Dictionaries []string `short:"d" long:"dict" description:"Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt" config:"dictionaries"`
-	//NoDict       bool     `long:"no-dict" description:"Bool, no dictionary" config:"no-dict"`
-	DefaultDict bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
-	Word        string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
-	Rules       []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
-	AppendRule  []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
-	FilterRule  string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
-	AppendFile  []string `long:"append-file" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
-	Offset      int      `long:"offset" description:"Int, wordlist offset"`
-	Limit       int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
+	DefaultDict  bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
+	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
+	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
+	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
+	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
+	AppendFile   []string `long:"append" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
+	Offset       int      `long:"offset" description:"Int, wordlist offset"`
+	Limit        int      `long:"limit" description:"Int, wordlist limit, start with offset. e.g.: --offset 1000 --limit 100"`
 }
 
 type FunctionOptions struct {
@@ -84,7 +82,6 @@ type OutputOptions struct {
 	Filter      string `long:"filter" description:"String, custom filter function, e.g.: --filter 'current.Body contains \"hello\"'" config:"filter"`
 	Fuzzy       bool   `long:"fuzzy" description:"String, open fuzzy output" config:"fuzzy"`
 	OutputFile  string `short:"f" long:"file" description:"String, output filename" json:"output_file,omitempty" config:"output-file"`
-	FuzzyFile   string `long:"fuzzy-file" description:"String, fuzzy output filename" json:"fuzzy_file,omitempty" config:"fuzzy-file"`
 	DumpFile    string `long:"dump-file" description:"String, dump all request, and write to filename" config:"dump-file"`
 	Dump        bool   `long:"dump" description:"Bool, dump all request" config:"dump"`
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
@@ -111,19 +108,17 @@ type PluginOptions struct {
 	Advance       bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
 	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
 	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
-	Active        bool     `long:"active" description:"Bool, enable active finger path"`
-	Recon         bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
-	Bak           bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
-	FileBak       bool     `long:"file-bak" description:"Bool, enable valid result bak found, equal --append-rule rule/filebak.txt" config:"file-bak"`
-	Common        bool     `long:"common" description:"Bool, enable common file found" config:"common"`
-	Crawl         bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
+	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
+	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
+	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
+	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
+	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
 	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
 }
 
 type ModeOptions struct {
-	RateLimit int  `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100" config:"rate-limit"`
-	Force     bool `long:"force" description:"Bool, skip error break" config:"force"`
-	//CheckOnly       bool     `long:"check-only" description:"Bool, check only" config:"check-only"`
+	RateLimit       int      `long:"rate-limit" default:"0" description:"Int, request rate limit (rate/s), e.g.: --rate-limit 100" config:"rate-limit"`
+	Force           bool     `long:"force" description:"Bool, skip error break" config:"force"`
 	NoScope         bool     `long:"no-scope" description:"Bool, no scope" config:"no-scope"`
 	Scope           []string `long:"scope" description:"String, custom scope, e.g.: --scope *.example.com" config:"scope"`
 	Recursive       string   `long:"recursive" default:"current.IsDir()" description:"String,custom recursive rule, e.g.: --recursive current.IsDir()" config:"recursive"`
@@ -135,7 +130,7 @@ type ModeOptions struct {
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold" config:"error-threshold"`
 	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
 	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
-	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
+	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
@@ -143,17 +138,18 @@ type ModeOptions struct {
 }
 
 type MiscOptions struct {
-	Mod        string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
-	Client     string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
-	Deadline   int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
-	Timeout    int    `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
-	PoolSize   int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
-	Threads    int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
-	Debug      bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
-	Version    bool   `long:"version" description:"Bool, show version"`
-	Verbose    []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
-	Proxy      string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
-	InitConfig bool   `long:"init" description:"Bool, init config file"`
+	Mod         string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
+	Client      string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
+	Deadline    int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Timeout     int    `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
+	PoolSize    int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
+	Threads     int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
+	Debug       bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
+	Version     bool   `long:"version" description:"Bool, show version"`
+	Verbose     []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
+	Proxy       string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
+	InitConfig  bool   `long:"init" description:"Bool, init config file"`
+	PrintPreset bool   `long:"print" description:"Bool, print preset all preset config "`
 }
 
 func (opt *Option) Validate() error {
@@ -241,18 +237,18 @@ func (opt *Option) Prepare() error {
 		ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
 	}
 
-	pkg.BlackStatus = parseStatus(pkg.BlackStatus, opt.BlackStatus)
-	pkg.WhiteStatus = parseStatus(pkg.WhiteStatus, opt.WhiteStatus)
+	pkg.BlackStatus = pkg.ParseStatus(pkg.BlackStatus, opt.BlackStatus)
+	pkg.WhiteStatus = pkg.ParseStatus(pkg.WhiteStatus, opt.WhiteStatus)
 	if opt.FuzzyStatus == "all" {
 		pool.EnableAllFuzzy = true
 	} else {
-		pkg.FuzzyStatus = parseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
+		pkg.FuzzyStatus = pkg.ParseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
 	}
 
 	if opt.Unique {
 		pool.EnableAllUnique = true
 	} else {
-		pkg.UniqueStatus = parseStatus(pkg.UniqueStatus, opt.UniqueStatus)
+		pkg.UniqueStatus = pkg.ParseStatus(pkg.UniqueStatus, opt.UniqueStatus)
 	}
 	pool.MaxCrawl = opt.CrawlDepth
 
@@ -265,6 +261,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		Option:   opt,
 		taskCh:   make(chan *Task),
 		outputCh: make(chan *pkg.Baseline, 256),
+		poolwg:   &sync.WaitGroup{},
 		outwg:    &sync.WaitGroup{},
 		fuzzyCh:  make(chan *pkg.Baseline, 256),
 		Headers:  make(map[string]string),
@@ -309,52 +306,9 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Threads = 1000
 	}
 
-	if opt.Recon {
-		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
-	}
-
-	if opt.Finger {
-		pkg.EnableAllFingerEngine = true
-	}
-
-	// brute only
-	if opt.Advance {
-		r.Crawl = true
-		r.Finger = true
-		r.Bak = true
-		r.Common = true
-		r.Active = true
-		pkg.EnableAllFingerEngine = true
-		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
-		r.bruteMod = true
-		opt.AppendRule = append(opt.AppendRule, "filebak")
-	}
-
-	if opt.FileBak {
-		r.bruteMod = true
-		opt.AppendRule = append(opt.AppendRule, "filebak")
-	}
-	if opt.Common {
-		r.bruteMod = true
-		r.AppendWords = append(r.AppendWords, mask.SpecialWords["common_file"]...)
-	}
-
-	if opt.Active {
-		r.bruteMod = true
-		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
-	}
-
-	if opt.Crawl {
-		r.bruteMod = true
-	}
-
-	opt.PrintPlugin()
-	if r.bruteMod {
-		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
-	}
-
-	if opt.NoScope {
-		r.Scope = []string{"*"}
+	err = opt.BuildPlugin(r)
+	if err != nil {
+		return nil, err
 	}
 
 	err = opt.BuildWords(r)
@@ -449,17 +403,17 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		}
 	}
 
-	if opt.FuzzyFile != "" {
-		r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
-		if err != nil {
-			return nil, err
-		}
-	} else if opt.AutoFile {
-		r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if opt.FuzzyFile != "" {
+	//	r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//} else if opt.AutoFile {
+	//	r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	if opt.DumpFile != "" {
 		r.DumpFile, err = files.NewFile(opt.DumpFile, false, false, true)
@@ -475,7 +429,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
 	} else {
-		r.StatFile, err = files.NewFile(safeFilename(r.Tasks.Name)+".stat", false, true, true)
+		r.StatFile, err = files.NewFile(pkg.SafeFilename(r.Tasks.Name)+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
@@ -493,25 +447,21 @@ func (opt *Option) NewRunner() (*Runner, error) {
 
 func (opt *Option) PrintPlugin() {
 	var s strings.Builder
-	if opt.Crawl {
+	if opt.CrawlPlugin {
 		s.WriteString("crawl enable; ")
 	}
 	if opt.Finger {
 		s.WriteString("active fingerprint enable; ")
 	}
-	if opt.Bak {
+	if opt.BakPlugin {
 		s.WriteString("bak file enable; ")
 	}
-	if opt.Common {
+	if opt.CommonPlugin {
 		s.WriteString("common file enable; ")
 	}
-	if opt.Recon {
+	if opt.ReconPlugin {
 		s.WriteString("recon enable; ")
 	}
-	if opt.FileBak {
-		s.WriteString("file bak enable; ")
-	}
-
 	if opt.RetryCount > 0 {
 		s.WriteString("Retry Count: " + strconv.Itoa(opt.RetryCount))
 	}
@@ -521,27 +471,78 @@ func (opt *Option) PrintPlugin() {
 	}
 }
 
+func (opt *Option) BuildPlugin(r *Runner) error {
+	// brute only
+	if opt.Advance {
+		opt.CrawlPlugin = true
+		opt.Finger = true
+		opt.BakPlugin = true
+		opt.CommonPlugin = true
+		opt.ActivePlugin = true
+		opt.ReconPlugin = true
+	}
+
+	if opt.ReconPlugin {
+		pkg.Extractors["recon"] = pkg.ExtractRegexps["pentest"]
+	}
+
+	if opt.Finger {
+		pkg.EnableAllFingerEngine = true
+	}
+
+	if opt.BakPlugin {
+		r.bruteMod = true
+		opt.AppendRule = append(opt.AppendRule, "filebak")
+		r.AppendWords = append(r.AppendWords, pkg.GetPresetWordList([]string{"bak_file"})...)
+	}
+
+	if opt.CommonPlugin {
+		r.bruteMod = true
+		r.AppendWords = append(r.AppendWords, pkg.Dicts["common"]...)
+		r.AppendWords = append(r.AppendWords, pkg.Dicts["log"]...)
+	}
+
+	if opt.ActivePlugin {
+		r.bruteMod = true
+		r.AppendWords = append(r.AppendWords, pkg.ActivePath...)
+	}
+
+	if opt.CrawlPlugin {
+		r.bruteMod = true
+	}
+
+	opt.PrintPlugin()
+	if r.bruteMod {
+		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
+	}
+
+	if opt.NoScope {
+		r.Scope = []string{"*"}
+	}
+	return nil
+}
+
 func (opt *Option) BuildWords(r *Runner) error {
 	var dicts [][]string
 	var err error
 	if opt.DefaultDict {
-		dicts = append(dicts, pkg.LoadDefaultDict())
+		dicts = append(dicts, pkg.Dicts["default"])
 		logs.Log.Info("use default dictionary: https://github.com/maurosoria/dirsearch/blob/master/db/dicc.txt")
 	}
 	for i, f := range opt.Dictionaries {
-		dict, err := loadFileToSlice(f)
+		dict, err := pkg.LoadFileToSlice(f)
 		if err != nil {
 			return err
 		}
 		dicts = append(dicts, dict)
 		if opt.ResumeFrom != "" {
-			dictCache[f] = dicts[i]
+			pkg.Dicts[f] = dicts[i]
 		}
 
-		logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dicts[i]), f)
+		logs.Log.Logf(pkg.LogVerbose, "Loaded %d word from %s", len(dict), f)
 	}
 
-	if len(dicts) == 0 && opt.Word == "" {
+	if len(dicts) == 0 && opt.Word == "" && len(opt.Rules) == 0 && len(opt.AppendRule) == 0 {
 		r.IsCheck = true
 	}
 
@@ -582,7 +583,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 	}
 
 	if len(opt.Rules) != 0 {
-		rules, err := loadRuleAndCombine(opt.Rules)
+		rules, err := pkg.LoadRuleAndCombine(opt.Rules)
 		if err != nil {
 			return err
 		}
@@ -601,7 +602,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 	}
 
 	if len(opt.AppendRule) != 0 {
-		content, err := loadRuleAndCombine(opt.AppendRule)
+		content, err := pkg.LoadRuleAndCombine(opt.AppendRule)
 		if err != nil {
 			return err
 		}
@@ -609,18 +610,13 @@ func (opt *Option) BuildWords(r *Runner) error {
 	}
 
 	if len(opt.AppendFile) != 0 {
-		var bs bytes.Buffer
+		var lines []string
 		for _, f := range opt.AppendFile {
-			content, err := ioutil.ReadFile(f)
+			dict, err := pkg.LoadFileToSlice(f)
 			if err != nil {
 				return err
 			}
-			bs.Write(bytes.TrimSpace(content))
-			bs.WriteString("\n")
-		}
-		lines := strings.Split(bs.String(), "\n")
-		for i, line := range lines {
-			lines[i] = strings.TrimSpace(line)
+			lines = append(lines, dict...)
 		}
 		r.AppendWords = append(r.AppendWords, lines...)
 	}
@@ -647,16 +643,16 @@ func (opt *Option) BuildWords(r *Runner) error {
 	}
 
 	if opt.Uppercase {
-		r.AppendFunction(wrapWordsFunc(strings.ToUpper))
+		r.AppendFunction(pkg.WrapWordsFunc(strings.ToUpper))
 	}
 	if opt.Lowercase {
-		r.AppendFunction(wrapWordsFunc(strings.ToLower))
+		r.AppendFunction(pkg.WrapWordsFunc(strings.ToLower))
 	}
 
 	if opt.RemoveExtensions != "" {
 		rexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.AppendFunction(func(s string) []string {
-			if ext := parseExtension(s); iutils.StringsContains(rexts, ext) {
+			if ext := pkg.ParseExtension(s); iutils.StringsContains(rexts, ext) {
 				return []string{strings.TrimSuffix(s, "."+ext)}
 			}
 			return []string{s}
@@ -666,7 +662,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 	if opt.ExcludeExtensions != "" {
 		exexts := strings.Split(opt.ExcludeExtensions, ",")
 		r.AppendFunction(func(s string) []string {
-			if ext := parseExtension(s); iutils.StringsContains(exexts, ext) {
+			if ext := pkg.ParseExtension(s); iutils.StringsContains(exexts, ext) {
 				return nil
 			}
 			return []string{s}
@@ -700,7 +696,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 		})
 	}
 
-	logs.Log.Logf(pkg.LogVerbose, "Loaded %d dictionaries and %d decorators", len(opt.Dictionaries), len(r.Fns))
+	logs.Log.Importantf("Loaded %d dictionaries, %d rules and %d decorators", len(opt.Dictionaries), len(opt.Rules), len(r.Fns))
 	return nil
 }
 

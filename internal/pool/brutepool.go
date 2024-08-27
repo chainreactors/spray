@@ -10,11 +10,13 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words"
+	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/time/rate"
 	"math/rand"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -378,12 +380,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.locker.Lock()
 		pool.index = bl
 		pool.locker.Unlock()
-		if bl.Status == 200 || (bl.Status/100) == 3 {
-			// 保留index输出结果
-			pool.wg.Add(1)
-			pool.doCrawl(bl)
-			pool.putToOutput(bl)
-		}
+		pool.doCrawl(bl)
+		pool.doAppend(bl)
+		pool.putToOutput(bl)
 		pool.initwg.Done()
 	case parsers.CheckSource:
 		if bl.ErrString != "" {
@@ -520,14 +519,9 @@ func (pool *BrutePool) Handler() {
 			bl.IsValid = false
 		}
 
-		if bl.IsValid || bl.IsFuzzy {
-			pool.wg.Add(2)
+		if bl.IsValid || (bl.IsFuzzy && pool.Fuzzy) {
 			pool.doCrawl(bl)
-			pool.doRule(bl)
-			if iutils.IntsContains(pkg.WhiteStatus, bl.Status) || iutils.IntsContains(pkg.UniqueStatus, bl.Status) {
-				pool.wg.Add(1)
-				pool.doAppendWords(bl)
-			}
+			pool.doAppend(bl)
 		}
 
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
@@ -547,6 +541,73 @@ func (pool *BrutePool) Handler() {
 	}
 
 	pool.analyzeDone = true
+}
+
+func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
+	if pool.AppendRule == nil || bl.Source == parsers.RuleSource {
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
+			pool.addAddition(&Unit{
+				path:   pkg.Dir(bl.Url.Path) + u,
+				source: parsers.RuleSource,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
+	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource {
+		// 防止自身递归
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+		for _, u := range pool.AppendWords {
+			pool.addAddition(&Unit{
+				path:   pkg.SafePath(bl.Path, u),
+				source: parsers.AppendSource,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
+	pool.wg.Add(2)
+	pool.doAppendWords(bl)
+	pool.doAppendRule(bl)
+}
+
+func (pool *BrutePool) doActive() {
+	defer pool.wg.Done()
+	for _, u := range pkg.ActivePath {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u[1:],
+			source: parsers.FingerSource,
+		})
+	}
+}
+
+func (pool *BrutePool) doCommonFile() {
+	defer pool.wg.Done()
+	for _, u := range pkg.Dicts["common"] {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u,
+			source: parsers.CommonFileSource,
+		})
+	}
+	for _, u := range pkg.Dicts["log"] {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u,
+			source: parsers.CommonFileSource,
+		})
+	}
 }
 
 func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
@@ -629,6 +690,50 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 	return true
 }
 
+func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
+	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
+		bl.Collect()
+		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
+		pool.baselines[bl.Status] = bl
+		logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+	}
+}
+
+func (pool *BrutePool) recover() {
+	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
+	for i, bl := range pool.FailedBaselines {
+		if i > int(pool.BreakThreshold) {
+			break
+		}
+		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
+	}
+}
+
+func (pool *BrutePool) Close() {
+	for pool.analyzeDone {
+		// 等待缓存的待处理任务完成
+		time.Sleep(time.Duration(100) * time.Millisecond)
+	}
+	close(pool.additionCh) // 关闭addition管道
+	close(pool.checkCh)    // 关闭check管道
+	pool.Statistor.EndTime = time.Now().Unix()
+	pool.Bar.Close()
+}
+
+func (pool *BrutePool) safePath(u string) string {
+	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
+	if pool.isDir {
+		return pkg.SafePath(pool.dir, u)
+	} else {
+		return pkg.SafePath(pool.url.Path+"/", u)
+	}
+}
+
+func (pool *BrutePool) resetFailed() {
+	pool.failedCount = 1
+	pool.FailedBaselines = nil
+}
+
 func (pool *BrutePool) doCheck() {
 	if pool.failedCount > pool.BreakThreshold {
 		// 当报错次数超过上限是, 结束任务
@@ -647,16 +752,15 @@ func (pool *BrutePool) doCheck() {
 
 func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
-		pool.wg.Done()
-		return
-	}
-	bl.CollectURL()
-	if bl.URLs == nil {
-		pool.wg.Done()
 		return
 	}
 
-	pool.wg.Add(1)
+	bl.CollectURL()
+	if bl.URLs == nil {
+		return
+	}
+
+	pool.wg.Add(2)
 	pool.doScopeCrawl(bl)
 
 	go func() {
@@ -700,16 +804,6 @@ func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
-	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
-		bl.Collect()
-		pool.wg.Add(1)
-		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
-		pool.baselines[bl.Status] = bl
-		logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
-	}
-}
-
 func (pool *BrutePool) doBak() {
 	defer pool.wg.Done()
 	worder, err := words.NewWorderWithDsl("{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
@@ -735,36 +829,4 @@ func (pool *BrutePool) doBak() {
 			source: parsers.BakSource,
 		})
 	}
-}
-
-func (pool *BrutePool) recover() {
-	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
-	for i, bl := range pool.FailedBaselines {
-		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
-	}
-}
-
-func (pool *BrutePool) Close() {
-	for pool.analyzeDone {
-		// 等待缓存的待处理任务完成
-		time.Sleep(time.Duration(100) * time.Millisecond)
-	}
-	close(pool.additionCh) // 关闭addition管道
-	close(pool.checkCh)    // 关闭check管道
-	pool.Statistor.EndTime = time.Now().Unix()
-	pool.Bar.Close()
-}
-
-func (pool *BrutePool) safePath(u string) string {
-	// 自动生成的目录将采用safepath的方式拼接到相对目录中, 避免出现//的情况. 例如init, check, common
-	if pool.isDir {
-		return pkg.SafePath(pool.dir, u)
-	} else {
-		return pkg.SafePath(pool.url.Path+"/", u)
-	}
-}
-
-func (pool *BrutePool) resetFailed() {
-	pool.failedCount = 1
-	pool.FailedBaselines = nil
 }

@@ -3,10 +3,16 @@ package pkg
 import (
 	"bufio"
 	"bytes"
+	"github.com/chainreactors/files"
+	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/utils/iutils"
+	"github.com/chainreactors/words/mask"
+	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -31,11 +37,17 @@ var (
 	EnableAllFingerEngine = false
 )
 var (
-	Rules map[string]string = make(map[string]string)
+	Rules          map[string]string   = make(map[string]string)
+	Dicts          map[string][]string = make(map[string][]string)
+	wordlistCache                      = make(map[string][]string)
+	ruleCache                          = make(map[string][]rule.Expression)
+	BadExt                             = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
+	BadURL                             = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
+	ExtractRegexps                     = make(parsers.Extractors)
+	Extractors                         = make(parsers.Extractors)
 
-	BadExt = []string{".js", ".css", ".scss", ".,", ".jpeg", ".jpg", ".png", ".gif", ".svg", ".vue", ".ts", ".swf", ".pdf", ".mp4", ".zip", ".rar"}
-	BadURL = []string{";", "}", "\\n", "webpack://", "{", "www.w3.org", ".src", ".url", ".att", ".href", "location.href", "javascript:", "location:", ".createObject", ":location", ".path"}
-
+	FingerEngine   *fingers.Engine
+	ActivePath     []string
 	ContentTypeMap = map[string]string{
 		"application/javascript":   "js",
 		"application/json":         "json",
@@ -390,4 +402,169 @@ func ParseRawResponse(raw []byte) (*http.Response, error) {
 	}
 	defer resp.Body.Close()
 	return resp, nil
+}
+
+func GetPresetWordList(key []string) []string {
+	var wordlist []string
+
+	for _, k := range key {
+		if v, ok := mask.SpecialWords[k]; ok {
+			wordlist = append(wordlist, v...)
+		}
+	}
+	return wordlist
+}
+
+func ParseExtension(s string) string {
+	if i := strings.Index(s, "."); i != -1 {
+		return s[i+1:]
+	}
+	return ""
+}
+
+func ParseStatus(preset []int, changed string) []int {
+	if changed == "" {
+		return preset
+	}
+	if strings.HasPrefix(changed, "+") {
+		for _, s := range strings.Split(changed[1:], ",") {
+			if t, err := strconv.Atoi(s); err != nil {
+				continue
+			} else {
+				preset = append(preset, t)
+			}
+		}
+	} else if strings.HasPrefix(changed, "!") {
+		for _, s := range strings.Split(changed[1:], ",") {
+			for i, status := range preset {
+				if t, err := strconv.Atoi(s); err != nil {
+					break
+				} else if t == status {
+					preset = append(preset[:i], preset[i+1:]...)
+					break
+				}
+			}
+		}
+	} else {
+		preset = []int{}
+		for _, s := range strings.Split(changed, ",") {
+			if t, err := strconv.Atoi(s); err != nil {
+				continue
+			} else {
+				preset = append(preset, t)
+			}
+		}
+	}
+	return preset
+}
+
+func LoadFileToSlice(filename string) ([]string, error) {
+	var ss []string
+	if dicts, ok := Dicts[filename]; ok {
+		if files.IsExist(filename) {
+			logs.Log.Warnf("load and overwrite %s from preset", filename)
+		}
+		return dicts, nil
+	}
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	ss = strings.Split(strings.TrimSpace(string(content)), "\n")
+
+	// 统一windows与linux的回车换行差异
+	for i, word := range ss {
+		ss[i] = strings.TrimSpace(word)
+	}
+
+	return ss, nil
+}
+
+func LoadRuleAndCombine(filename []string) (string, error) {
+	var bs bytes.Buffer
+	for _, f := range filename {
+		if data, ok := Rules[f]; ok {
+			bs.WriteString(strings.TrimSpace(data))
+			bs.WriteString("\n")
+		} else {
+			content, err := ioutil.ReadFile(f)
+			if err != nil {
+				return "", err
+			}
+			bs.Write(bytes.TrimSpace(content))
+			bs.WriteString("\n")
+		}
+	}
+	return bs.String(), nil
+}
+
+func loadFileWithCache(filename string) ([]string, error) {
+	if dict, ok := Dicts[filename]; ok {
+		return dict, nil
+	}
+	dict, err := LoadFileToSlice(filename)
+	if err != nil {
+		return nil, err
+	}
+	Dicts[filename] = dict
+	return dict, nil
+}
+
+func loadDictionaries(filenames []string) ([][]string, error) {
+	dicts := make([][]string, len(filenames))
+	for i, name := range filenames {
+		dict, err := loadFileWithCache(name)
+		if err != nil {
+			return nil, err
+		}
+		dicts[i] = dict
+	}
+	return dicts, nil
+}
+
+func LoadWordlist(word string, dictNames []string) ([]string, error) {
+	if wl, ok := wordlistCache[word+strings.Join(dictNames, ",")]; ok {
+		return wl, nil
+	}
+	dicts, err := loadDictionaries(dictNames)
+	if err != nil {
+		return nil, err
+	}
+	wl, err := mask.Run(word, dicts, nil)
+	if err != nil {
+		return nil, err
+	}
+	wordlistCache[word] = wl
+	return wl, nil
+}
+
+func LoadRuleWithFiles(ruleFiles []string, filter string) ([]rule.Expression, error) {
+	if rules, ok := ruleCache[strings.Join(ruleFiles, ",")]; ok {
+		return rules, nil
+	}
+	var rules bytes.Buffer
+	for _, filename := range ruleFiles {
+		content, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		rules.Write(content)
+		rules.WriteString("\n")
+	}
+	return rule.Compile(rules.String(), filter).Expressions, nil
+}
+
+func WrapWordsFunc(f func(string) string) func(string) []string {
+	return func(s string) []string {
+		return []string{f(s)}
+	}
+}
+
+func SafeFilename(filename string) string {
+	filename = strings.ReplaceAll(filename, "http://", "")
+	filename = strings.ReplaceAll(filename, "https://", "")
+	filename = strings.ReplaceAll(filename, ":", "_")
+	filename = strings.ReplaceAll(filename, "/", "_")
+	return filename
 }

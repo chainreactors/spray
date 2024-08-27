@@ -20,17 +20,11 @@ var (
 	MAX = 2147483647
 )
 
-var (
-	dictCache     = make(map[string][]string)
-	wordlistCache = make(map[string][]string)
-	ruleCache     = make(map[string][]rule.Expression)
-)
-
 type Runner struct {
 	*Option
 
 	taskCh        chan *Task
-	poolwg        sync.WaitGroup
+	poolwg        *sync.WaitGroup
 	outwg         *sync.WaitGroup
 	outputCh      chan *pkg.Baseline
 	fuzzyCh       chan *pkg.Baseline
@@ -47,20 +41,20 @@ type Runner struct {
 	MatchExpr     *vm.Program
 	RecursiveExpr *vm.Program
 	OutputFile    *files.File
-	FuzzyFile     *files.File
-	DumpFile      *files.File
-	StatFile      *files.File
-	Progress      *mpb.Progress
-	Fns           []func(string) []string
-	Count         int // tasks total number
-	Wordlist      []string
-	AppendWords   []string
-	RecuDepth     int
-	ClientType    int
-	Probes        []string
-	Total         int // wordlist total number
-	Color         bool
-	Jsonify       bool
+	//FuzzyFile     *files.File
+	DumpFile    *files.File
+	StatFile    *files.File
+	Progress    *mpb.Progress
+	Fns         []func(string) []string
+	Count       int // tasks total number
+	Wordlist    []string
+	AppendWords []string
+	RecuDepth   int
+	ClientType  int
+	Probes      []string
+	Total       int // wordlist total number
+	Color       bool
+	Jsonify     bool
 }
 
 func (r *Runner) PrepareConfig() *pool.Config {
@@ -81,15 +75,15 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		MatchExpr:      r.MatchExpr,
 		FilterExpr:     r.FilterExpr,
 		RecuExpr:       r.RecursiveExpr,
-		AppendRule:     r.AppendRules,
-		AppendWords:    r.AppendWords,
+		AppendRule:     r.AppendRules, // 对有效目录追加规则, 根据rule生成
+		AppendWords:    r.AppendWords, // 对有效目录追加字典
 		//IgnoreWaf:       r.IgnoreWaf,
-		Crawl:           r.Crawl,
+		Crawl:           r.CrawlPlugin,
 		Scope:           r.Scope,
 		Active:          r.Finger,
-		Bak:             r.Bak,
-		Common:          r.Common,
-		Retry:           r.RetryCount,
+		Bak:             r.BakPlugin,
+		Common:          r.CommonPlugin,
+		RetryLimit:      r.RetryCount,
 		ClientType:      r.ClientType,
 		RandomUserAgent: r.RandomUserAgent,
 		Random:          r.Random,
@@ -358,62 +352,31 @@ func (r *Runner) saveStat(content string) {
 	}
 }
 
-func (r *Runner) OutputHandler() {
-	debugPrint := func(bl *pkg.Baseline) {
-		if r.Color {
-			logs.Log.Debug(bl.ColorString())
-		} else {
-			logs.Log.Debug(bl.String())
-		}
+func (r *Runner) Output(bl *pkg.Baseline) {
+	var out string
+	if r.Option.Json {
+		out = bl.Jsonify()
+	} else if len(r.Probes) > 0 {
+		out = bl.Format(r.Probes)
+	} else if r.Color {
+		out = bl.ColorString()
+	} else {
+		out = bl.String()
 	}
 
-	var saveFunc func(string)
+	if bl.IsFuzzy {
+		logs.Log.Console("[fuzzy] " + out + "\n")
+	} else {
+		logs.Log.Console(out + "\n")
+	}
+
 	if r.OutputFile != nil {
-		saveFunc = func(line string) {
-			r.OutputFile.SafeWrite(line + "\n")
-			r.OutputFile.SafeSync()
-		}
-	} else {
-		saveFunc = func(line string) {
-			logs.Log.Console(line + "\n")
-		}
+		r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
+		r.OutputFile.SafeSync()
 	}
+}
 
-	var fuzzySaveFunc func(string)
-	if r.FuzzyFile != nil {
-		fuzzySaveFunc = func(line string) {
-			r.FuzzyFile.SafeWrite(line + "\n")
-			r.FuzzyFile.SafeSync()
-		}
-	} else {
-		fuzzySaveFunc = func(line string) {
-			logs.Log.Console("[fuzzy] " + line + "\n")
-		}
-	}
-	outputPrint := func(bl *pkg.Baseline) {
-		var outFunc func(string)
-		if bl.IsFuzzy {
-			outFunc = fuzzySaveFunc
-		} else {
-			outFunc = saveFunc
-		}
-		if r.Option.Json {
-			outFunc(bl.Jsonify())
-		} else if r.Color {
-			if len(r.Probes) > 0 {
-				outFunc(logs.GreenBold(bl.Format(r.Probes)))
-			} else {
-				outFunc(logs.GreenBold(bl.ColorString()))
-			}
-		} else {
-			if len(r.Probes) > 0 {
-				outFunc(bl.Format(r.Probes))
-			} else {
-				outFunc(bl.String())
-			}
-		}
-	}
-
+func (r *Runner) OutputHandler() {
 	go func() {
 		for {
 			select {
@@ -426,12 +389,16 @@ func (r *Runner) OutputHandler() {
 					r.DumpFile.SafeSync()
 				}
 				if bl.IsValid {
-					outputPrint(bl)
+					r.Output(bl)
 					if bl.Recu {
 						r.AddRecursive(bl)
 					}
 				} else {
-					debugPrint(bl)
+					if r.Color {
+						logs.Log.Debug(bl.ColorString())
+					} else {
+						logs.Log.Debug(bl.String())
+					}
 				}
 				r.outwg.Done()
 			}
@@ -445,9 +412,7 @@ func (r *Runner) OutputHandler() {
 				if !ok {
 					return
 				}
-				if r.Fuzzy {
-					outputPrint(bl)
-				}
+				r.Output(bl)
 				r.outwg.Done()
 			}
 		}
