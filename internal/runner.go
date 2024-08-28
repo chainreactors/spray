@@ -412,8 +412,10 @@ func (r *Runner) OutputHandler() {
 				if !ok {
 					return
 				}
-				r.Output(bl)
-				r.outwg.Done()
+				if r.Fuzzy {
+					r.Output(bl)
+					r.outwg.Done()
+				}
 			}
 		}
 	}()
