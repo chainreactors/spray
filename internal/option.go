@@ -134,7 +134,7 @@ type ModeOptions struct {
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
-	SimhashDistance int      `long:"sim-distance" default:"5" config:"sim-distance"`
+	SimhashDistance int      `long:"sim-distance" default:"8" config:"sim-distance"`
 }
 
 type MiscOptions struct {
@@ -250,6 +250,9 @@ func (opt *Option) Prepare() error {
 	} else {
 		pkg.UniqueStatus = pkg.ParseStatus(pkg.UniqueStatus, opt.UniqueStatus)
 	}
+
+	logs.Log.Logf(pkg.LogVerbose, "Black Status: %v, WhiteStatus: %v, WAFStatus: %v", pkg.BlackStatus, pkg.WhiteStatus, pkg.WAFStatus)
+	logs.Log.Logf(pkg.LogVerbose, "Fuzzy Status: %v, Unique Status: %v", pkg.FuzzyStatus, pkg.UniqueStatus)
 	pool.MaxCrawl = opt.CrawlDepth
 
 	return nil
@@ -402,18 +405,6 @@ func (opt *Option) NewRunner() (*Runner, error) {
 			return nil, err
 		}
 	}
-
-	//if opt.FuzzyFile != "" {
-	//	r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//} else if opt.AutoFile {
-	//	r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	if opt.DumpFile != "" {
 		r.DumpFile, err = files.NewFile(opt.DumpFile, false, false, true)
