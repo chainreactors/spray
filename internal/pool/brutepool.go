@@ -29,6 +29,7 @@ var (
 	MaxRecursion    = 0
 	EnableAllFuzzy  = false
 	EnableAllUnique = false
+	//AllowHostModSource = []parsers.SpraySource{parsers.WordSource, parsers.CheckSource, parsers.InitIndexSource, parsers.InitRandomSource}
 )
 
 func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
@@ -108,46 +109,30 @@ type BrutePool struct {
 	initwg      sync.WaitGroup // 初始化用, 之后改成锁
 }
 
-func (pool *BrutePool) checkRedirect(redirectURL string) bool {
-	if pool.random.RedirectURL == "" {
-		// 如果random的redirectURL为空, 此时该项
-		return true
-	}
-
-	if redirectURL == pool.random.RedirectURL {
-		// 相同的RedirectURL将被认为是无效数据
-		return false
-	} else {
-		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
-		return true
-	}
-}
-
-func (pool *BrutePool) genReq(mod SprayMod, s string) (*ihttp.Request, error) {
-	if mod == HostSpray {
-		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if mod == PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.base, s, pool.Method)
-	}
-	return nil, fmt.Errorf("unknown mod")
-}
-
 func (pool *BrutePool) Init() error {
 	pool.initwg.Add(2)
 	if pool.Index != "/" {
 		logs.Log.Logf(pkg.LogVerbose, "custom index url: %s", pkg.BaseURL(pool.url)+pkg.FormatURL(pkg.BaseURL(pool.url), pool.Index))
-		pool.reqPool.Invoke(newUnit(pool.Index, parsers.InitIndexSource))
+		pool.reqPool.Invoke(&Unit{path: pool.Index, source: parsers.InitIndexSource})
 		//pool.urls[dir(pool.Index)] = struct{}{}
 	} else {
-		pool.reqPool.Invoke(newUnit(pool.url.Path, parsers.InitIndexSource))
+		pool.reqPool.Invoke(&Unit{path: pool.url.Path, source: parsers.InitIndexSource})
 		//pool.urls[dir(pool.url.Path)] = struct{}{}
 	}
 
 	if pool.Random != "" {
 		logs.Log.Logf(pkg.LogVerbose, "custom random url: %s", pkg.BaseURL(pool.url)+pkg.FormatURL(pkg.BaseURL(pool.url), pool.Random))
-		pool.reqPool.Invoke(newUnit(pool.Random, parsers.InitRandomSource))
+		if pool.Mod == PathSpray {
+			pool.reqPool.Invoke(&Unit{path: pool.Random, source: parsers.InitRandomSource})
+		} else {
+			pool.reqPool.Invoke(&Unit{host: pool.Random, source: parsers.InitRandomSource})
+		}
 	} else {
-		pool.reqPool.Invoke(newUnit(pool.safePath(pkg.RandPath()), parsers.InitRandomSource))
+		if pool.Mod == PathSpray {
+			pool.reqPool.Invoke(&Unit{path: pool.safePath(pkg.RandPath()), source: parsers.InitRandomSource})
+		} else {
+			pool.reqPool.Invoke(&Unit{host: pkg.RandHost(), source: parsers.InitRandomSource})
+		}
 	}
 
 	pool.initwg.Wait()
@@ -176,22 +161,6 @@ func (pool *BrutePool) Init() error {
 			if err := pool.Upgrade(pool.random); err != nil {
 				return err
 			}
-		}
-	}
-
-	return nil
-}
-
-func (pool *BrutePool) Upgrade(bl *pkg.Baseline) error {
-	rurl, err := url.Parse(bl.RedirectURL)
-	if err == nil && rurl.Hostname() == bl.Url.Hostname() && bl.Url.Scheme == "http" && rurl.Scheme == "https" {
-		logs.Log.Infof("baseurl %s upgrade http to https, reinit", pool.BaseURL)
-		pool.base = strings.Replace(pool.BaseURL, "http", "https", 1)
-		pool.url.Scheme = "https"
-		// 重新初始化
-		err = pool.Init()
-		if err != nil {
-			return err
 		}
 	}
 
@@ -254,18 +223,18 @@ Loop:
 
 			pool.wg.Add(1)
 			if pool.Mod == HostSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(w, parsers.WordSource, pool.wordOffset))
+				pool.reqPool.Invoke(&Unit{host: w, source: parsers.WordSource, number: pool.wordOffset})
 			} else {
 				// 原样的目录拼接, 输入了几个"/"就是几个, 适配/有语义的中间件
-				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(w), parsers.WordSource, pool.wordOffset))
+				pool.reqPool.Invoke(&Unit{path: pool.safePath(w), source: parsers.WordSource, number: pool.wordOffset})
 			}
 
 		case <-pool.checkCh:
 			pool.Statistor.CheckNumber++
 			if pool.Mod == HostSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(pkg.RandHost(), parsers.CheckSource, pool.wordOffset))
+				pool.reqPool.Invoke(&Unit{host: pkg.RandHost(), source: parsers.CheckSource, number: pool.wordOffset})
 			} else if pool.Mod == PathSpray {
-				pool.reqPool.Invoke(newUnitWithNumber(pool.safePath(pkg.RandPath()), parsers.CheckSource, pool.wordOffset))
+				pool.reqPool.Invoke(&Unit{path: pool.safePath(pkg.RandPath()), source: parsers.CheckSource, number: pool.wordOffset})
 			}
 		case unit, ok := <-pool.additionCh:
 			if !ok || pool.closed {
@@ -301,12 +270,8 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	var req *ihttp.Request
 	var err error
-	if unit.source == parsers.WordSource {
-		req, err = pool.genReq(pool.Mod, unit.path)
-	} else {
-		req, err = pool.genReq(PathSpray, unit.path)
-	}
 
+	req, err = ihttp.BuildRequest(pool.ClientType, pool.BaseURL, unit.path, unit.host, pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -425,7 +390,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 	defer pool.wg.Done()
 	unit := v.(*Unit)
-	req, err := ihttp.BuildPathRequest(pool.ClientType, unit.path, "", pool.Method)
+	req, err := ihttp.BuildRequest(pool.ClientType, unit.path, "", "", "GET")
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -554,6 +519,7 @@ func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
 			pool.addAddition(&Unit{
 				path:   pkg.Dir(bl.Url.Path) + u,
+				host:   bl.Host,
 				source: parsers.RuleSource,
 			})
 		}
@@ -572,6 +538,7 @@ func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
 		for _, u := range pool.AppendWords {
 			pool.addAddition(&Unit{
 				path:   pkg.SafePath(bl.Path, u),
+				host:   bl.Host,
 				source: parsers.AppendSource,
 			})
 		}
@@ -586,6 +553,9 @@ func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
 
 func (pool *BrutePool) doActive() {
 	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
 	for _, u := range pkg.ActivePath {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u[1:],
@@ -596,6 +566,9 @@ func (pool *BrutePool) doActive() {
 
 func (pool *BrutePool) doCommonFile() {
 	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
 	for _, u := range pkg.Dicts["common"] {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
@@ -608,6 +581,37 @@ func (pool *BrutePool) doCommonFile() {
 			source: parsers.CommonFileSource,
 		})
 	}
+}
+
+func (pool *BrutePool) checkRedirect(redirectURL string) bool {
+	if pool.random.RedirectURL == "" {
+		// 如果random的redirectURL为空, 此时该项
+		return true
+	}
+
+	if redirectURL == pool.random.RedirectURL {
+		// 相同的RedirectURL将被认为是无效数据
+		return false
+	} else {
+		// path为3xx, 且与baseline中的RedirectURL不同时, 为有效数据
+		return true
+	}
+}
+
+func (pool *BrutePool) Upgrade(bl *pkg.Baseline) error {
+	rurl, err := url.Parse(bl.RedirectURL)
+	if err == nil && rurl.Hostname() == bl.Url.Hostname() && bl.Url.Scheme == "http" && rurl.Scheme == "https" {
+		logs.Log.Infof("baseurl %s upgrade http to https, reinit", pool.BaseURL)
+		pool.base = strings.Replace(pool.BaseURL, "http", "https", 1)
+		pool.url.Scheme = "https"
+		// 重新初始化
+		err = pool.Init()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
@@ -771,6 +775,7 @@ func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 			}
 			pool.addAddition(&Unit{
 				path:   u,
+				host:   bl.Host,
 				source: parsers.CrawlSource,
 				depth:  bl.ReqDepth + 1,
 			})
@@ -806,6 +811,9 @@ func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
 
 func (pool *BrutePool) doBak() {
 	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
 	worder, err := words.NewWorderWithDsl("{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
 	if err != nil {
 		return
