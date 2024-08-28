@@ -2,7 +2,6 @@ package pool
 
 import (
 	"context"
-	"fmt"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
@@ -39,6 +38,7 @@ func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
 		defer pool.wg.Done()
 		pool.addAddition(&Unit{
 			path:     reURL,
+			host:     bl.Host,
 			source:   parsers.RedirectSource,
 			frontUrl: bl.UrlString,
 			depth:    depth + 1,
@@ -55,6 +55,7 @@ func (pool *BasePool) doRetry(bl *pkg.Baseline) {
 		defer pool.wg.Done()
 		pool.addAddition(&Unit{
 			path:   bl.Path,
+			host:   bl.Host,
 			source: parsers.RetrySource,
 			retry:  bl.Retry + 1,
 		})
@@ -73,15 +74,6 @@ func (pool *BasePool) addAddition(u *Unit) {
 
 func (pool *BasePool) Close() {
 	pool.Bar.Close()
-}
-
-func (pool *BasePool) genReq(s string) (*ihttp.Request, error) {
-	if pool.Mod == HostSpray {
-		return ihttp.BuildHostRequest(pool.ClientType, pool.BaseURL, s)
-	} else if pool.Mod == PathSpray {
-		return ihttp.BuildPathRequest(pool.ClientType, pool.BaseURL, s, pool.Method)
-	}
-	return nil, fmt.Errorf("unknown mod")
 }
 
 func (pool *BasePool) putToOutput(bl *pkg.Baseline) {

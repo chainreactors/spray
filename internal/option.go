@@ -687,7 +687,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 		})
 	}
 
-	logs.Log.Importantf("Loaded %d dictionaries, %d rules and %d decorators", len(opt.Dictionaries), len(opt.Rules), len(r.Fns))
+	logs.Log.Importantf("%s mod, Loaded %d dictionaries, %d rules and %d decorators", opt.Mod, len(opt.Dictionaries), len(opt.Rules), len(r.Fns))
 	return nil
 }
 

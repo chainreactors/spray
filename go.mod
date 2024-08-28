@@ -2,8 +2,6 @@ module github.com/chainreactors/spray
 
 go 1.22
 
-toolchain go1.22.2
-
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
 	github.com/chainreactors/fingers v0.0.0-20240716172449-2fc3147b9c2a

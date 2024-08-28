@@ -107,7 +107,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	}()
 
 	unit := v.(*Unit)
-	req, err := pool.genReq(unit.path)
+	req, err := ihttp.BuildRequest(pool.ClientType, unit.path, "", "", "GET")
 	if err != nil {
 		logs.Log.Debug(err.Error())
 		bl := &pkg.Baseline{
