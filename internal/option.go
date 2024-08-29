@@ -87,7 +87,8 @@ type OutputOptions struct {
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json" config:"format"`
 	Json        bool   `short:"j" long:"json" description:"Bool, output json" config:"json"`
-	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output_probe"`
+	FileOutput  string `short:"O" long:"file-output" default:"json" description:"Bool, file output format" config:"file_output"`
+	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output"`
 	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
 	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
 	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
@@ -164,7 +165,6 @@ func (opt *Option) Validate() error {
 
 	if opt.Depth > 0 && opt.ResumeFrom != "" {
 		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
-
 		return errors.New("--resume and --depth cannot be used at the same time")
 	}
 
