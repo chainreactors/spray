@@ -87,7 +87,8 @@ type OutputOptions struct {
 	AutoFile    bool   `long:"auto-file" description:"Bool, auto generator output and fuzzy filename" config:"auto-file"`
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json" config:"format"`
 	Json        bool   `short:"j" long:"json" description:"Bool, output json" config:"json"`
-	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output_probe"`
+	FileOutput  string `short:"O" long:"file-output" default:"json" description:"Bool, file output format" config:"file_output"`
+	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output"`
 	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
 	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
 	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
@@ -134,7 +135,7 @@ type ModeOptions struct {
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
-	SimhashDistance int      `long:"sim-distance" default:"5" config:"sim-distance"`
+	SimhashDistance int      `long:"sim-distance" default:"8" config:"sim-distance"`
 }
 
 type MiscOptions struct {
@@ -164,7 +165,6 @@ func (opt *Option) Validate() error {
 
 	if opt.Depth > 0 && opt.ResumeFrom != "" {
 		// 递归与断点续传会造成混淆, 断点续传的word与rule不是通过命令行获取的
-
 		return errors.New("--resume and --depth cannot be used at the same time")
 	}
 
@@ -250,6 +250,9 @@ func (opt *Option) Prepare() error {
 	} else {
 		pkg.UniqueStatus = pkg.ParseStatus(pkg.UniqueStatus, opt.UniqueStatus)
 	}
+
+	logs.Log.Logf(pkg.LogVerbose, "Black Status: %v, WhiteStatus: %v, WAFStatus: %v", pkg.BlackStatus, pkg.WhiteStatus, pkg.WAFStatus)
+	logs.Log.Logf(pkg.LogVerbose, "Fuzzy Status: %v, Unique Status: %v", pkg.FuzzyStatus, pkg.UniqueStatus)
 	pool.MaxCrawl = opt.CrawlDepth
 
 	return nil
@@ -402,18 +405,6 @@ func (opt *Option) NewRunner() (*Runner, error) {
 			return nil, err
 		}
 	}
-
-	//if opt.FuzzyFile != "" {
-	//	r.FuzzyFile, err = files.NewFile(opt.FuzzyFile, false, false, true)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//} else if opt.AutoFile {
-	//	r.FuzzyFile, err = files.NewFile("fuzzy.json", false, false, true)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	if opt.DumpFile != "" {
 		r.DumpFile, err = files.NewFile(opt.DumpFile, false, false, true)
@@ -696,7 +687,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 		})
 	}
 
-	logs.Log.Importantf("Loaded %d dictionaries, %d rules and %d decorators", len(opt.Dictionaries), len(opt.Rules), len(r.Fns))
+	logs.Log.Importantf("%s mod, Loaded %d dictionaries, %d rules and %d decorators", opt.Mod, len(opt.Dictionaries), len(opt.Rules), len(r.Fns))
 	return nil
 }
 

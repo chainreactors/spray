@@ -5,27 +5,20 @@ import (
 	"net/http"
 )
 
-func BuildPathRequest(clientType int, base, path, method string) (*Request, error) {
+func BuildRequest(clientType int, base, path, host, method string) (*Request, error) {
 	if clientType == FAST {
 		req := fasthttp.AcquireRequest()
 		req.Header.SetMethod(method)
 		req.SetRequestURI(base + path)
+		if host != "" {
+			req.SetHost(host)
+		}
 		return &Request{FastRequest: req, ClientType: FAST}, nil
 	} else {
 		req, err := http.NewRequest(method, base+path, nil)
-		return &Request{StandardRequest: req, ClientType: STANDARD}, err
-	}
-}
-
-func BuildHostRequest(clientType int, base, host string) (*Request, error) {
-	if clientType == FAST {
-		req := fasthttp.AcquireRequest()
-		req.SetRequestURI(base)
-		req.SetHost(host)
-		return &Request{FastRequest: req, ClientType: FAST}, nil
-	} else {
-		req, err := http.NewRequest("GET", base, nil)
-		req.Host = host
+		if host != "" {
+			req.Host = host
+		}
 		return &Request{StandardRequest: req, ClientType: STANDARD}, err
 	}
 }

@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var ver = "v1.0.1"
+var ver = "dev"
 var DefaultConfig = "config.yaml"
 
 func init() {

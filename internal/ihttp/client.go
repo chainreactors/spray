@@ -48,8 +48,8 @@ func NewClient(config *ClientConfig) *Client {
 				MaxConnsPerHost:     config.Thread * 3 / 2,
 				MaxIdleConnDuration: config.Timeout,
 				//MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
-				//ReadTimeout:                   config.Timeout * time.Second,
-				//WriteTimeout:                  config.Timeout * time.Second,
+				ReadTimeout:                   config.Timeout * time.Second,
+				WriteTimeout:                  config.Timeout * time.Second,
 				ReadBufferSize:                16384, // 16k
 				MaxResponseBodySize:           int(DefaultMaxBodySize),
 				NoDefaultUserAgentHeader:      true,
