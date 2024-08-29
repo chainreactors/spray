@@ -355,7 +355,7 @@ func (r *Runner) saveStat(content string) {
 func (r *Runner) Output(bl *pkg.Baseline) {
 	var out string
 	if r.Option.Json {
-		out = bl.Jsonify()
+		out = bl.ToJson()
 	} else if len(r.Probes) > 0 {
 		out = bl.Format(r.Probes)
 	} else if r.Color {
@@ -364,14 +364,20 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 		out = bl.String()
 	}
 
-	if bl.IsFuzzy {
-		logs.Log.Console("[fuzzy] " + out + "\n")
-	} else {
+	if bl.IsValid {
 		logs.Log.Console(out + "\n")
+
+	} else if r.Fuzzy && bl.IsFuzzy {
+		logs.Log.Console("[fuzzy] " + out + "\n")
 	}
 
 	if r.OutputFile != nil {
-		r.OutputFile.SafeWrite(bl.Jsonify() + "\n")
+		if r.FileOutput == "json" {
+			r.OutputFile.SafeWrite(bl.ToJson() + "\n")
+		} else if r.FileOutput == "csv" {
+			r.OutputFile.SafeWrite(bl.ToCSV() + "\n")
+		}
+
 		r.OutputFile.SafeSync()
 	}
 }
@@ -385,7 +391,7 @@ func (r *Runner) OutputHandler() {
 					return
 				}
 				if r.DumpFile != nil {
-					r.DumpFile.SafeWrite(bl.Jsonify() + "\n")
+					r.DumpFile.SafeWrite(bl.ToJson() + "\n")
 					r.DumpFile.SafeSync()
 				}
 				if bl.IsValid {
@@ -412,10 +418,8 @@ func (r *Runner) OutputHandler() {
 				if !ok {
 					return
 				}
-				if r.Fuzzy {
-					r.Output(bl)
-					r.outwg.Done()
-				}
+				r.Output(bl)
+				r.outwg.Done()
 			}
 		}
 	}()
