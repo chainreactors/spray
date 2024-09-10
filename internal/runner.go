@@ -13,6 +13,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"strings"
 	"sync"
 )
 
@@ -366,7 +367,6 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 
 	if bl.IsValid {
 		logs.Log.Console(out + "\n")
-
 	} else if r.Fuzzy && bl.IsFuzzy {
 		logs.Log.Console("[fuzzy] " + out + "\n")
 	}
@@ -376,6 +376,10 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 			r.OutputFile.SafeWrite(bl.ToJson() + "\n")
 		} else if r.FileOutput == "csv" {
 			r.OutputFile.SafeWrite(bl.ToCSV() + "\n")
+		} else if r.FileOutput == "full" {
+			r.OutputFile.SafeWrite(bl.String() + "\n")
+		} else {
+			r.OutputFile.SafeWrite(bl.Format(strings.Split(r.FileOutput, ",")) + "\n")
 		}
 
 		r.OutputFile.SafeSync()

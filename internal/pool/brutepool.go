@@ -334,21 +334,28 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
 	case parsers.InitRandomSource:
-		bl.Collect()
+		defer pool.initwg.Done()
 		pool.locker.Lock()
 		pool.random = bl
-		pool.addFuzzyBaseline(bl)
+		if !bl.IsValid {
+			return
+		}
 		pool.locker.Unlock()
-		pool.initwg.Done()
-	case parsers.InitIndexSource:
 		bl.Collect()
+		pool.addFuzzyBaseline(bl)
+
+	case parsers.InitIndexSource:
+		defer pool.initwg.Done()
 		pool.locker.Lock()
 		pool.index = bl
 		pool.locker.Unlock()
+		if !bl.IsValid {
+			return
+		}
+		bl.Collect()
 		pool.doCrawl(bl)
 		pool.doAppend(bl)
 		pool.putToOutput(bl)
-		pool.initwg.Done()
 	case parsers.CheckSource:
 		if bl.ErrString != "" {
 			logs.Log.Warnf("[check.error] %s maybe ip had banned, break (%d/%d), error: %s", pool.BaseURL, pool.failedCount, pool.BreakThreshold, bl.ErrString)
