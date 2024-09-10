@@ -5,6 +5,7 @@ import (
 	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr/vm"
 	"sync"
+	"time"
 )
 
 type SprayMod int
@@ -26,7 +27,7 @@ type Config struct {
 	ProxyAddr       string
 	Thread          int
 	Wordlist        []string
-	Timeout         int
+	Timeout         time.Duration
 	ProcessCh       chan *pkg.Baseline
 	OutputCh        chan *pkg.Baseline
 	FuzzyCh         chan *pkg.Baseline

@@ -48,7 +48,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			client: ihttp.NewClient(&ihttp.ClientConfig{
 				Thread:    config.Thread,
 				Type:      config.ClientType,
-				Timeout:   time.Duration(config.Timeout) * time.Second,
+				Timeout:   config.Timeout,
 				ProxyAddr: config.ProxyAddr,
 			}),
 			additionCh: make(chan *Unit, config.Thread),
@@ -167,7 +167,7 @@ func (pool *BrutePool) Init() error {
 	return nil
 }
 
-func (pool *BrutePool) Run(ctx context.Context, offset, limit int) {
+func (pool *BrutePool) Run(offset, limit int) {
 	pool.Worder.Run()
 	if pool.Active {
 		pool.wg.Add(1)
@@ -250,8 +250,6 @@ Loop:
 			}
 		case <-pool.closeCh:
 			break Loop
-		case <-ctx.Done():
-			break Loop
 		case <-pool.ctx.Done():
 			break Loop
 		}
@@ -271,7 +269,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	var req *ihttp.Request
 	var err error
 
-	req, err = ihttp.BuildRequest(pool.ClientType, pool.BaseURL, unit.path, unit.host, pool.Method)
+	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.BaseURL, unit.path, unit.host, pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -283,7 +281,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	}
 
 	start := time.Now()
-	resp, reqerr := pool.client.Do(pool.ctx, req)
+	resp, reqerr := pool.client.Do(req)
 	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
@@ -397,14 +395,14 @@ func (pool *BrutePool) Invoke(v interface{}) {
 func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 	defer pool.wg.Done()
 	unit := v.(*Unit)
-	req, err := ihttp.BuildRequest(pool.ClientType, unit.path, "", "", "GET")
+	req, err := ihttp.BuildRequest(pool.ctx, pool.ClientType, unit.path, "", "", "GET")
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
 	}
 	req.SetHeaders(pool.Headers)
 	req.SetHeader("User-Agent", pkg.RandomUA())
-	resp, reqerr := pool.client.Do(pool.ctx, req)
+	resp, reqerr := pool.client.Do(req)
 	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
 		defer fasthttp.ReleaseRequest(req.FastRequest)
@@ -728,7 +726,8 @@ func (pool *BrutePool) Close() {
 	close(pool.additionCh) // 关闭addition管道
 	close(pool.checkCh)    // 关闭check管道
 	pool.Statistor.EndTime = time.Now().Unix()
-	pool.Bar.Close()
+	pool.reqPool.Release()
+	pool.scopePool.Release()
 }
 
 func (pool *BrutePool) safePath(u string) string {

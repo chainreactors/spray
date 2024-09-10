@@ -6,14 +6,12 @@ import (
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
-	"github.com/panjf2000/ants/v2"
 	"sync"
 )
 
 type BasePool struct {
 	*Config
 	Statistor   *pkg.Statistor
-	Pool        *ants.PoolWithFunc
 	Bar         *pkg.Bar
 	Worder      *words.Worder
 	Cancel      context.CancelFunc
@@ -70,10 +68,6 @@ func (pool *BasePool) addAddition(u *Unit) {
 		}
 	}()
 	pool.additionCh <- u
-}
-
-func (pool *BasePool) Close() {
-	pool.Bar.Close()
 }
 
 func (pool *BasePool) putToOutput(bl *pkg.Baseline) {
