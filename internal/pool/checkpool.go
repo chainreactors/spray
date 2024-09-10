@@ -18,7 +18,7 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
 	config.ClientType = ihttp.STANDARD
 	pool := &CheckPool{
-		&BasePool{
+		BasePool: &BasePool{
 			Config:    config,
 			Statistor: pkg.NewStatistor(""),
 			ctx:       pctx,
@@ -38,13 +38,14 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pool.Headers = map[string]string{"Connection": "close"}
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
 
-	pool.BasePool.Pool = p
+	pool.Pool = p
 	go pool.Handler()
 	return pool, nil
 }
 
 type CheckPool struct {
 	*BasePool
+	Pool *ants.PoolWithFunc
 }
 
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
@@ -66,7 +67,7 @@ func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
 Loop:
 	for {
 		select {
-		case u, ok := <-pool.Worder.C:
+		case u, ok := <-pool.Worder.Output:
 			if !ok {
 				done = true
 				continue
@@ -82,12 +83,12 @@ Loop:
 			}
 
 			pool.wg.Add(1)
-			_ = pool.BasePool.Pool.Invoke(newUnit(u, parsers.CheckSource))
+			_ = pool.Pool.Invoke(newUnit(u, parsers.CheckSource))
 		case u, ok := <-pool.additionCh:
 			if !ok {
 				continue
 			}
-			_ = pool.BasePool.Pool.Invoke(u)
+			_ = pool.Pool.Invoke(u)
 		case <-pool.closeCh:
 			break Loop
 		case <-ctx.Done():
@@ -99,6 +100,10 @@ Loop:
 
 	pool.Close()
 }
+func (pool *CheckPool) Close() {
+	pool.Bar.Close()
+	pool.Pool.Release()
+}
 
 func (pool *CheckPool) Invoke(v interface{}) {
 	defer func() {
@@ -107,7 +112,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	}()
 
 	unit := v.(*Unit)
-	req, err := ihttp.BuildRequest(pool.ClientType, unit.path, "", "", "GET")
+	req, err := ihttp.BuildRequest(pool.ctx, pool.ClientType, unit.path, "", "", "GET")
 	if err != nil {
 		logs.Log.Debug(err.Error())
 		bl := &pkg.Baseline{
@@ -125,7 +130,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	req.SetHeaders(pool.Headers)
 	start := time.Now()
 	var bl *pkg.Baseline
-	resp, reqerr := pool.client.Do(pool.ctx, req)
+	resp, reqerr := pool.client.Do(req)
 	if reqerr != nil {
 		pool.failedCount++
 		bl = &pkg.Baseline{

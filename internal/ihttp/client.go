@@ -1,7 +1,6 @@
 package ihttp
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"github.com/chainreactors/logs"
@@ -56,7 +55,7 @@ func NewClient(config *ClientConfig) *Client {
 				DisablePathNormalizing:        true,
 				DisableHeaderNamesNormalizing: true,
 			},
-			Config: config,
+			ClientConfig: config,
 		}
 	} else {
 		client = &Client{
@@ -76,7 +75,7 @@ func NewClient(config *ClientConfig) *Client {
 					return http.ErrUseLastResponse
 				},
 			},
-			Config: config,
+			ClientConfig: config,
 		}
 		if config.ProxyAddr != "" {
 			client.standardClient.Transport.(*http.Transport).Proxy = func(_ *http.Request) (*url.URL, error) {
@@ -97,7 +96,7 @@ type ClientConfig struct {
 type Client struct {
 	fastClient     *fasthttp.Client
 	standardClient *http.Client
-	Config         *ClientConfig
+	*ClientConfig
 }
 
 func (c *Client) TransToCheck() {
@@ -108,22 +107,22 @@ func (c *Client) TransToCheck() {
 	}
 }
 
-func (c *Client) FastDo(ctx context.Context, req *fasthttp.Request) (*fasthttp.Response, error) {
+func (c *Client) FastDo(req *fasthttp.Request) (*fasthttp.Response, error) {
 	resp := fasthttp.AcquireResponse()
-	err := c.fastClient.Do(req, resp)
+	err := c.fastClient.DoTimeout(req, resp, c.Timeout)
 	return resp, err
 }
 
-func (c *Client) StandardDo(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (c *Client) StandardDo(req *http.Request) (*http.Response, error) {
 	return c.standardClient.Do(req)
 }
 
-func (c *Client) Do(ctx context.Context, req *Request) (*Response, error) {
+func (c *Client) Do(req *Request) (*Response, error) {
 	if c.fastClient != nil {
-		resp, err := c.FastDo(ctx, req.FastRequest)
+		resp, err := c.FastDo(req.FastRequest)
 		return &Response{FastResponse: resp, ClientType: FAST}, err
 	} else if c.standardClient != nil {
-		resp, err := c.StandardDo(ctx, req.StandardRequest)
+		resp, err := c.StandardDo(req.StandardRequest)
 		return &Response{StandardResponse: resp, ClientType: STANDARD}, err
 	} else {
 		return nil, fmt.Errorf("not found client")

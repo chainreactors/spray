@@ -13,7 +13,9 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -45,7 +47,7 @@ type Runner struct {
 	DumpFile    *files.File
 	StatFile    *files.File
 	Progress    *mpb.Progress
-	Fns         []func(string) []string
+	Fns         []words.WordFunc
 	Count       int // tasks total number
 	Wordlist    []string
 	AppendWords []string
@@ -60,7 +62,7 @@ type Runner struct {
 func (r *Runner) PrepareConfig() *pool.Config {
 	config := &pool.Config{
 		Thread:         r.Threads,
-		Timeout:        r.Timeout,
+		Timeout:        time.Duration(r.Timeout) * time.Second,
 		RateLimit:      r.RateLimit,
 		Headers:        r.Headers,
 		Method:         r.Method,
@@ -77,6 +79,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		RecuExpr:       r.RecursiveExpr,
 		AppendRule:     r.AppendRules, // 对有效目录追加规则, 根据rule生成
 		AppendWords:    r.AppendWords, // 对有效目录追加字典
+		Fns:            r.Fns,
 		//IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.CrawlPlugin,
 		Scope:           r.Scope,
@@ -180,7 +183,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				brutePool.Statistor.Total = t.origin.sum
 			} else {
 				brutePool.Statistor = pkg.NewStatistor(t.baseUrl)
-				brutePool.Worder = words.NewWorder(r.Wordlist)
+				brutePool.Worder = words.NewWorderWithList(r.Wordlist)
 				brutePool.Worder.Fns = r.Fns
 				brutePool.Worder.Rules = r.Rules.Expressions
 			}
@@ -205,7 +208,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			brutePool.Run(ctx, brutePool.Statistor.Offset, limit)
+			brutePool.Run(brutePool.Statistor.Offset, limit)
 
 			if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
@@ -228,6 +231,7 @@ Loop:
 	for {
 		select {
 		case <-ctx.Done():
+			// 如果超过了deadline, 尚未开始的任务都将被记录到stat中
 			if len(r.taskCh) > 0 {
 				for t := range r.taskCh {
 					stat := pkg.NewStatistor(t.baseUrl)
@@ -366,7 +370,6 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 
 	if bl.IsValid {
 		logs.Log.Console(out + "\n")
-
 	} else if r.Fuzzy && bl.IsFuzzy {
 		logs.Log.Console("[fuzzy] " + out + "\n")
 	}
@@ -376,6 +379,10 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 			r.OutputFile.SafeWrite(bl.ToJson() + "\n")
 		} else if r.FileOutput == "csv" {
 			r.OutputFile.SafeWrite(bl.ToCSV() + "\n")
+		} else if r.FileOutput == "full" {
+			r.OutputFile.SafeWrite(bl.String() + "\n")
+		} else {
+			r.OutputFile.SafeWrite(bl.Format(strings.Split(r.FileOutput, ",")) + "\n")
 		}
 
 		r.OutputFile.SafeSync()

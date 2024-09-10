@@ -1,11 +1,12 @@
 package ihttp
 
 import (
+	"context"
 	"github.com/valyala/fasthttp"
 	"net/http"
 )
 
-func BuildRequest(clientType int, base, path, host, method string) (*Request, error) {
+func BuildRequest(ctx context.Context, clientType int, base, path, host, method string) (*Request, error) {
 	if clientType == FAST {
 		req := fasthttp.AcquireRequest()
 		req.Header.SetMethod(method)
@@ -15,7 +16,7 @@ func BuildRequest(clientType int, base, path, host, method string) (*Request, er
 		}
 		return &Request{FastRequest: req, ClientType: FAST}, nil
 	} else {
-		req, err := http.NewRequest(method, base+path, nil)
+		req, err := http.NewRequestWithContext(ctx, method, base+path, nil)
 		if host != "" {
 			req.Host = host
 		}

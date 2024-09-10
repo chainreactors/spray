@@ -6,9 +6,8 @@ require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
 	github.com/chainreactors/fingers v0.0.0-20240716172449-2fc3147b9c2a
 	github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f
-	github.com/chainreactors/parsers v0.0.0-20240829055950-923f89a92b84
+	github.com/chainreactors/parsers v0.0.0-20240910081704-fd57f462fc65
 	github.com/chainreactors/utils v0.0.0-20240805193040-ff3b97aa3c3f
-	github.com/chainreactors/words v0.4.1-0.20240510105042-5ba5c2edc508
 	github.com/expr-lang/expr v1.16.9
 	github.com/gookit/config/v2 v2.2.5
 	github.com/jessevdk/go-flags v1.5.0
@@ -25,6 +24,10 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/chainreactors/words v0.0.0-20240910083848-19a289e8984b // indirect
+	github.com/charmbracelet/lipgloss v0.13.0 // indirect
+	github.com/charmbracelet/x/ansi v0.1.4 // indirect
 	github.com/facebookincubator/nvdtools v0.1.5 // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/go-dedup/megophone v0.0.0-20170830025436-f01be21026f5 // indirect
@@ -37,10 +40,12 @@ require (
 	github.com/gookit/goutil v0.6.15 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
