@@ -9,7 +9,6 @@ import (
 	"github.com/chainreactors/spray/internal/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
-	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/panjf2000/ants/v2"
 	"github.com/valyala/fasthttp"
@@ -200,7 +199,7 @@ func (pool *BrutePool) Run(offset, limit int) {
 Loop:
 	for {
 		select {
-		case w, ok := <-pool.Worder.C:
+		case w, ok := <-pool.Worder.Output:
 			if !ok {
 				done = true
 				continue
@@ -514,7 +513,7 @@ func (pool *BrutePool) Handler() {
 }
 
 func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
-	if pool.AppendRule == nil || bl.Source == parsers.RuleSource {
+	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource {
 		pool.wg.Done()
 		return
 	}
@@ -525,7 +524,7 @@ func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
 			pool.addAddition(&Unit{
 				path:   pkg.Dir(bl.Url.Path) + u,
 				host:   bl.Host,
-				source: parsers.RuleSource,
+				source: parsers.AppendRuleSource,
 			})
 		}
 	}()
@@ -540,7 +539,8 @@ func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
 
 	go func() {
 		defer pool.wg.Done()
-		for _, u := range pool.AppendWords {
+
+		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
 			pool.addAddition(&Unit{
 				path:   pkg.SafePath(bl.Path, u),
 				host:   bl.Host,
@@ -574,13 +574,7 @@ func (pool *BrutePool) doCommonFile() {
 	if pool.Mod == HostSpray {
 		return
 	}
-	for _, u := range pkg.Dicts["common"] {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u,
-			source: parsers.CommonFileSource,
-		})
-	}
-	for _, u := range pkg.Dicts["log"] {
+	for u := range NewBruteWords(pool.Config, append(pkg.Dicts["common"], pkg.Dicts["log"]...)).Output {
 		pool.addAddition(&Unit{
 			path:   pool.dir + u,
 			source: parsers.CommonFileSource,
@@ -820,24 +814,14 @@ func (pool *BrutePool) doBak() {
 	if pool.Mod == HostSpray {
 		return
 	}
-	worder, err := words.NewWorderWithDsl("{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}, nil)
-	if err != nil {
-		return
-	}
-	worder.Run()
-	for w := range worder.C {
+	for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: parsers.BakSource,
 		})
 	}
 
-	worder, err = words.NewWorderWithDsl("{?@bak_name}.{?@bak_ext}", nil, nil)
-	if err != nil {
-		return
-	}
-	worder.Run()
-	for w := range worder.C {
+	for w := range NewBruteDSL(pool.Config, "{?@bak_name}.{?@bak_ext}", nil).Output {
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: parsers.BakSource,

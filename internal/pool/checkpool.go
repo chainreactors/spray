@@ -67,7 +67,7 @@ func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
 Loop:
 	for {
 		select {
-		case u, ok := <-pool.Worder.C:
+		case u, ok := <-pool.Worder.Output:
 			if !ok {
 				done = true
 				continue

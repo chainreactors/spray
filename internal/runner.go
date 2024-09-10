@@ -47,7 +47,7 @@ type Runner struct {
 	DumpFile    *files.File
 	StatFile    *files.File
 	Progress    *mpb.Progress
-	Fns         []func(string) []string
+	Fns         []words.WordFunc
 	Count       int // tasks total number
 	Wordlist    []string
 	AppendWords []string
@@ -79,6 +79,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		RecuExpr:       r.RecursiveExpr,
 		AppendRule:     r.AppendRules, // 对有效目录追加规则, 根据rule生成
 		AppendWords:    r.AppendWords, // 对有效目录追加字典
+		Fns:            r.Fns,
 		//IgnoreWaf:       r.IgnoreWaf,
 		Crawl:           r.CrawlPlugin,
 		Scope:           r.Scope,
@@ -182,7 +183,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				brutePool.Statistor.Total = t.origin.sum
 			} else {
 				brutePool.Statistor = pkg.NewStatistor(t.baseUrl)
-				brutePool.Worder = words.NewWorder(r.Wordlist)
+				brutePool.Worder = words.NewWorderWithList(r.Wordlist)
 				brutePool.Worder.Fns = r.Fns
 				brutePool.Worder.Rules = r.Rules.Expressions
 			}

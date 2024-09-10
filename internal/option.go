@@ -30,7 +30,6 @@ import (
 
 var (
 	DefaultThreads = 20
-	SkipChar       = "%SKIP%"
 )
 
 type Option struct {
@@ -614,19 +613,10 @@ func (opt *Option) BuildWords(r *Runner) error {
 
 	//  类似dirsearch中的
 	if opt.Extensions != "" {
-		r.AppendFunction(func(s string) []string {
-			exts := strings.Split(opt.Extensions, ",")
-			ss := make([]string, len(exts))
-			for i, e := range exts {
-				if strings.Contains(s, "%EXT%") {
-					ss[i] = strings.Replace(s, "%EXT%", e, -1)
-				}
-			}
-			return ss
-		})
+		r.AppendFunction(pkg.ParseEXTPlaceholderFunc(strings.Split(opt.Extensions, ",")))
 	} else {
 		r.AppendFunction(func(s string) []string {
-			if strings.Contains(s, "%EXT%") {
+			if strings.Contains(s, pkg.EXTChar) {
 				return nil
 			}
 			return []string{s}
@@ -669,13 +659,6 @@ func (opt *Option) BuildWords(r *Runner) error {
 		})
 	}
 
-	// default skip function, skip %EXT%
-	r.AppendFunction(func(s string) []string {
-		if strings.Contains(s, "%EXT%") {
-			return nil
-		}
-		return []string{s}
-	})
 	if len(opt.Skips) > 0 {
 		r.AppendFunction(func(s string) []string {
 			for _, skip := range opt.Skips {
