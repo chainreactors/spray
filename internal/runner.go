@@ -15,6 +15,7 @@ import (
 	"github.com/vbauerster/mpb/v8/decor"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -61,7 +62,7 @@ type Runner struct {
 func (r *Runner) PrepareConfig() *pool.Config {
 	config := &pool.Config{
 		Thread:         r.Threads,
-		Timeout:        r.Timeout,
+		Timeout:        time.Duration(r.Timeout) * time.Second,
 		RateLimit:      r.RateLimit,
 		Headers:        r.Headers,
 		Method:         r.Method,
@@ -206,7 +207,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				}
 			}
 
-			brutePool.Run(ctx, brutePool.Statistor.Offset, limit)
+			brutePool.Run(brutePool.Statistor.Offset, limit)
 
 			if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
 				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
@@ -229,6 +230,7 @@ Loop:
 	for {
 		select {
 		case <-ctx.Done():
+			// 如果超过了deadline, 尚未开始的任务都将被记录到stat中
 			if len(r.taskCh) > 0 {
 				for t := range r.taskCh {
 					stat := pkg.NewStatistor(t.baseUrl)
