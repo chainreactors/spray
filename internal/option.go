@@ -14,6 +14,7 @@ import (
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/expr-lang/expr"
 	"github.com/vbauerster/mpb/v8"
 	"io/ioutil"
@@ -304,10 +305,6 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.ClientType = ihttp.STANDARD
 	}
 
-	if opt.Threads == DefaultThreads && len(opt.Dictionaries) == 0 {
-		r.Threads = 1000
-	}
-
 	err = opt.BuildPlugin(r)
 	if err != nil {
 		return nil, err
@@ -316,6 +313,10 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	err = opt.BuildWords(r)
 	if err != nil {
 		return nil, err
+	}
+
+	if opt.Threads == DefaultThreads && r.bruteMod {
+		r.Threads = 1000
 	}
 
 	pkg.DefaultStatistor = pkg.Statistor{
@@ -392,6 +393,8 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Probes = strings.Split(opt.OutputProbe, ",")
 	}
 
+	fmt.Println(opt.PrintConfig(r))
+
 	// init output file
 	if opt.OutputFile != "" {
 		r.OutputFile, err = files.NewFile(opt.OutputFile, false, false, true)
@@ -435,30 +438,136 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	return r, nil
 }
 
-func (opt *Option) PrintPlugin() {
-	var s strings.Builder
-	if opt.CrawlPlugin {
-		s.WriteString("crawl enable; ")
-	}
-	if opt.Finger {
-		s.WriteString("active fingerprint enable; ")
-	}
-	if opt.BakPlugin {
-		s.WriteString("bak file enable; ")
-	}
-	if opt.CommonPlugin {
-		s.WriteString("common file enable; ")
-	}
-	if opt.ReconPlugin {
-		s.WriteString("recon enable; ")
-	}
-	if opt.RetryCount > 0 {
-		s.WriteString("Retry Count: " + strconv.Itoa(opt.RetryCount))
+func (opt *Option) PrintConfig(r *Runner) string {
+	// 定义颜色样式
+	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Width(20) // Key 加粗并设定宽度
+	stringValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA07A"))              // 字符串样式
+	arrayValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#98FB98"))               // 数组样式
+	numberValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ADD8E6"))              // 数字样式
+	panelWidth := 60                                                                           // 调整 panelWidth 使内容稍微靠左
+	padding := 2                                                                               // 减少 padding 以调整布局靠左
+
+	// 分割线样式和终端宽度计算
+	divider := strings.Repeat("─", panelWidth) // 使用"─"符号生成更加连贯的分割线
+
+	// 处理不同类型的值
+	formatValue := func(value interface{}) string {
+		switch v := value.(type) {
+		case string:
+			return stringValueStyle.Render(v)
+		case []string:
+			return arrayValueStyle.Render(fmt.Sprintf("%v", v))
+		case int, int64, float64:
+			return numberValueStyle.Render(fmt.Sprintf("%v", v))
+		default:
+			return stringValueStyle.Render(fmt.Sprintf("%v", v)) // 默认为字符串样式
+		}
 	}
 
-	if s.Len() > 0 {
-		logs.Log.Important(s.String())
+	// 处理互斥参数，选择输出有值的那一个
+	inputSource := ""
+	if opt.ResumeFrom != "" {
+		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "🌀 ", keyStyle.Render("ResumeFrom: "), formatValue(opt.ResumeFrom))
+	} else if len(opt.URL) > 0 {
+		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "🌐 ", keyStyle.Render("URL: "), formatValue(opt.URL))
+	} else if opt.URLFile != "" {
+		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "📂 ", keyStyle.Render("URLFile: "), formatValue(opt.URLFile))
+	} else if len(opt.CIDRs) > 0 {
+		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "📡 ", keyStyle.Render("CIDRs: "), formatValue(opt.CIDRs))
+	} else if opt.RawFile != "" {
+		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "📄 ", keyStyle.Render("RawFile: "), formatValue(opt.RawFile))
 	}
+
+	// Input Options
+	inputOptions := lipgloss.JoinVertical(lipgloss.Left,
+		inputSource, // 互斥量处理
+
+		// PortRange 展示
+		lipgloss.JoinHorizontal(lipgloss.Left, "🔢 ", keyStyle.Render("PortRange: "), formatValue(opt.PortRange)),
+
+		// Dictionaries 展示
+		lipgloss.JoinHorizontal(lipgloss.Left, "📚 ", keyStyle.Render("Dictionaries: "), formatValue(opt.Dictionaries)),
+
+		// Word, Rules, FilterRule 展开为单独的行
+		lipgloss.JoinVertical(lipgloss.Left,
+			lipgloss.JoinHorizontal(lipgloss.Left, "💡 ", keyStyle.Render("Word: "), formatValue(r.Word)),
+			lipgloss.JoinHorizontal(lipgloss.Left, "📜 ", keyStyle.Render("Rules: "), formatValue(opt.Rules)),
+			lipgloss.JoinHorizontal(lipgloss.Left, "🔍 ", keyStyle.Render("FilterRule: "), formatValue(opt.FilterRule)),
+		),
+
+		// AppendRule 和 AppendWords 展开为单独的行
+		lipgloss.JoinVertical(lipgloss.Left,
+			lipgloss.JoinHorizontal(lipgloss.Left, "🔧 ", keyStyle.Render("AppendRule: "), formatValue(r.AppendRule)),
+			lipgloss.JoinHorizontal(lipgloss.Left, "🧩 ", keyStyle.Render("AppendWords: "), formatValue(len(r.AppendWords))),
+		),
+	)
+
+	// Output Options
+	outputOptions := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Left, "📊 ", keyStyle.Render("Match: "), formatValue(opt.Match)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "⚙️ ", keyStyle.Render("Filter: "), formatValue(opt.Filter)),
+	)
+
+	// Plugin Options
+	pluginValues := []string{}
+	if opt.ActivePlugin {
+		pluginValues = append(pluginValues, "active")
+	}
+	if opt.ReconPlugin {
+		pluginValues = append(pluginValues, "recon")
+	}
+	if opt.BakPlugin {
+		pluginValues = append(pluginValues, "bak")
+	}
+	if opt.CommonPlugin {
+		pluginValues = append(pluginValues, "common")
+	}
+	if opt.CrawlPlugin {
+		pluginValues = append(pluginValues, "crawl")
+	}
+
+	pluginOptions := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Left, "🔎 ", keyStyle.Render("Extracts: "), formatValue(opt.Extracts)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🔌 ", keyStyle.Render("Plugins: "), formatValue(strings.Join(pluginValues, ", "))),
+	)
+
+	// Mode Options
+	modeOptions := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Left, "🛑 ", keyStyle.Render("BlackStatus: "), formatValue(pkg.BlackStatus)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "✅ ", keyStyle.Render("WhiteStatus: "), formatValue(pkg.WhiteStatus)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🔄 ", keyStyle.Render("FuzzyStatus: "), formatValue(pkg.FuzzyStatus)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🔒 ", keyStyle.Render("UniqueStatus: "), formatValue(pkg.UniqueStatus)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🔑 ", keyStyle.Render("Unique: "), formatValue(opt.Unique)),
+	)
+
+	// Misc Options
+	miscOptions := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Left, "⏱ ", keyStyle.Render("Timeout: "), formatValue(opt.Timeout)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "📈 ", keyStyle.Render("PoolSize: "), formatValue(opt.PoolSize)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🧵 ", keyStyle.Render("Threads: "), formatValue(opt.Threads)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🌍 ", keyStyle.Render("Proxy: "), formatValue(opt.Proxy)),
+	)
+
+	// 将所有内容拼接在一起
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		inputOptions,
+		outputOptions,
+		pluginOptions,
+		modeOptions,
+		miscOptions,
+	)
+
+	// 使用正确的方式添加 padding，并居中显示内容
+	contentWithPadding := lipgloss.NewStyle().PaddingLeft(padding).Render(content)
+
+	// 使用 Place 方法来将整个内容居中显示
+	return lipgloss.Place(panelWidth+padding*2, 0, lipgloss.Center, lipgloss.Center,
+		lipgloss.JoinVertical(lipgloss.Center,
+			divider, // 顶部分割线
+			contentWithPadding,
+			divider, // 底部分割线
+		),
+	)
 }
 
 func (opt *Option) BuildPlugin(r *Runner) error {
@@ -501,7 +610,6 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		r.bruteMod = true
 	}
 
-	opt.PrintPlugin()
 	if r.bruteMod {
 		logs.Log.Important("enabling brute mod, because of enabled brute plugin")
 	}
@@ -670,7 +778,6 @@ func (opt *Option) BuildWords(r *Runner) error {
 		})
 	}
 
-	logs.Log.Importantf("%s mod, Loaded %d dictionaries, %d rules and %d decorators", opt.Mod, len(opt.Dictionaries), len(opt.Rules), len(r.Fns))
 	return nil
 }
 
