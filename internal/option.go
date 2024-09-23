@@ -423,14 +423,13 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	}
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
-	} else {
-		r.StatFile, err = files.NewFile(pkg.SafeFilename(r.Tasks.Name)+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if !opt.NoStat {
+		r.StatFile, err = files.NewFile(pkg.SafeFilename(r.Tasks.Name)+".stat", false, true, true)
 		r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
 		err = r.StatFile.Init()
 		if err != nil {
