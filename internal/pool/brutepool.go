@@ -701,10 +701,10 @@ func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 	}
 }
 
-func (pool *BrutePool) recover() {
+func (pool *BrutePool) fallback() {
 	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
 	for i, bl := range pool.FailedBaselines {
-		if i > int(pool.BreakThreshold) {
+		if i > 5 {
 			break
 		}
 		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
@@ -717,7 +717,7 @@ func (pool *BrutePool) Close() {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 	close(pool.additionCh) // 关闭addition管道
-	close(pool.checkCh)    // 关闭check管道
+	//close(pool.checkCh)    // 关闭check管道
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.reqPool.Release()
 	pool.scopePool.Release()
@@ -740,7 +740,11 @@ func (pool *BrutePool) resetFailed() {
 func (pool *BrutePool) doCheck() {
 	if pool.failedCount > pool.BreakThreshold {
 		// 当报错次数超过上限是, 结束任务
-		pool.recover()
+		if pool.isFallback.Load() {
+			return
+		}
+		pool.isFallback.Store(true)
+		pool.fallback()
 		pool.Cancel()
 		pool.IsFailed = true
 		return
