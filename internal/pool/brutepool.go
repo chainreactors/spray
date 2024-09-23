@@ -268,7 +268,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	var req *ihttp.Request
 	var err error
 
-	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.BaseURL, unit.path, unit.host, pool.Method)
+	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.base, unit.path, unit.host, pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
