@@ -465,8 +465,6 @@ func (pool *BrutePool) Handler() {
 		}
 
 		if ok {
-			pool.Statistor.FoundNumber++
-
 			// unique判断
 			if EnableAllUnique || iutils.IntsContains(pkg.UniqueStatus, bl.Status) {
 				if _, ok := pool.uniques[bl.Unique]; ok {
@@ -495,6 +493,7 @@ func (pool *BrutePool) Handler() {
 
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
+			pool.Statistor.FoundNumber++
 			if bl.RecuDepth < MaxRecursion {
 				if pkg.CompareWithExpr(pool.RecuExpr, params) {
 					bl.Recu = true
