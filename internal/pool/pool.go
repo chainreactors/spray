@@ -7,6 +7,7 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
 	"sync"
+	"sync/atomic"
 )
 
 type BasePool struct {
@@ -24,6 +25,7 @@ type BasePool struct {
 	additionCh  chan *Unit
 	closeCh     chan struct{}
 	wg          *sync.WaitGroup
+	isFallback  atomic.Bool
 }
 
 func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
