@@ -26,7 +26,7 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 			client: ihttp.NewClient(&ihttp.ClientConfig{
 				Thread:    config.Thread,
 				Type:      config.ClientType,
-				Timeout:   time.Duration(config.Timeout) * time.Second,
+				Timeout:   config.Timeout,
 				ProxyAddr: config.ProxyAddr,
 			}),
 			wg:         &sync.WaitGroup{},
