@@ -393,7 +393,9 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Probes = strings.Split(opt.OutputProbe, ",")
 	}
 
-	fmt.Println(opt.PrintConfig(r))
+	if !opt.Quiet {
+		fmt.Println(opt.PrintConfig(r))
+	}
 
 	// init output file
 	if opt.OutputFile != "" {
