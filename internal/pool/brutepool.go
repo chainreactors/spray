@@ -268,7 +268,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	var req *ihttp.Request
 	var err error
 
-	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.BaseURL, unit.path, unit.host, pool.Method)
+	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.base, unit.path, unit.host, pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -465,8 +465,6 @@ func (pool *BrutePool) Handler() {
 		}
 
 		if ok {
-			pool.Statistor.FoundNumber++
-
 			// unique判断
 			if EnableAllUnique || iutils.IntsContains(pkg.UniqueStatus, bl.Status) {
 				if _, ok := pool.uniques[bl.Unique]; ok {
@@ -495,6 +493,7 @@ func (pool *BrutePool) Handler() {
 
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
+			pool.Statistor.FoundNumber++
 			if bl.RecuDepth < MaxRecursion {
 				if pkg.CompareWithExpr(pool.RecuExpr, params) {
 					bl.Recu = true
@@ -702,10 +701,10 @@ func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 	}
 }
 
-func (pool *BrutePool) recover() {
+func (pool *BrutePool) fallback() {
 	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
 	for i, bl := range pool.FailedBaselines {
-		if i > int(pool.BreakThreshold) {
+		if i > 5 {
 			break
 		}
 		logs.Log.Errorf("[failed.%d] %s", i, bl.String())
@@ -718,7 +717,7 @@ func (pool *BrutePool) Close() {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 	close(pool.additionCh) // 关闭addition管道
-	close(pool.checkCh)    // 关闭check管道
+	//close(pool.checkCh)    // 关闭check管道
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.reqPool.Release()
 	pool.scopePool.Release()
@@ -741,7 +740,11 @@ func (pool *BrutePool) resetFailed() {
 func (pool *BrutePool) doCheck() {
 	if pool.failedCount > pool.BreakThreshold {
 		// 当报错次数超过上限是, 结束任务
-		pool.recover()
+		if pool.isFallback.Load() {
+			return
+		}
+		pool.isFallback.Store(true)
+		pool.fallback()
 		pool.Cancel()
 		pool.IsFailed = true
 		return

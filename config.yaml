@@ -61,6 +61,8 @@ output:
   no-color: false
   # Bool, No progress bar
   no-bar: false
+  # Bool, No stat
+  no-stat: true
 plugins:
   # Bool, enable all plugin
   all: false

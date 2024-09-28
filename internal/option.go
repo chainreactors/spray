@@ -97,7 +97,7 @@ type OutputOptions struct {
 
 type RequestOptions struct {
 	Method          string   `short:"x" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
-	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --headers 'Auth: example_auth'" config:"headers"`
+	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --header 'Auth: example_auth'" config:"headers"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
 	Cookie          []string `long:"cookie" description:"Strings, custom cookie" config:"cookies"`
@@ -393,7 +393,9 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Probes = strings.Split(opt.OutputProbe, ",")
 	}
 
-	fmt.Println(opt.PrintConfig(r))
+	if !opt.Quiet {
+		fmt.Println(opt.PrintConfig(r))
+	}
 
 	// init output file
 	if opt.OutputFile != "" {
@@ -421,14 +423,13 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	}
 	if opt.ResumeFrom != "" {
 		r.StatFile, err = files.NewFile(opt.ResumeFrom, false, true, true)
-	} else {
-		r.StatFile, err = files.NewFile(pkg.SafeFilename(r.Tasks.Name)+".stat", false, true, true)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if !opt.NoStat {
+		r.StatFile, err = files.NewFile(pkg.SafeFilename(r.Tasks.Name)+".stat", false, true, true)
 		r.StatFile.Mod = os.O_WRONLY | os.O_CREATE
 		err = r.StatFile.Init()
 		if err != nil {
