@@ -322,9 +322,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	if !ihttp.CheckBodySize(int64(bl.BodyLength)) {
 		bl.ExceedLength = true
 	}
-	bl.Source = unit.source
-	bl.ReqDepth = unit.depth
-	bl.Number = unit.number
+	unit.Update(bl)
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
 	case parsers.InitRandomSource:
@@ -684,6 +682,26 @@ func (pool *BrutePool) doCheck() {
 	}
 }
 
+func (pool *BrutePool) doRedirect(bl *pkg.Baseline, depth int) {
+	if depth >= pool.MaxRedirect {
+		return
+	}
+	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
+	pool.wg.Add(1)
+	go func() {
+		defer pool.wg.Done()
+		pool.addAddition(&Unit{
+			path:     reURL,
+			parent:   bl.Number,
+			host:     bl.Host,
+			source:   parsers.RedirectSource,
+			from:     bl.Source,
+			frontUrl: bl.UrlString,
+			depth:    depth + 1,
+		})
+	}()
+}
+
 func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 	if !pool.Crawl || bl.ReqDepth >= pool.MaxCrawlDepth {
 		return
@@ -705,8 +723,10 @@ func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 			}
 			pool.addAddition(&Unit{
 				path:   u,
+				parent: bl.Number,
 				host:   bl.Host,
 				source: parsers.CrawlSource,
+				from:   bl.Source,
 				depth:  bl.ReqDepth + 1,
 			})
 		}
@@ -731,7 +751,13 @@ func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
 				if _, ok := pool.scopeurls[u]; !ok {
 					pool.urls.Store(u, nil)
 					pool.wg.Add(1)
-					pool.scopePool.Invoke(&Unit{path: u, source: parsers.CrawlSource, depth: bl.ReqDepth + 1})
+					pool.scopePool.Invoke(&Unit{
+						path:   u,
+						parent: bl.Number,
+						source: parsers.CrawlSource,
+						from:   bl.Source,
+						depth:  bl.ReqDepth + 1,
+					})
 				}
 				pool.scopeLocker.Unlock()
 			}
@@ -776,8 +802,10 @@ func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
 			pool.addAddition(&Unit{
 				path:   pkg.Dir(bl.Url.Path) + u,
+				parent: bl.Number,
 				host:   bl.Host,
 				source: parsers.AppendRuleSource,
+				from:   bl.Source,
 				depth:  bl.ReqDepth + 1,
 			})
 		}
@@ -797,8 +825,10 @@ func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
 		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
 			pool.addAddition(&Unit{
 				path:   pkg.SafePath(bl.Path, u),
+				parent: bl.Number,
 				host:   bl.Host,
 				source: parsers.AppendSource,
+				from:   bl.Source,
 				depth:  bl.RecuDepth + 1,
 			})
 		}

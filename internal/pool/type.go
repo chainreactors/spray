@@ -11,12 +11,22 @@ func newUnit(path string, source parsers.SpraySource) *Unit {
 
 type Unit struct {
 	number   int
+	parent   int
 	host     string
 	path     string
+	from     parsers.SpraySource
 	source   parsers.SpraySource
 	retry    int
 	frontUrl string
 	depth    int
+}
+
+func (u *Unit) Update(bl *pkg.Baseline) {
+	bl.Number = u.number
+	bl.Parent = u.parent
+	bl.Host = u.host
+	bl.Path = u.path
+	bl.Source = u.source
 }
 
 func NewBaselines() *Baselines {
