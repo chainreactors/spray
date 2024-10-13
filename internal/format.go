@@ -39,17 +39,20 @@ func Format(opts Option) {
 		group[result.Url.Host] = append(group[result.Url.Host], &result)
 	}
 
-	// 分组
-
 	for _, results := range group {
 		for _, result := range results {
 			if !opts.Fuzzy && result.IsFuzzy {
 				continue
 			}
-			if !opts.NoColor {
-				logs.Log.Console(result.ColorString() + "\n")
+			if opts.OutputProbe == "" {
+				if !opts.NoColor {
+					logs.Log.Console(result.ColorString() + "\n")
+				} else {
+					logs.Log.Console(result.String() + "\n")
+				}
 			} else {
-				logs.Log.Console(result.String() + "\n")
+				probes := strings.Split(opts.OutputProbe, ",")
+				logs.Log.Console(result.ProbeOutput(probes) + "\n")
 			}
 		}
 	}
