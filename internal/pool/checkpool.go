@@ -199,9 +199,11 @@ func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
 	go func() {
 		pool.additionCh <- &Unit{
 			path:     reURL,
+			parent:   bl.Number,
 			source:   parsers.RedirectSource,
 			frontUrl: bl.UrlString,
 			depth:    depth + 1,
+			from:     bl.Source,
 		}
 	}()
 }
@@ -221,8 +223,10 @@ func (pool *CheckPool) doUpgrade(bl *pkg.Baseline) {
 	go func() {
 		pool.additionCh <- &Unit{
 			path:   reurl,
+			parent: bl.Number,
 			source: parsers.UpgradeSource,
 			depth:  bl.ReqDepth + 1,
+			from:   bl.Source,
 		}
 	}()
 }
