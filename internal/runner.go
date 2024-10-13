@@ -51,7 +51,6 @@ type Runner struct {
 	Count       int // tasks total number
 	Wordlist    []string
 	AppendWords []string
-	RecuDepth   int
 	ClientType  int
 	Probes      []string
 	Total       int // wordlist total number
@@ -81,17 +80,21 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		AppendWords:    r.AppendWords, // 对有效目录追加字典
 		Fns:            r.Fns,
 		//IgnoreWaf:       r.IgnoreWaf,
-		Crawl:           r.CrawlPlugin,
-		Scope:           r.Scope,
-		Active:          r.Finger,
-		Bak:             r.BakPlugin,
-		Common:          r.CommonPlugin,
-		RetryLimit:      r.RetryCount,
-		ClientType:      r.ClientType,
-		RandomUserAgent: r.RandomUserAgent,
-		Random:          r.Random,
-		Index:           r.Index,
-		ProxyAddr:       r.Proxy,
+		Crawl:             r.CrawlPlugin,
+		Scope:             r.Scope,
+		Active:            r.Finger,
+		Bak:               r.BakPlugin,
+		Common:            r.CommonPlugin,
+		RetryLimit:        r.RetryCount,
+		ClientType:        r.ClientType,
+		RandomUserAgent:   r.RandomUserAgent,
+		Random:            r.Random,
+		Index:             r.Index,
+		ProxyAddr:         r.Proxy,
+		MaxRecursionDepth: r.Depth,
+		MaxRedirect:       3,
+		MaxAppendDepth:    r.AppendDepth,
+		MaxCrawlDepth:     r.CrawlDepth,
 	}
 
 	if config.ClientType == ihttp.Auto {

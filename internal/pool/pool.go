@@ -29,7 +29,7 @@ type BasePool struct {
 }
 
 func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
-	if depth >= MaxRedirect {
+	if depth >= pool.MaxRedirect {
 		return
 	}
 	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
