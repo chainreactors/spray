@@ -181,7 +181,7 @@ func (pool *CheckPool) Handler() {
 }
 
 func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
-	if depth >= MaxRedirect {
+	if depth >= pool.MaxRedirect {
 		return
 	}
 	var reURL string

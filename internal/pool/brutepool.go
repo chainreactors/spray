@@ -23,9 +23,6 @@ import (
 )
 
 var (
-	MaxRedirect     = 3
-	MaxCrawl        = 3
-	MaxRecursion    = 0
 	EnableAllFuzzy  = false
 	EnableAllUnique = false
 	//AllowHostModSource = []parsers.SpraySource{parsers.WordSource, parsers.CheckSource, parsers.InitIndexSource, parsers.InitRandomSource}
@@ -494,7 +491,7 @@ func (pool *BrutePool) Handler() {
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
 			pool.Statistor.FoundNumber++
-			if bl.RecuDepth < MaxRecursion {
+			if bl.RecuDepth < pool.MaxRecursionDepth {
 				if pkg.CompareWithExpr(pool.RecuExpr, params) {
 					bl.Recu = true
 				}
@@ -509,76 +506,6 @@ func (pool *BrutePool) Handler() {
 	}
 
 	pool.analyzeDone = true
-}
-
-func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
-	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource {
-		pool.wg.Done()
-		return
-	}
-
-	go func() {
-		defer pool.wg.Done()
-		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
-			pool.addAddition(&Unit{
-				path:   pkg.Dir(bl.Url.Path) + u,
-				host:   bl.Host,
-				source: parsers.AppendRuleSource,
-			})
-		}
-	}()
-}
-
-func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
-	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource {
-		// 防止自身递归
-		pool.wg.Done()
-		return
-	}
-
-	go func() {
-		defer pool.wg.Done()
-
-		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
-			pool.addAddition(&Unit{
-				path:   pkg.SafePath(bl.Path, u),
-				host:   bl.Host,
-				source: parsers.AppendSource,
-			})
-		}
-	}()
-}
-
-func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
-	pool.wg.Add(2)
-	pool.doAppendWords(bl)
-	pool.doAppendRule(bl)
-}
-
-func (pool *BrutePool) doActive() {
-	defer pool.wg.Done()
-	if pool.Mod == HostSpray {
-		return
-	}
-	for _, u := range pkg.ActivePath {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u[1:],
-			source: parsers.FingerSource,
-		})
-	}
-}
-
-func (pool *BrutePool) doCommonFile() {
-	defer pool.wg.Done()
-	if pool.Mod == HostSpray {
-		return
-	}
-	for u := range NewBruteWords(pool.Config, append(pkg.Dicts["common"], pkg.Dicts["log"]...)).Output {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u,
-			source: parsers.CommonFileSource,
-		})
-	}
 }
 
 func (pool *BrutePool) checkRedirect(redirectURL string) bool {
@@ -758,7 +685,7 @@ func (pool *BrutePool) doCheck() {
 }
 
 func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
-	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
+	if !pool.Crawl || bl.ReqDepth >= pool.MaxCrawlDepth {
 		return
 	}
 
@@ -788,7 +715,7 @@ func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 }
 
 func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
-	if bl.ReqDepth >= MaxCrawl {
+	if bl.ReqDepth >= pool.MaxCrawlDepth {
 		pool.wg.Done()
 		return
 	}
@@ -817,17 +744,89 @@ func (pool *BrutePool) doBak() {
 	if pool.Mod == HostSpray {
 		return
 	}
-	for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
-		pool.addAddition(&Unit{
-			path:   pool.dir + w,
-			source: parsers.BakSource,
-		})
-	}
+	//for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
+	//	pool.addAddition(&Unit{
+	//		path:   pool.dir + w,
+	//		source: parsers.BakSource,
+	//	})
+	//}
 
 	for w := range NewBruteDSL(pool.Config, "{?@bak_name}.{?@bak_ext}", nil).Output {
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: parsers.BakSource,
+		})
+	}
+}
+
+func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
+	pool.wg.Add(2)
+	pool.doAppendWords(bl)
+	pool.doAppendRule(bl)
+}
+
+func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
+	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
+			pool.addAddition(&Unit{
+				path:   pkg.Dir(bl.Url.Path) + u,
+				host:   bl.Host,
+				source: parsers.AppendRuleSource,
+				depth:  bl.ReqDepth + 1,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
+	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
+		// 防止自身递归
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+
+		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
+			pool.addAddition(&Unit{
+				path:   pkg.SafePath(bl.Path, u),
+				host:   bl.Host,
+				source: parsers.AppendSource,
+				depth:  bl.RecuDepth + 1,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doActive() {
+	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
+	for _, u := range pkg.ActivePath {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u[1:],
+			source: parsers.FingerSource,
+		})
+	}
+}
+
+func (pool *BrutePool) doCommonFile() {
+	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
+	for u := range NewBruteWords(pool.Config, append(pkg.Dicts["common"], pkg.Dicts["log"]...)).Output {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u,
+			source: parsers.CommonFileSource,
 		})
 	}
 }
