@@ -364,7 +364,7 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 	if r.Option.Json {
 		out = bl.ToJson()
 	} else if len(r.Probes) > 0 {
-		out = bl.Format(r.Probes)
+		out = bl.ProbeOutput(r.Probes)
 	} else if r.Color {
 		out = bl.ColorString()
 	} else {
@@ -385,7 +385,7 @@ func (r *Runner) Output(bl *pkg.Baseline) {
 		} else if r.FileOutput == "full" {
 			r.OutputFile.SafeWrite(bl.String() + "\n")
 		} else {
-			r.OutputFile.SafeWrite(bl.Format(strings.Split(r.FileOutput, ",")) + "\n")
+			r.OutputFile.SafeWrite(bl.ProbeOutput(strings.Split(r.FileOutput, ",")) + "\n")
 		}
 
 		r.OutputFile.SafeSync()
