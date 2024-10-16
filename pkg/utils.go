@@ -30,7 +30,7 @@ var (
 	WhiteStatus  = []int{} // cmd input, 200
 	BlackStatus  = []int{} // cmd input, 400,410
 	FuzzyStatus  = []int{} // cmd input, 500,501,502,503
-	WAFStatus    = []int{493, 418, 1020, 406}
+	WAFStatus    = []int{493, 418, 1020, 406, 429}
 	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
 
 	// plugins
