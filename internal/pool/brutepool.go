@@ -315,7 +315,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	// 手动处理重定向
 	if bl.IsValid && unit.source != parsers.CheckSource && bl.RedirectURL != "" {
-		//pool.wg.Add(1)
+		bl.SameDomain = pool.checkHost(bl.RedirectURL)
 		pool.doRedirect(bl, unit.depth)
 	}
 
@@ -508,7 +508,7 @@ func (pool *BrutePool) Handler() {
 
 func (pool *BrutePool) checkRedirect(redirectURL string) bool {
 	if pool.random.RedirectURL == "" {
-		// 如果random的redirectURL为空, 此时该项
+		// 如果random的redirectURL为空, 忽略
 		return true
 	}
 
@@ -562,7 +562,9 @@ func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
 	return nil
 }
 
-func (pool *BrutePool) checkHostname(u string) bool {
+// same host return true
+// diff host return false
+func (pool *BrutePool) checkHost(u string) bool {
 	if v, err := url.Parse(u); err == nil {
 		if v.Host == "" {
 			return true
@@ -582,8 +584,19 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 	}
 	var status = -1
 
+	// 30x状态码的特殊处理
+	if bl.RedirectURL != "" {
+		if bl.SameDomain && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
+			bl.Reason = pkg.ErrFuzzyRedirect.Error()
+			return false
+		}
+	}
+
 	// 使用与baseline相同状态码, 需要在fuzzystatus中提前配置
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
+	if bl.IsBaseline {
+		ok = false
+	}
 	if !ok {
 		if pool.random.Status == bl.Status {
 			// 当other的状态码与base相同时, 会使用base
@@ -596,15 +609,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 		}
 	}
 
-	// 30x状态码的特殊处理
-	if bl.RedirectURL != "" {
-		if pool.checkHostname(bl.RedirectURL) && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
-			bl.Reason = pkg.ErrFuzzyRedirect.Error()
-			return false
-		}
-	}
-
-	if ok && !bl.IsBaseline {
+	if ok {
 		if status = base.Compare(bl); status == 1 {
 			bl.Reason = pkg.ErrCompareFailed.Error()
 			return false
@@ -703,6 +708,9 @@ func (pool *BrutePool) doCheck() {
 func (pool *BrutePool) doRedirect(bl *pkg.Baseline, depth int) {
 	if depth >= pool.MaxRedirect {
 		return
+	}
+	if !bl.SameDomain {
+		return // 不同域名的重定向不处理
 	}
 	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
 	pool.wg.Add(1)

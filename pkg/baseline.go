@@ -125,6 +125,7 @@ type Baseline struct {
 	URLs       []string       `json:"-"`
 	Collected  bool           `json:"-"`
 	Retry      int            `json:"-"`
+	SameDomain bool           `json:"-"`
 	IsBaseline bool           `json:"-"`
 }
 
