@@ -562,17 +562,26 @@ func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
 	return nil
 }
 
+func (pool *BrutePool) checkHostname(u string) bool {
+	if v, err := url.Parse(u); err == nil {
+		if v.Host == "" {
+			return true
+		}
+		if v.Host == pool.url.Host {
+			return true
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
 func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 	if !bl.IsValid {
 		return false
 	}
 	var status = -1
-	// 30x状态码的特殊处理
-	if bl.RedirectURL != "" && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
-		bl.Reason = pkg.ErrFuzzyRedirect.Error()
-		pool.putToFuzzy(bl)
-		return false
-	}
+
 	// 使用与baseline相同状态码, 需要在fuzzystatus中提前配置
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
 	if !ok {
@@ -587,7 +596,15 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 		}
 	}
 
-	if ok {
+	// 30x状态码的特殊处理
+	if bl.RedirectURL != "" {
+		if pool.checkHostname(bl.RedirectURL) && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
+			bl.Reason = pkg.ErrFuzzyRedirect.Error()
+			return false
+		}
+	}
+
+	if ok && !bl.IsBaseline {
 		if status = base.Compare(bl); status == 1 {
 			bl.Reason = pkg.ErrCompareFailed.Error()
 			return false
@@ -619,6 +636,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 
 func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
+		bl.IsBaseline = true
 		bl.Collect()
 		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
 		pool.baselines[bl.Status] = bl
