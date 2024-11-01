@@ -315,7 +315,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	// 手动处理重定向
 	if bl.IsValid && unit.source != parsers.CheckSource && bl.RedirectURL != "" {
-		bl.SameDomain = pool.checkHost(bl.RedirectURL)
+		bl.SameRedirectDomain = pool.checkHost(bl.RedirectURL)
 		pool.doRedirect(bl, unit.depth)
 	}
 
@@ -586,7 +586,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 
 	// 30x状态码的特殊处理
 	if bl.RedirectURL != "" {
-		if bl.SameDomain && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
+		if bl.SameRedirectDomain && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
 			bl.Reason = pkg.ErrFuzzyRedirect.Error()
 			return false
 		}
@@ -709,9 +709,10 @@ func (pool *BrutePool) doRedirect(bl *pkg.Baseline, depth int) {
 	if depth >= pool.MaxRedirect {
 		return
 	}
-	if !bl.SameDomain {
-		return // 不同域名的重定向不处理
-	}
+
+	//if !bl.SameRedirectDomain {
+	//	return // 不同域名的重定向不处理
+	//}
 	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
 	pool.wg.Add(1)
 	go func() {
