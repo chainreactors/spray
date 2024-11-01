@@ -23,9 +23,6 @@ import (
 )
 
 var (
-	MaxRedirect     = 3
-	MaxCrawl        = 3
-	MaxRecursion    = 0
 	EnableAllFuzzy  = false
 	EnableAllUnique = false
 	//AllowHostModSource = []parsers.SpraySource{parsers.WordSource, parsers.CheckSource, parsers.InitIndexSource, parsers.InitRandomSource}
@@ -318,16 +315,14 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	// 手动处理重定向
 	if bl.IsValid && unit.source != parsers.CheckSource && bl.RedirectURL != "" {
-		//pool.wg.Add(1)
+		bl.SameRedirectDomain = pool.checkHost(bl.RedirectURL)
 		pool.doRedirect(bl, unit.depth)
 	}
 
 	if !ihttp.CheckBodySize(int64(bl.BodyLength)) {
 		bl.ExceedLength = true
 	}
-	bl.Source = unit.source
-	bl.ReqDepth = unit.depth
-	bl.Number = unit.number
+	unit.Update(bl)
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
 	case parsers.InitRandomSource:
@@ -494,7 +489,7 @@ func (pool *BrutePool) Handler() {
 		// 如果要进行递归判断, 要满足 bl有效, mod为path-spray, 当前深度小于最大递归深度
 		if bl.IsValid {
 			pool.Statistor.FoundNumber++
-			if bl.RecuDepth < MaxRecursion {
+			if bl.RecuDepth < pool.MaxRecursionDepth {
 				if pkg.CompareWithExpr(pool.RecuExpr, params) {
 					bl.Recu = true
 				}
@@ -511,79 +506,9 @@ func (pool *BrutePool) Handler() {
 	pool.analyzeDone = true
 }
 
-func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
-	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource {
-		pool.wg.Done()
-		return
-	}
-
-	go func() {
-		defer pool.wg.Done()
-		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
-			pool.addAddition(&Unit{
-				path:   pkg.Dir(bl.Url.Path) + u,
-				host:   bl.Host,
-				source: parsers.AppendRuleSource,
-			})
-		}
-	}()
-}
-
-func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
-	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource {
-		// 防止自身递归
-		pool.wg.Done()
-		return
-	}
-
-	go func() {
-		defer pool.wg.Done()
-
-		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
-			pool.addAddition(&Unit{
-				path:   pkg.SafePath(bl.Path, u),
-				host:   bl.Host,
-				source: parsers.AppendSource,
-			})
-		}
-	}()
-}
-
-func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
-	pool.wg.Add(2)
-	pool.doAppendWords(bl)
-	pool.doAppendRule(bl)
-}
-
-func (pool *BrutePool) doActive() {
-	defer pool.wg.Done()
-	if pool.Mod == HostSpray {
-		return
-	}
-	for _, u := range pkg.ActivePath {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u[1:],
-			source: parsers.FingerSource,
-		})
-	}
-}
-
-func (pool *BrutePool) doCommonFile() {
-	defer pool.wg.Done()
-	if pool.Mod == HostSpray {
-		return
-	}
-	for u := range NewBruteWords(pool.Config, append(pkg.Dicts["common"], pkg.Dicts["log"]...)).Output {
-		pool.addAddition(&Unit{
-			path:   pool.dir + u,
-			source: parsers.CommonFileSource,
-		})
-	}
-}
-
 func (pool *BrutePool) checkRedirect(redirectURL string) bool {
 	if pool.random.RedirectURL == "" {
-		// 如果random的redirectURL为空, 此时该项
+		// 如果random的redirectURL为空, 忽略
 		return true
 	}
 
@@ -637,19 +562,41 @@ func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
 	return nil
 }
 
+// same host return true
+// diff host return false
+func (pool *BrutePool) checkHost(u string) bool {
+	if v, err := url.Parse(u); err == nil {
+		if v.Host == "" {
+			return true
+		}
+		if v.Host == pool.url.Host {
+			return true
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
 func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 	if !bl.IsValid {
 		return false
 	}
 	var status = -1
+
 	// 30x状态码的特殊处理
-	if bl.RedirectURL != "" && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
-		bl.Reason = pkg.ErrFuzzyRedirect.Error()
-		pool.putToFuzzy(bl)
-		return false
+	if bl.RedirectURL != "" {
+		if bl.SameRedirectDomain && strings.HasSuffix(bl.RedirectURL, bl.Url.Path+"/") {
+			bl.Reason = pkg.ErrFuzzyRedirect.Error()
+			return false
+		}
 	}
+
 	// 使用与baseline相同状态码, 需要在fuzzystatus中提前配置
 	base, ok := pool.baselines[bl.Status] // 挑选对应状态码的baseline进行compare
+	if bl.IsBaseline {
+		ok = false
+	}
 	if !ok {
 		if pool.random.Status == bl.Status {
 			// 当other的状态码与base相同时, 会使用base
@@ -694,6 +641,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 
 func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
+		bl.IsBaseline = true
 		bl.Collect()
 		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
 		pool.baselines[bl.Status] = bl
@@ -757,8 +705,32 @@ func (pool *BrutePool) doCheck() {
 	}
 }
 
+func (pool *BrutePool) doRedirect(bl *pkg.Baseline, depth int) {
+	if depth >= pool.MaxRedirect {
+		return
+	}
+
+	//if !bl.SameRedirectDomain {
+	//	return // 不同域名的重定向不处理
+	//}
+	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
+	pool.wg.Add(1)
+	go func() {
+		defer pool.wg.Done()
+		pool.addAddition(&Unit{
+			path:     reURL,
+			parent:   bl.Number,
+			host:     bl.Host,
+			source:   parsers.RedirectSource,
+			from:     bl.Source,
+			frontUrl: bl.UrlString,
+			depth:    depth + 1,
+		})
+	}()
+}
+
 func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
-	if !pool.Crawl || bl.ReqDepth >= MaxCrawl {
+	if !pool.Crawl || bl.ReqDepth >= pool.MaxCrawlDepth {
 		return
 	}
 
@@ -778,8 +750,10 @@ func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 			}
 			pool.addAddition(&Unit{
 				path:   u,
+				parent: bl.Number,
 				host:   bl.Host,
 				source: parsers.CrawlSource,
+				from:   bl.Source,
 				depth:  bl.ReqDepth + 1,
 			})
 		}
@@ -788,7 +762,7 @@ func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 }
 
 func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
-	if bl.ReqDepth >= MaxCrawl {
+	if bl.ReqDepth >= pool.MaxCrawlDepth {
 		pool.wg.Done()
 		return
 	}
@@ -804,7 +778,13 @@ func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
 				if _, ok := pool.scopeurls[u]; !ok {
 					pool.urls.Store(u, nil)
 					pool.wg.Add(1)
-					pool.scopePool.Invoke(&Unit{path: u, source: parsers.CrawlSource, depth: bl.ReqDepth + 1})
+					pool.scopePool.Invoke(&Unit{
+						path:   u,
+						parent: bl.Number,
+						source: parsers.CrawlSource,
+						from:   bl.Source,
+						depth:  bl.ReqDepth + 1,
+					})
 				}
 				pool.scopeLocker.Unlock()
 			}
@@ -817,17 +797,93 @@ func (pool *BrutePool) doBak() {
 	if pool.Mod == HostSpray {
 		return
 	}
-	for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
-		pool.addAddition(&Unit{
-			path:   pool.dir + w,
-			source: parsers.BakSource,
-		})
-	}
+	//for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
+	//	pool.addAddition(&Unit{
+	//		path:   pool.dir + w,
+	//		source: parsers.BakSource,
+	//	})
+	//}
 
 	for w := range NewBruteDSL(pool.Config, "{?@bak_name}.{?@bak_ext}", nil).Output {
 		pool.addAddition(&Unit{
 			path:   pool.dir + w,
 			source: parsers.BakSource,
+		})
+	}
+}
+
+func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
+	pool.wg.Add(2)
+	pool.doAppendWords(bl)
+	pool.doAppendRule(bl)
+}
+
+func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
+	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
+			pool.addAddition(&Unit{
+				path:   pkg.Dir(bl.Url.Path) + u,
+				parent: bl.Number,
+				host:   bl.Host,
+				source: parsers.AppendRuleSource,
+				from:   bl.Source,
+				depth:  bl.ReqDepth + 1,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
+	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
+		// 防止自身递归
+		pool.wg.Done()
+		return
+	}
+
+	go func() {
+		defer pool.wg.Done()
+
+		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
+			pool.addAddition(&Unit{
+				path:   pkg.SafePath(bl.Path, u),
+				parent: bl.Number,
+				host:   bl.Host,
+				source: parsers.AppendSource,
+				from:   bl.Source,
+				depth:  bl.RecuDepth + 1,
+			})
+		}
+	}()
+}
+
+func (pool *BrutePool) doActive() {
+	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
+	for _, u := range pkg.ActivePath {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u[1:],
+			source: parsers.FingerSource,
+		})
+	}
+}
+
+func (pool *BrutePool) doCommonFile() {
+	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
+	for u := range NewBruteWords(pool.Config, append(pkg.Dicts["common"], pkg.Dicts["log"]...)).Output {
+		pool.addAddition(&Unit{
+			path:   pool.dir + u,
+			source: parsers.CommonFileSource,
 		})
 	}
 }

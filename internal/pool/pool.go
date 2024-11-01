@@ -28,24 +28,6 @@ type BasePool struct {
 	isFallback  atomic.Bool
 }
 
-func (pool *BasePool) doRedirect(bl *pkg.Baseline, depth int) {
-	if depth >= MaxRedirect {
-		return
-	}
-	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
-	pool.wg.Add(1)
-	go func() {
-		defer pool.wg.Done()
-		pool.addAddition(&Unit{
-			path:     reURL,
-			host:     bl.Host,
-			source:   parsers.RedirectSource,
-			frontUrl: bl.UrlString,
-			depth:    depth + 1,
-		})
-	}()
-}
-
 func (pool *BasePool) doRetry(bl *pkg.Baseline) {
 	if bl.Retry >= pool.RetryLimit {
 		return
@@ -55,8 +37,10 @@ func (pool *BasePool) doRetry(bl *pkg.Baseline) {
 		defer pool.wg.Done()
 		pool.addAddition(&Unit{
 			path:   bl.Path,
+			parent: bl.Number,
 			host:   bl.Host,
 			source: parsers.RetrySource,
+			from:   bl.Source,
 			retry:  bl.Retry + 1,
 		})
 	}()

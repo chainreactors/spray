@@ -113,18 +113,20 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 
 type Baseline struct {
 	*parsers.SprayResult
-	Url       *url.URL       `json:"-"`
-	Dir       bool           `json:"-"`
-	Chunked   bool           `json:"-"`
-	Body      BS             `json:"-"`
-	Header    BS             `json:"-"`
-	Raw       BS             `json:"-"`
-	Response  *http.Response `json:"-"`
-	Recu      bool           `json:"-"`
-	RecuDepth int            `json:"-"`
-	URLs      []string       `json:"-"`
-	Collected bool           `json:"-"`
-	Retry     int            `json:"-"`
+	Url                *url.URL       `json:"-"`
+	Dir                bool           `json:"-"`
+	Chunked            bool           `json:"-"`
+	Body               BS             `json:"-"`
+	Header             BS             `json:"-"`
+	Raw                BS             `json:"-"`
+	Response           *http.Response `json:"-"`
+	Recu               bool           `json:"-"`
+	RecuDepth          int            `json:"-"`
+	URLs               []string       `json:"-"`
+	Collected          bool           `json:"-"`
+	Retry              int            `json:"-"`
+	SameRedirectDomain bool           `json:"-"`
+	IsBaseline         bool           `json:"-"`
 }
 
 func (bl *Baseline) IsDir() bool {
@@ -233,6 +235,15 @@ func (bl *Baseline) Compare(other *Baseline) int {
 		}
 	}
 	return -1
+}
+
+func (bl *Baseline) ProbeOutput(format []string) string {
+	var s strings.Builder
+	for _, f := range format {
+		s.WriteString("\t")
+		s.WriteString(bl.Get(f))
+	}
+	return strings.TrimSpace(s.String())
 }
 
 var Distance uint8 = 5 // 数字越小越相似, 数字为0则为完全一致.

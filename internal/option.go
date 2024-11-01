@@ -115,6 +115,7 @@ type PluginOptions struct {
 	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
 	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
 	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
+	AppendDepth   int      `long:"append-depth" default:"2" description:"Int, append depth" config:"append-depth"`
 }
 
 type ModeOptions struct {
@@ -131,7 +132,7 @@ type ModeOptions struct {
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold" config:"error-threshold"`
 	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
 	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
-	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
+	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302,404" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
@@ -253,7 +254,6 @@ func (opt *Option) Prepare() error {
 
 	logs.Log.Logf(pkg.LogVerbose, "Black Status: %v, WhiteStatus: %v, WAFStatus: %v", pkg.BlackStatus, pkg.WhiteStatus, pkg.WAFStatus)
 	logs.Log.Logf(pkg.LogVerbose, "Fuzzy Status: %v, Unique Status: %v", pkg.FuzzyStatus, pkg.UniqueStatus)
-	pool.MaxCrawl = opt.CrawlDepth
 
 	return nil
 }
@@ -354,13 +354,12 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	var express string
 	if opt.Recursive != "current.IsDir()" && opt.Depth != 0 {
 		// 默认不打开递归, 除非指定了非默认的递归表达式
-		pool.MaxRecursion = 1
+		opt.Depth = 1
 		express = opt.Recursive
 	}
 
 	if opt.Depth != 0 {
 		// 手动设置的depth优先级高于默认
-		pool.MaxRecursion = opt.Depth
 		express = opt.Recursive
 	}
 
