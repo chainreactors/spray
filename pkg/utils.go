@@ -270,9 +270,9 @@ func CRC16Hash(data []byte) uint16 {
 func SafePath(dir, u string) string {
 	hasSlash := strings.HasPrefix(u, "/")
 	if hasSlash {
-		return path.Join(dir, u[1:])
+		return dir + u[1:]
 	} else {
-		return path.Join(dir, u)
+		return dir + u
 	}
 }
 
