@@ -150,6 +150,15 @@ func Spray() {
 
 	ctx, canceler := context.WithTimeout(context.Background(), time.Duration(runner.Deadline)*time.Second)
 	go func() {
+		select {
+		case <-ctx.Done():
+			time.Sleep(10 * time.Second)
+			logs.Log.Errorf("deadline and timeout not work, hard exit!!!")
+			os.Exit(0)
+		}
+	}()
+
+	go func() {
 		exitChan := make(chan os.Signal, 2)
 		signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
 
