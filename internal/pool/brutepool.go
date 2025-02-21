@@ -329,10 +329,11 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		defer pool.initwg.Done()
 		pool.locker.Lock()
 		pool.random = bl
+		pool.locker.Unlock()
+
 		if !bl.IsValid {
 			return
 		}
-		pool.locker.Unlock()
 		bl.Collect()
 		pool.addFuzzyBaseline(bl)
 

@@ -96,7 +96,7 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Method          string   `short:"x" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
+	Method          string   `short:"X" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
 	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --header 'Auth: example_auth'" config:"headers"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
