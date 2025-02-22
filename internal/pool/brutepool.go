@@ -694,8 +694,8 @@ func (pool *BrutePool) doCheck() {
 		}
 		pool.isFallback.Store(true)
 		pool.fallback()
-		pool.Cancel()
 		pool.IsFailed = true
+		pool.Cancel()
 		return
 	}
 

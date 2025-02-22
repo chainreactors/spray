@@ -204,6 +204,7 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				brutePool.Statistor.Error = err.Error()
 				if !r.Force {
 					// 如果没开启force, init失败将会关闭pool
+					brutePool.Bar.Close()
 					brutePool.Close()
 					r.PrintStat(brutePool)
 					r.Done()
@@ -253,6 +254,7 @@ Loop:
 		}
 	}
 
+	r.bar.Wait()
 	r.poolwg.Wait()
 	r.outwg.Wait()
 }
