@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/proxyclient"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/core/pool"
@@ -26,13 +27,15 @@ var (
 type Runner struct {
 	*Option
 
-	taskCh        chan *Task
-	poolwg        *sync.WaitGroup
-	outwg         *sync.WaitGroup
-	outputCh      chan *baseline.Baseline
-	fuzzyCh       chan *baseline.Baseline
-	bar           *mpb.Bar
-	bruteMod      bool
+	taskCh   chan *Task
+	poolwg   *sync.WaitGroup
+	outwg    *sync.WaitGroup
+	outputCh chan *baseline.Baseline
+	fuzzyCh  chan *baseline.Baseline
+	bar      *mpb.Bar
+	bruteMod bool
+
+	ProxyClient   proxyclient.Dial
 	IsCheck       bool
 	Pools         *ants.PoolWithFunc
 	PoolName      map[string]bool
@@ -91,11 +94,11 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		RandomUserAgent:   r.RandomUserAgent,
 		Random:            r.Random,
 		Index:             r.Index,
-		ProxyAddr:         r.Proxy,
 		MaxRecursionDepth: r.Depth,
 		MaxRedirect:       3,
 		MaxAppendDepth:    r.AppendDepth,
 		MaxCrawlDepth:     r.CrawlDepth,
+		ProxyClient:       r.ProxyClient,
 	}
 
 	if config.ClientType == ihttp.Auto {
@@ -105,6 +108,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 			config.ClientType = ihttp.STANDARD
 		}
 	}
+
 	return config
 }
 
@@ -199,7 +203,8 @@ func (r *Runner) Prepare(ctx context.Context) error {
 				limit = brutePool.Statistor.Total
 			}
 			brutePool.Bar = pkg.NewBar(config.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Statistor, r.Progress)
-			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %s", brutePool.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Thread, brutePool.ProxyAddr)
+			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %v",
+				brutePool.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Thread, r.Proxies)
 			err = brutePool.Init()
 			if err != nil {
 				brutePool.Statistor.Error = err.Error()
