@@ -2,7 +2,8 @@ package pool
 
 import (
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/proxyclient"
+	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr/vm"
@@ -12,13 +13,13 @@ import (
 
 type Config struct {
 	BaseURL           string
-	ProxyAddr         string
+	ProxyClient       proxyclient.Dial
 	Thread            int
 	Wordlist          []string
 	Timeout           time.Duration
-	ProcessCh         chan *pkg.Baseline
-	OutputCh          chan *pkg.Baseline
-	FuzzyCh           chan *pkg.Baseline
+	ProcessCh         chan *baseline.Baseline
+	OutputCh          chan *baseline.Baseline
+	FuzzyCh           chan *baseline.Baseline
 	Outwg             *sync.WaitGroup
 	RateLimit         int
 	CheckPeriod       int

@@ -4,7 +4,8 @@ import (
 	"context"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/panjf2000/ants/v2"
 	"net/url"
@@ -24,15 +25,15 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 			ctx:       pctx,
 			Cancel:    cancel,
 			client: ihttp.NewClient(&ihttp.ClientConfig{
-				Thread:    config.Thread,
-				Type:      config.ClientType,
-				Timeout:   config.Timeout,
-				ProxyAddr: config.ProxyAddr,
+				Thread:      config.Thread,
+				Type:        config.ClientType,
+				Timeout:     config.Timeout,
+				ProxyClient: config.ProxyClient,
 			}),
 			wg:         &sync.WaitGroup{},
 			additionCh: make(chan *Unit, 1024),
 			closeCh:    make(chan struct{}),
-			processCh:  make(chan *pkg.Baseline, config.Thread),
+			processCh:  make(chan *baseline.Baseline, config.Thread),
 		},
 	}
 	pool.Headers = map[string]string{"Connection": "close"}
@@ -115,7 +116,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	req, err := ihttp.BuildRequest(pool.ctx, pool.ClientType, unit.path, "", "", "GET")
 	if err != nil {
 		logs.Log.Debug(err.Error())
-		bl := &pkg.Baseline{
+		bl := &baseline.Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: unit.path,
 				IsValid:   false,
@@ -127,13 +128,13 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		pool.processCh <- bl
 		return
 	}
-	req.SetHeaders(pool.Headers)
+	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
 	start := time.Now()
-	var bl *pkg.Baseline
+	var bl *baseline.Baseline
 	resp, reqerr := pool.client.Do(req)
 	if reqerr != nil {
 		pool.failedCount++
-		bl = &pkg.Baseline{
+		bl = &baseline.Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: unit.path,
 				IsValid:   false,
@@ -145,7 +146,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		logs.Log.Debugf("%s, %s", unit.path, reqerr.Error())
 		pool.doUpgrade(bl)
 	} else {
-		bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+		bl = baseline.NewBaseline(req.URI(), req.Host(), resp)
 		bl.ReqDepth = unit.depth
 		bl.Collect()
 		if bl.Status == 400 {
@@ -180,7 +181,7 @@ func (pool *CheckPool) Handler() {
 	}
 }
 
-func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
+func (pool *CheckPool) doRedirect(bl *baseline.Baseline, depth int) {
 	if depth >= pool.MaxRedirect {
 		return
 	}
@@ -209,7 +210,7 @@ func (pool *CheckPool) doRedirect(bl *pkg.Baseline, depth int) {
 }
 
 // tcp与400进行协议转换
-func (pool *CheckPool) doUpgrade(bl *pkg.Baseline) {
+func (pool *CheckPool) doUpgrade(bl *baseline.Baseline) {
 	if bl.ReqDepth >= 1 {
 		return
 	}

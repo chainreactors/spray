@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/rule"
@@ -42,14 +43,14 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			ctx:    pctx,
 			Cancel: cancel,
 			client: ihttp.NewClient(&ihttp.ClientConfig{
-				Thread:    config.Thread,
-				Type:      config.ClientType,
-				Timeout:   config.Timeout,
-				ProxyAddr: config.ProxyAddr,
+				Thread:      config.Thread,
+				Type:        config.ClientType,
+				Timeout:     config.Timeout,
+				ProxyClient: config.ProxyClient,
 			}),
 			additionCh: make(chan *Unit, config.Thread),
 			closeCh:    make(chan struct{}),
-			processCh:  make(chan *pkg.Baseline, config.Thread),
+			processCh:  make(chan *baseline.Baseline, config.Thread),
 			wg:         &sync.WaitGroup{},
 		},
 		base:  u.Scheme + "://" + u.Host,
@@ -271,10 +272,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		return
 	}
 
-	req.SetHeaders(pool.Headers)
-	if pool.RandomUserAgent {
-		req.SetHeader("User-Agent", pkg.RandomUA())
-	}
+	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
 
 	start := time.Now()
 	resp, reqerr := pool.client.Do(req)
@@ -284,11 +282,11 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	}
 
 	// compare与各种错误处理
-	var bl *pkg.Baseline
+	var bl *baseline.Baseline
 	if reqerr != nil && !errors.Is(reqerr, fasthttp.ErrBodyTooLarge) {
 		atomic.AddInt32(&pool.failedCount, 1)
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
-		bl = &pkg.Baseline{
+		bl = &baseline.Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: pool.base + unit.path,
 				ErrString: reqerr.Error(),
@@ -301,15 +299,15 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	} else { // 特定场景优化
 		if unit.source <= 3 || unit.source == parsers.CrawlSource || unit.source == parsers.CommonFileSource {
 			// 一些高优先级的source, 将跳过PreCompare
-			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+			bl = baseline.NewBaseline(req.URI(), req.Host(), resp)
 		} else if pool.MatchExpr != nil {
 			// 如果自定义了match函数, 则所有数据送入tempch中
-			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+			bl = baseline.NewBaseline(req.URI(), req.Host(), resp)
 		} else if err = pool.PreCompare(resp); err == nil {
 			// 通过预对比跳过一些无用数据, 减少性能消耗
-			bl = pkg.NewBaseline(req.URI(), req.Host(), resp)
+			bl = baseline.NewBaseline(req.URI(), req.Host(), resp)
 		} else {
-			bl = pkg.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
+			bl = baseline.NewInvalidBaseline(req.URI(), req.Host(), resp, err.Error())
 		}
 	}
 
@@ -329,10 +327,11 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		defer pool.initwg.Done()
 		pool.locker.Lock()
 		pool.random = bl
+		pool.locker.Unlock()
+
 		if !bl.IsValid {
 			return
 		}
-		pool.locker.Unlock()
 		bl.Collect()
 		pool.addFuzzyBaseline(bl)
 
@@ -394,7 +393,7 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 		logs.Log.Error(err.Error())
 		return
 	}
-	req.SetHeaders(pool.Headers)
+	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
 	req.SetHeader("User-Agent", pkg.RandomUA())
 	resp, reqerr := pool.client.Do(req)
 	if pool.ClientType == ihttp.FAST {
@@ -406,7 +405,7 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 		return
 	}
 	if resp.StatusCode() == 200 {
-		bl := pkg.NewBaseline(req.URI(), req.Host(), resp)
+		bl := baseline.NewBaseline(req.URI(), req.Host(), resp)
 		bl.Source = unit.source
 		bl.ReqDepth = unit.depth
 		bl.Collect()
@@ -521,7 +520,7 @@ func (pool *BrutePool) checkRedirect(redirectURL string) bool {
 	}
 }
 
-func (pool *BrutePool) Upgrade(bl *pkg.Baseline) error {
+func (pool *BrutePool) Upgrade(bl *baseline.Baseline) error {
 	rurl, err := url.Parse(bl.RedirectURL)
 	if err == nil && rurl.Hostname() == bl.Url.Hostname() && bl.Url.Scheme == "http" && rurl.Scheme == "https" {
 		logs.Log.Infof("baseurl %s upgrade http to https, reinit", pool.BaseURL)
@@ -578,7 +577,7 @@ func (pool *BrutePool) checkHost(u string) bool {
 	return true
 }
 
-func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
+func (pool *BrutePool) BaseCompare(bl *baseline.Baseline) bool {
 	if !bl.IsValid {
 		return false
 	}
@@ -639,7 +638,7 @@ func (pool *BrutePool) BaseCompare(bl *pkg.Baseline) bool {
 	return true
 }
 
-func (pool *BrutePool) addFuzzyBaseline(bl *pkg.Baseline) {
+func (pool *BrutePool) addFuzzyBaseline(bl *baseline.Baseline) {
 	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
 		bl.IsBaseline = true
 		bl.Collect()
@@ -693,8 +692,8 @@ func (pool *BrutePool) doCheck() {
 		}
 		pool.isFallback.Store(true)
 		pool.fallback()
-		pool.Cancel()
 		pool.IsFailed = true
+		pool.Cancel()
 		return
 	}
 
@@ -705,7 +704,7 @@ func (pool *BrutePool) doCheck() {
 	}
 }
 
-func (pool *BrutePool) doRedirect(bl *pkg.Baseline, depth int) {
+func (pool *BrutePool) doRedirect(bl *baseline.Baseline, depth int) {
 	if depth >= pool.MaxRedirect {
 		return
 	}
@@ -729,7 +728,7 @@ func (pool *BrutePool) doRedirect(bl *pkg.Baseline, depth int) {
 	}()
 }
 
-func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
+func (pool *BrutePool) doCrawl(bl *baseline.Baseline) {
 	if !pool.Crawl || bl.ReqDepth >= pool.MaxCrawlDepth {
 		return
 	}
@@ -761,7 +760,7 @@ func (pool *BrutePool) doCrawl(bl *pkg.Baseline) {
 
 }
 
-func (pool *BrutePool) doScopeCrawl(bl *pkg.Baseline) {
+func (pool *BrutePool) doScopeCrawl(bl *baseline.Baseline) {
 	if bl.ReqDepth >= pool.MaxCrawlDepth {
 		pool.wg.Done()
 		return
@@ -812,13 +811,13 @@ func (pool *BrutePool) doBak() {
 	}
 }
 
-func (pool *BrutePool) doAppend(bl *pkg.Baseline) {
+func (pool *BrutePool) doAppend(bl *baseline.Baseline) {
 	pool.wg.Add(2)
 	pool.doAppendWords(bl)
 	pool.doAppendRule(bl)
 }
 
-func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
+func (pool *BrutePool) doAppendRule(bl *baseline.Baseline) {
 	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
 		pool.wg.Done()
 		return
@@ -839,7 +838,7 @@ func (pool *BrutePool) doAppendRule(bl *pkg.Baseline) {
 	}()
 }
 
-func (pool *BrutePool) doAppendWords(bl *pkg.Baseline) {
+func (pool *BrutePool) doAppendWords(bl *baseline.Baseline) {
 	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
 		// 防止自身递归
 		pool.wg.Done()

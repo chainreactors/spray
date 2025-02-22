@@ -1,4 +1,4 @@
-package internal
+package core
 
 import (
 	"bufio"
@@ -7,8 +7,10 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/internal/ihttp"
-	"github.com/chainreactors/spray/internal/pool"
+	"github.com/chainreactors/proxyclient"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
+	"github.com/chainreactors/spray/core/pool"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
@@ -96,7 +98,7 @@ type OutputOptions struct {
 }
 
 type RequestOptions struct {
-	Method          string   `short:"x" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
+	Method          string   `short:"X" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
 	Headers         []string `long:"header" description:"Strings, custom headers, e.g.: --header 'Auth: example_auth'" config:"headers"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
@@ -140,18 +142,18 @@ type ModeOptions struct {
 }
 
 type MiscOptions struct {
-	Mod         string `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
-	Client      string `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
-	Deadline    int    `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
-	Timeout     int    `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
-	PoolSize    int    `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
-	Threads     int    `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
-	Debug       bool   `long:"debug" description:"Bool, output debug info" config:"debug"`
-	Version     bool   `long:"version" description:"Bool, show version"`
-	Verbose     []bool `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
-	Proxy       string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxy"`
-	InitConfig  bool   `long:"init" description:"Bool, init config file"`
-	PrintPreset bool   `long:"print" description:"Bool, print preset all preset config "`
+	Mod         string   `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
+	Client      string   `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
+	Deadline    int      `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Timeout     int      `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
+	PoolSize    int      `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
+	Threads     int      `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
+	Debug       bool     `long:"debug" description:"Bool, output debug info" config:"debug"`
+	Version     bool     `long:"version" description:"Bool, show version"`
+	Verbose     []bool   `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
+	Proxies     []string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxies"`
+	InitConfig  bool     `long:"init" description:"Bool, init config file"`
+	PrintPreset bool     `long:"print" description:"Bool, print preset all preset config "`
 }
 
 func (opt *Option) Validate() error {
@@ -231,7 +233,7 @@ func (opt *Option) Prepare() error {
 	}
 
 	// 初始化全局变量
-	pkg.Distance = uint8(opt.SimhashDistance)
+	baseline.Distance = uint8(opt.SimhashDistance)
 	if opt.MaxBodyLength == -1 {
 		ihttp.DefaultMaxBodySize = -1
 	} else {
@@ -263,10 +265,10 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	r := &Runner{
 		Option:   opt,
 		taskCh:   make(chan *Task),
-		outputCh: make(chan *pkg.Baseline, 256),
+		outputCh: make(chan *baseline.Baseline, 256),
 		poolwg:   &sync.WaitGroup{},
 		outwg:    &sync.WaitGroup{},
-		fuzzyCh:  make(chan *pkg.Baseline, 256),
+		fuzzyCh:  make(chan *baseline.Baseline, 256),
 		Headers:  make(map[string]string),
 		Total:    opt.Limit,
 		Color:    true,
@@ -305,6 +307,16 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.ClientType = ihttp.STANDARD
 	}
 
+	if len(opt.Proxies) > 0 {
+		urls, err := proxyclient.ParseProxyURLs(opt.Proxies)
+		if err != nil {
+			return nil, err
+		}
+		r.ProxyClient, err = proxyclient.NewClientChain(urls)
+		if err != nil {
+			return nil, err
+		}
+	}
 	err = opt.BuildPlugin(r)
 	if err != nil {
 		return nil, err
@@ -545,7 +557,7 @@ func (opt *Option) PrintConfig(r *Runner) string {
 		lipgloss.JoinHorizontal(lipgloss.Left, "⏱ ", keyStyle.Render("Timeout: "), formatValue(opt.Timeout)),
 		lipgloss.JoinHorizontal(lipgloss.Left, "📈 ", keyStyle.Render("PoolSize: "), formatValue(opt.PoolSize)),
 		lipgloss.JoinHorizontal(lipgloss.Left, "🧵 ", keyStyle.Render("Threads: "), formatValue(opt.Threads)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🌍 ", keyStyle.Render("Proxy: "), formatValue(opt.Proxy)),
+		lipgloss.JoinHorizontal(lipgloss.Left, "🌍 ", keyStyle.Render("Proxies: "), formatValue(opt.Proxies)),
 	)
 
 	// 将所有内容拼接在一起

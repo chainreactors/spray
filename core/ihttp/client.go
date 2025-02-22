@@ -1,16 +1,13 @@
 package ihttp
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/chainreactors/logs"
+	"github.com/chainreactors/proxyclient"
 	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpproxy"
-	"golang.org/x/net/proxy"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 )
 
@@ -36,6 +33,7 @@ const (
 
 func NewClient(config *ClientConfig) *Client {
 	var client *Client
+
 	if config.Type == FAST {
 		client = &Client{
 			fastClient: &fasthttp.Client{
@@ -43,7 +41,7 @@ func NewClient(config *ClientConfig) *Client {
 					Renegotiation:      tls.RenegotiateOnceAsClient,
 					InsecureSkipVerify: true,
 				},
-				Dial:                customDialFunc(config.ProxyAddr, config.Timeout),
+				Dial:                customDialFunc(config.ProxyClient, config.Timeout),
 				MaxConnsPerHost:     config.Thread * 3 / 2,
 				MaxIdleConnDuration: config.Timeout,
 				//MaxConnWaitTimeout:  time.Duration(timeout) * time.Second,
@@ -61,6 +59,7 @@ func NewClient(config *ClientConfig) *Client {
 		client = &Client{
 			standardClient: &http.Client{
 				Transport: &http.Transport{
+					DialContext: config.ProxyClient,
 					TLSClientConfig: &tls.Config{
 						Renegotiation:      tls.RenegotiateNever,
 						InsecureSkipVerify: true,
@@ -77,20 +76,15 @@ func NewClient(config *ClientConfig) *Client {
 			},
 			ClientConfig: config,
 		}
-		if config.ProxyAddr != "" {
-			client.standardClient.Transport.(*http.Transport).Proxy = func(_ *http.Request) (*url.URL, error) {
-				return url.Parse(config.ProxyAddr)
-			}
-		}
 	}
 	return client
 }
 
 type ClientConfig struct {
-	Type      int
-	Timeout   time.Duration
-	Thread    int
-	ProxyAddr string
+	Type        int
+	Timeout     time.Duration
+	Thread      int
+	ProxyClient proxyclient.Dial
 }
 
 type Client struct {
@@ -129,48 +123,14 @@ func (c *Client) Do(req *Request) (*Response, error) {
 	}
 }
 
-func customDialFunc(proxyAddr string, timeout time.Duration) fasthttp.DialFunc {
-	if proxyAddr == "" {
+func customDialFunc(dialer proxyclient.Dial, timeout time.Duration) fasthttp.DialFunc {
+	if dialer == nil {
 		return func(addr string) (net.Conn, error) {
 			return fasthttp.DialTimeout(addr, timeout)
 		}
 	}
-	u, err := url.Parse(proxyAddr)
-	if err != nil {
-		logs.Log.Error(err.Error())
-		return nil
-	}
-	if strings.ToLower(u.Scheme) == "socks5" {
-		return func(addr string) (net.Conn, error) {
-			var auth *proxy.Auth
-			username := u.User.Username()
-			password, ok := u.User.Password()
-			if ok {
-				auth = &proxy.Auth{
-					User:     username,
-					Password: password,
-				}
-			}
-			dialer, err := proxy.SOCKS5("tcp", u.Host, auth, proxy.Direct)
-			if err != nil {
-				return nil, err
-			}
-
-			// Set up a connection with a timeout
-			conn, err := dialer.Dial("tcp", addr)
-			if err != nil {
-				return nil, err
-			}
-
-			// Set deadlines for the connection
-			deadline := time.Now().Add(timeout)
-			if err := conn.SetDeadline(deadline); err != nil {
-				conn.Close()
-				return nil, err
-			}
-			return conn, nil
-		}
-	} else {
-		return fasthttpproxy.FasthttpHTTPDialerTimeout(u.Host, timeout)
+	return func(addr string) (net.Conn, error) {
+		ctx, _ := context.WithTimeout(context.Background(), timeout)
+		return dialer.DialContext(ctx, "tcp", addr)
 	}
 }
