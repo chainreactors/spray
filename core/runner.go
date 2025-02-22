@@ -1,11 +1,12 @@
-package internal
+package core
 
 import (
 	"context"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/spray/internal/ihttp"
-	"github.com/chainreactors/spray/internal/pool"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
+	"github.com/chainreactors/spray/core/pool"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
@@ -28,8 +29,8 @@ type Runner struct {
 	taskCh        chan *Task
 	poolwg        *sync.WaitGroup
 	outwg         *sync.WaitGroup
-	outputCh      chan *pkg.Baseline
-	fuzzyCh       chan *pkg.Baseline
+	outputCh      chan *baseline.Baseline
+	fuzzyCh       chan *baseline.Baseline
 	bar           *mpb.Bar
 	bruteMod      bool
 	IsCheck       bool
@@ -254,7 +255,9 @@ Loop:
 		}
 	}
 
-	r.bar.Wait()
+	if r.bar != nil {
+		r.bar.Wait()
+	}
 	r.poolwg.Wait()
 	r.outwg.Wait()
 }
@@ -285,7 +288,7 @@ Loop:
 	r.outwg.Wait()
 }
 
-func (r *Runner) AddRecursive(bl *pkg.Baseline) {
+func (r *Runner) AddRecursive(bl *baseline.Baseline) {
 	// 递归新任务
 	task := &Task{
 		baseUrl: bl.UrlString,
@@ -361,7 +364,7 @@ func (r *Runner) saveStat(content string) {
 	}
 }
 
-func (r *Runner) Output(bl *pkg.Baseline) {
+func (r *Runner) Output(bl *baseline.Baseline) {
 	var out string
 	if r.Option.Json {
 		out = bl.ToJson()

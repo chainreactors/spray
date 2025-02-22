@@ -1,14 +1,16 @@
-package pkg
+package baseline
 
 import (
 	"bytes"
 	"github.com/chainreactors/fingers/common"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/core/ihttp"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/encode"
 	"github.com/chainreactors/utils/iutils"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -23,7 +25,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		},
 	}
 
-	if t, ok := ContentTypeMap[resp.ContentType()]; ok {
+	if t, ok := pkg.ContentTypeMap[resp.ContentType()]; ok {
 		bl.ContentType = t
 		bl.Title = t + " data"
 	} else {
@@ -34,7 +36,6 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl.Header = make([]byte, len(header))
 	copy(bl.Header, header)
 	bl.HeaderLength = len(bl.Header)
-
 	if i := resp.ContentLength(); ihttp.CheckBodySize(i) {
 		if body := resp.Body(); body != nil {
 			bl.Body = make([]byte, len(body))
@@ -50,10 +51,10 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	}
 
 	bl.Raw = append(bl.Header, bl.Body...)
-	bl.Response, err = ParseRawResponse(bl.Raw)
+	bl.Response, err = pkg.ParseRawResponse(bl.Raw)
 	if err != nil {
 		bl.IsValid = false
-		bl.Reason = ErrResponseError.Error()
+		bl.Reason = pkg.ErrResponseError.Error()
 		bl.ErrString = err.Error()
 		return bl
 	}
@@ -73,7 +74,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		}
 	} else {
 		bl.IsValid = false
-		bl.Reason = ErrUrlError.Error()
+		bl.Reason = pkg.ErrUrlError.Error()
 		bl.ErrString = err.Error()
 	}
 	bl.Unique = UniqueHash(bl)
@@ -116,9 +117,9 @@ type Baseline struct {
 	Url                *url.URL       `json:"-"`
 	Dir                bool           `json:"-"`
 	Chunked            bool           `json:"-"`
-	Body               BS             `json:"-"`
-	Header             BS             `json:"-"`
-	Raw                BS             `json:"-"`
+	Body               pkg.BS         `json:"-"`
+	Header             pkg.BS         `json:"-"`
+	Raw                pkg.BS         `json:"-"`
 	Response           *http.Response `json:"-"`
 	Recu               bool           `json:"-"`
 	RecuDepth          int            `json:"-"`
@@ -147,10 +148,10 @@ func (bl *Baseline) Collect() {
 	if bl.ContentType == "html" || bl.ContentType == "json" || bl.ContentType == "txt" {
 		// 指纹库设计的时候没考虑js,css文件的指纹, 跳过非必要的指纹收集减少误报提高性能
 		//fmt.Println(bl.Source, bl.Url.String()+bl.Path, bl.RedirectURL, "call fingersengine")
-		if EnableAllFingerEngine {
-			bl.Frameworks = EngineDetect(bl.Raw)
+		if pkg.EnableAllFingerEngine {
+			bl.Frameworks = pkg.EngineDetect(bl.Raw)
 		} else {
-			bl.Frameworks = FingersDetect(bl.Raw)
+			bl.Frameworks = pkg.FingersDetect(bl.Raw)
 		}
 	}
 
@@ -158,14 +159,14 @@ func (bl *Baseline) Collect() {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
 		} else if bl.ContentType == "ico" {
-			if frame := FingerEngine.Favicon().Match(bl.Body); frame != nil {
+			if frame := pkg.FingerEngine.Favicon().Match(bl.Body); frame != nil {
 				bl.Frameworks.Merge(frame)
 			}
 		}
 	}
 
 	bl.Hashes = parsers.NewHashes(bl.Raw)
-	bl.Extracteds = Extractors.Extract(string(bl.Raw))
+	bl.Extracteds = pkg.Extractors.Extract(string(bl.Raw))
 	bl.Unique = UniqueHash(bl)
 }
 
@@ -173,21 +174,21 @@ func (bl *Baseline) CollectURL() {
 	if len(bl.Body) == 0 {
 		return
 	}
-	for _, reg := range ExtractRegexps["js"][0].CompiledRegexps {
+	for _, reg := range pkg.ExtractRegexps["js"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			u[1] = CleanURL(u[1])
-			if u[1] != "" && !FilterJs(u[1]) {
+			u[1] = pkg.CleanURL(u[1])
+			if u[1] != "" && !pkg.FilterJs(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
 	}
 
-	for _, reg := range ExtractRegexps["url"][0].CompiledRegexps {
+	for _, reg := range pkg.ExtractRegexps["url"][0].CompiledRegexps {
 		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
 		for _, u := range urls {
-			u[1] = CleanURL(u[1])
-			if u[1] != "" && !FilterUrl(u[1]) {
+			u[1] = pkg.CleanURL(u[1])
+			if u[1] != "" && !pkg.FilterUrl(u[1]) {
 				bl.URLs = append(bl.URLs, u[1])
 			}
 		}
@@ -254,4 +255,10 @@ func (bl *Baseline) FuzzyCompare(other *Baseline) bool {
 		return true
 	}
 	return false
+}
+
+func UniqueHash(bl *Baseline) uint16 {
+	// 由host+状态码+重定向url+content-type+title+length舍去个位组成的hash
+	// body length可能会导致一些误报, 目前没有更好的解决办法
+	return pkg.CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/10*10)))
 }
