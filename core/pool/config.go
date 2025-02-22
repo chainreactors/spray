@@ -2,6 +2,7 @@ package pool
 
 import (
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/proxyclient"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
@@ -12,7 +13,7 @@ import (
 
 type Config struct {
 	BaseURL           string
-	ProxyAddr         string
+	ProxyClient       proxyclient.Dial
 	Thread            int
 	Wordlist          []string
 	Timeout           time.Duration
