@@ -1,7 +1,7 @@
 package pkg
 
 import (
-	"encoding/json"
+	"fmt"
 	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/utils"
@@ -15,7 +15,7 @@ import (
 func LoadPorts() error {
 	var err error
 	var ports []*utils.PortConfig
-	err = json.Unmarshal(LoadConfig("port"), &ports)
+	err = yaml.Unmarshal(LoadConfig("port"), &ports)
 	if err != nil {
 		return err
 	}
@@ -48,14 +48,14 @@ func LoadTemplates() error {
 	var err error
 	// load rule
 
-	err = json.Unmarshal(LoadConfig("spray_rule"), &Rules)
+	err = yaml.Unmarshal(LoadConfig("spray_rule"), &Rules)
 	if err != nil {
 		return err
 	}
 
 	// load default words
 	var dicts map[string]string
-	err = json.Unmarshal(LoadConfig("spray_dict"), &dicts)
+	err = yaml.Unmarshal(LoadConfig("spray_dict"), &dicts)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func LoadTemplates() error {
 
 	// load mask
 	var keywords map[string]interface{}
-	err = json.Unmarshal(LoadConfig("spray_common"), &keywords)
+	err = yaml.Unmarshal(LoadConfig("spray_common"), &keywords)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func LoadTemplates() error {
 	}
 
 	var extracts []*parsers.Extractor
-	err = json.Unmarshal(LoadConfig("extract"), &extracts)
+	err = yaml.Unmarshal(LoadConfig("extract"), &extracts)
 	if err != nil {
 		return err
 	}
@@ -125,11 +125,11 @@ func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
 func Load() error {
 	err := LoadPorts()
 	if err != nil {
-		return err
+		return fmt.Errorf("load ports, %w", err)
 	}
 	err = LoadTemplates()
 	if err != nil {
-		return err
+		return fmt.Errorf("load templates, %w", err)
 	}
 
 	return nil
