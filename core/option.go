@@ -229,7 +229,7 @@ func (opt *Option) Prepare() error {
 
 	err = pkg.Load()
 	if err != nil {
-		iutils.Fatal(err.Error())
+		return err
 	}
 
 	// 初始化全局变量
