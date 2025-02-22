@@ -3,7 +3,8 @@ package pool
 import (
 	"context"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words"
 	"sync"
@@ -18,7 +19,7 @@ type BasePool struct {
 	Cancel      context.CancelFunc
 	client      *ihttp.Client
 	ctx         context.Context
-	processCh   chan *pkg.Baseline // 待处理的baseline
+	processCh   chan *baseline.Baseline // 待处理的baseline
 	dir         string
 	reqCount    int
 	failedCount int
@@ -28,7 +29,7 @@ type BasePool struct {
 	isFallback  atomic.Bool
 }
 
-func (pool *BasePool) doRetry(bl *pkg.Baseline) {
+func (pool *BasePool) doRetry(bl *baseline.Baseline) {
 	if bl.Retry >= pool.RetryLimit {
 		return
 	}
@@ -56,7 +57,7 @@ func (pool *BasePool) addAddition(u *Unit) {
 	pool.additionCh <- u
 }
 
-func (pool *BasePool) putToOutput(bl *pkg.Baseline) {
+func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
 	if bl.IsValid || bl.IsFuzzy {
 		bl.Collect()
 	}
@@ -64,7 +65,7 @@ func (pool *BasePool) putToOutput(bl *pkg.Baseline) {
 	pool.OutputCh <- bl
 }
 
-func (pool *BasePool) putToFuzzy(bl *pkg.Baseline) {
+func (pool *BasePool) putToFuzzy(bl *baseline.Baseline) {
 	pool.Outwg.Add(1)
 	bl.IsFuzzy = true
 	pool.FuzzyCh <- bl

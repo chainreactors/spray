@@ -1,9 +1,10 @@
-package internal
+package core
 
 import (
 	"bytes"
 	"encoding/json"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/mask"
 	"io"
@@ -24,9 +25,9 @@ func Format(opts Option) {
 	if err != nil {
 		return
 	}
-	group := make(map[string][]*pkg.Baseline)
+	group := make(map[string][]*baseline.Baseline)
 	for _, line := range bytes.Split(bytes.TrimSpace(content), []byte("\n")) {
-		var result pkg.Baseline
+		var result baseline.Baseline
 		err := json.Unmarshal(line, &result)
 		if err != nil {
 			logs.Log.Error(err.Error())

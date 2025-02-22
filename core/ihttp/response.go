@@ -29,7 +29,7 @@ func (r *Response) Body() []byte {
 	if r.FastResponse != nil {
 		return r.FastResponse.Body()
 	} else if r.StandardResponse != nil {
-		if DefaultMaxBodySize == -1 {
+		if r.StandardResponse.ContentLength == -1 {
 			body, err := io.ReadAll(r.StandardResponse.Body)
 			if err != nil {
 				return nil

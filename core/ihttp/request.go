@@ -2,6 +2,7 @@ package ihttp
 
 import (
 	"context"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/valyala/fasthttp"
 	"net/http"
 )
@@ -30,7 +31,19 @@ type Request struct {
 	ClientType      int
 }
 
-func (r *Request) SetHeaders(header map[string]string) {
+func (r *Request) SetHeaders(header map[string]string, RandomUA bool) {
+	if header["User-Agent"] == "" {
+		if RandomUA {
+			header["User-Agent"] = pkg.RandomUA()
+		} else {
+			header["User-Agent"] = pkg.DefaultUserAgent
+		}
+	}
+
+	if header["Accept"] == "" {
+		header["Accept"] = "*/*"
+	}
+
 	if r.StandardRequest != nil {
 		for k, v := range header {
 			r.StandardRequest.Header.Set(k, v)

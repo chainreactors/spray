@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/spray/internal"
-	"github.com/chainreactors/spray/internal/ihttp"
+	"github.com/chainreactors/spray/core"
+	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
@@ -28,11 +28,11 @@ func init() {
 }
 
 func Spray() {
-	var option internal.Option
+	var option core.Option
 
 	if files.IsExist(DefaultConfig) {
 		logs.Log.Debug("config.yaml exist, loading")
-		err := internal.LoadConfig(DefaultConfig, &option)
+		err := core.LoadConfig(DefaultConfig, &option)
 		if err != nil {
 			logs.Log.Error(err.Error())
 			return
@@ -83,7 +83,7 @@ func Spray() {
 		logs.Log.SetLevel(pkg.LogVerbose)
 	}
 	if option.InitConfig {
-		configStr := internal.InitDefaultConfig(&option, 0)
+		configStr := core.InitDefaultConfig(&option, 0)
 		err := os.WriteFile(DefaultConfig, []byte(configStr), 0o744)
 		if err != nil {
 			logs.Log.Warn("cannot create config: config.yaml, " + err.Error())
@@ -96,7 +96,7 @@ func Spray() {
 		return
 	}
 	if option.Config != "" {
-		err := internal.LoadConfig(option.Config, &option)
+		err := core.LoadConfig(option.Config, &option)
 		if err != nil {
 			logs.Log.Error(err.Error())
 			return
@@ -123,13 +123,13 @@ func Spray() {
 		if err != nil {
 			iutils.Fatal(err.Error())
 		}
-		internal.PrintPreset()
+		core.PrintPreset()
 
 		return
 	}
 
 	if option.Format != "" {
-		internal.Format(option)
+		core.Format(option)
 		return
 	}
 

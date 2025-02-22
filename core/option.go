@@ -1,4 +1,4 @@
-package internal
+package core
 
 import (
 	"bufio"
@@ -7,8 +7,9 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/internal/ihttp"
-	"github.com/chainreactors/spray/internal/pool"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
+	"github.com/chainreactors/spray/core/pool"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
@@ -231,7 +232,7 @@ func (opt *Option) Prepare() error {
 	}
 
 	// 初始化全局变量
-	pkg.Distance = uint8(opt.SimhashDistance)
+	baseline.Distance = uint8(opt.SimhashDistance)
 	if opt.MaxBodyLength == -1 {
 		ihttp.DefaultMaxBodySize = -1
 	} else {
@@ -263,10 +264,10 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	r := &Runner{
 		Option:   opt,
 		taskCh:   make(chan *Task),
-		outputCh: make(chan *pkg.Baseline, 256),
+		outputCh: make(chan *baseline.Baseline, 256),
 		poolwg:   &sync.WaitGroup{},
 		outwg:    &sync.WaitGroup{},
-		fuzzyCh:  make(chan *pkg.Baseline, 256),
+		fuzzyCh:  make(chan *baseline.Baseline, 256),
 		Headers:  make(map[string]string),
 		Total:    opt.Limit,
 		Color:    true,

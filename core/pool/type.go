@@ -2,7 +2,7 @@ package pool
 
 import (
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/spray/core/baseline"
 )
 
 func newUnit(path string, source parsers.SpraySource) *Unit {
@@ -21,7 +21,7 @@ type Unit struct {
 	depth    int
 }
 
-func (u *Unit) Update(bl *pkg.Baseline) {
+func (u *Unit) Update(bl *baseline.Baseline) {
 	bl.Number = u.number
 	bl.Parent = u.parent
 	bl.Host = u.host
@@ -31,15 +31,15 @@ func (u *Unit) Update(bl *pkg.Baseline) {
 
 func NewBaselines() *Baselines {
 	return &Baselines{
-		baselines: map[int]*pkg.Baseline{},
+		baselines: map[int]*baseline.Baseline{},
 	}
 }
 
 type Baselines struct {
-	FailedBaselines []*pkg.Baseline
-	random          *pkg.Baseline
-	index           *pkg.Baseline
-	baselines       map[int]*pkg.Baseline
+	FailedBaselines []*baseline.Baseline
+	random          *baseline.Baseline
+	index           *baseline.Baseline
+	baselines       map[int]*baseline.Baseline
 }
 
 type SprayMod int

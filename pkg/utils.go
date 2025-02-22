@@ -87,7 +87,8 @@ var (
 		"Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
 		"Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)",
 	}
-	uacount = len(randomUserAgent)
+	uacount          = len(randomUserAgent)
+	DefaultUserAgent = randomUserAgent[rand.Intn(uacount)]
 )
 
 type BS []byte
@@ -325,12 +326,6 @@ func Dir(u string) string {
 	} else {
 		return u[:i+1]
 	}
-}
-
-func UniqueHash(bl *Baseline) uint16 {
-	// 由host+状态码+重定向url+content-type+title+length舍去个位组成的hash
-	// body length可能会导致一些误报, 目前没有更好的解决办法
-	return CRC16Hash([]byte(bl.Host + strconv.Itoa(bl.Status) + bl.RedirectURL + bl.ContentType + bl.Title + strconv.Itoa(bl.BodyLength/10*10)))
 }
 
 func FormatURL(base, u string) string {
