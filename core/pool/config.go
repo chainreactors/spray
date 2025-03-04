@@ -7,6 +7,7 @@ import (
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr/vm"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -27,7 +28,7 @@ type Config struct {
 	BreakThreshold    int32
 	Method            string
 	Mod               SprayMod
-	Headers           map[string]string
+	Headers           http.Header
 	ClientType        int
 	MatchExpr         *vm.Program
 	FilterExpr        *vm.Program
