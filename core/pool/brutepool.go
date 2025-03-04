@@ -107,6 +107,14 @@ type BrutePool struct {
 }
 
 func (pool *BrutePool) Init() error {
+	if pool.Headers["User-Agent"] == "" {
+		pool.Headers["User-Agent"] = pkg.DefaultUserAgent
+	}
+
+	if pool.Headers["Accept"] == "" {
+		pool.Headers["Accept"] = "*/*"
+	}
+
 	pool.initwg.Add(2)
 	if pool.Index != "/" {
 		logs.Log.Logf(pkg.LogVerbose, "custom index url: %s", pkg.BaseURL(pool.url)+pkg.FormatURL(pkg.BaseURL(pool.url), pool.Index))
@@ -394,7 +402,6 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 		return
 	}
 	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
-	req.SetHeader("User-Agent", pkg.RandomUA())
 	resp, reqerr := pool.client.Do(req)
 	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)
