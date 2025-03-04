@@ -32,16 +32,8 @@ type Request struct {
 }
 
 func (r *Request) SetHeaders(header map[string]string, RandomUA bool) {
-	if header["User-Agent"] == "" {
-		if RandomUA {
-			header["User-Agent"] = pkg.RandomUA()
-		} else {
-			header["User-Agent"] = pkg.DefaultUserAgent
-		}
-	}
-
-	if header["Accept"] == "" {
-		header["Accept"] = "*/*"
+	if RandomUA {
+		r.SetHeader("User-Agent", pkg.RandomUA())
 	}
 
 	if r.StandardRequest != nil {
