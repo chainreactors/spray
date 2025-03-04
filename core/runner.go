@@ -15,6 +15,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -67,7 +68,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Thread:         r.Threads,
 		Timeout:        time.Duration(r.Timeout) * time.Second,
 		RateLimit:      r.RateLimit,
-		Headers:        r.Headers,
+		Headers:        make(http.Header),
 		Method:         r.Method,
 		Mod:            pool.ModMap[r.Mod],
 		OutputCh:       r.outputCh,
@@ -107,6 +108,10 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		} else if config.Mod == pool.HostSpray {
 			config.ClientType = ihttp.STANDARD
 		}
+	}
+
+	for k, v := range r.Headers {
+		config.Headers.Set(k, v)
 	}
 
 	return config

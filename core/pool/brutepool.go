@@ -107,12 +107,12 @@ type BrutePool struct {
 }
 
 func (pool *BrutePool) Init() error {
-	if pool.Headers["User-Agent"] == "" {
-		pool.Headers["User-Agent"] = pkg.DefaultUserAgent
+	if pool.Headers.Get("User-Agent") == "" {
+		pool.Headers.Set("User-Agent", pkg.DefaultUserAgent)
 	}
 
-	if pool.Headers["Accept"] == "" {
-		pool.Headers["Accept"] = "*/*"
+	if pool.Headers.Get("Accept") == "" {
+		pool.Headers.Set("Accept", "*/*")
 	}
 
 	pool.initwg.Add(2)
