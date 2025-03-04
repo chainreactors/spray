@@ -394,7 +394,6 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 		return
 	}
 	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
-	req.SetHeader("User-Agent", pkg.RandomUA())
 	resp, reqerr := pool.client.Do(req)
 	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)

@@ -31,26 +31,18 @@ type Request struct {
 	ClientType      int
 }
 
-func (r *Request) SetHeaders(header map[string]string, RandomUA bool) {
-	if header["User-Agent"] == "" {
-		if RandomUA {
-			header["User-Agent"] = pkg.RandomUA()
-		} else {
-			header["User-Agent"] = pkg.DefaultUserAgent
-		}
-	}
-
-	if header["Accept"] == "" {
-		header["Accept"] = "*/*"
+func (r *Request) SetHeaders(header http.Header, RandomUA bool) {
+	if RandomUA {
+		r.SetHeader("User-Agent", pkg.RandomUA())
 	}
 
 	if r.StandardRequest != nil {
-		for k, v := range header {
-			r.StandardRequest.Header.Set(k, v)
-		}
+		r.StandardRequest.Header = header
 	} else if r.FastRequest != nil {
 		for k, v := range header {
-			r.FastRequest.Header.Set(k, v)
+			for _, i := range v {
+				r.FastRequest.Header.Set(k, i)
+			}
 		}
 	}
 }
