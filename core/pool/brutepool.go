@@ -107,14 +107,6 @@ type BrutePool struct {
 }
 
 func (pool *BrutePool) Init() error {
-	if pool.Headers.Get("User-Agent") == "" {
-		pool.Headers.Set("User-Agent", pkg.DefaultUserAgent)
-	}
-
-	if pool.Headers.Get("Accept") == "" {
-		pool.Headers.Set("Accept", "*/*")
-	}
-
 	pool.initwg.Add(2)
 	if pool.Index != "/" {
 		logs.Log.Logf(pkg.LogVerbose, "custom index url: %s", pkg.BaseURL(pool.url)+pkg.FormatURL(pkg.BaseURL(pool.url), pool.Index))

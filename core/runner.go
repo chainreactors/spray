@@ -114,6 +114,14 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		config.Headers.Set(k, v)
 	}
 
+	if config.Headers.Get("User-Agent") == "" {
+		config.Headers.Set("User-Agent", pkg.DefaultUserAgent)
+	}
+
+	if config.Headers.Get("Accept") == "" {
+		config.Headers.Set("Accept", "*/*")
+	}
+
 	return config
 }
 

@@ -36,7 +36,7 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 			processCh:  make(chan *baseline.Baseline, config.Thread),
 		},
 	}
-	pool.Headers = map[string]string{"Connection": "close"}
+	pool.Headers.Set("Connection", "close")
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
 
 	pool.Pool = p
