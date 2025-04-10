@@ -1,5 +1,10 @@
 # SPRAY
 
+blog posts:
+
+- https://chainreactors.github.io/wiki/blog/2024/07/24/fingers-introduce/
+- https://chainreactors.github.io/wiki/blog/2024/08/25/spray-best-practices/
+
 ![](https://socialify.git.ci/chainreactors/spray/image?description=1&font=Inter&forks=1&issues=1&language=1&name=1&owner=1&pattern=Circuit%20Board&pulls=1&stargazers=1&theme=Light)
 
 <p align="center">
