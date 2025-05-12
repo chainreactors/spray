@@ -58,7 +58,7 @@ type InputOptions struct {
 	DefaultDict  bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
-	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
+	AppendRule   []string `short:"R" long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
 	AppendFile   []string `long:"append" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
@@ -205,6 +205,11 @@ func (opt *Option) Prepare() error {
 		return err
 	}
 
+	err = pkg.Load()
+	if err != nil {
+		return err
+	}
+
 	if opt.Extracts != nil {
 		for _, e := range opt.Extracts {
 			if reg, ok := pkg.ExtractRegexps[e]; ok {
@@ -225,11 +230,6 @@ func (opt *Option) Prepare() error {
 			return err
 		}
 		pkg.Extractors[opt.ExtractConfig] = extracts
-	}
-
-	err = pkg.Load()
-	if err != nil {
-		return err
 	}
 
 	// 初始化全局变量

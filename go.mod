@@ -6,7 +6,7 @@ require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
 	github.com/chainreactors/fingers v0.0.0-20240716172449-2fc3147b9c2a
 	github.com/chainreactors/logs v0.0.0-20241115105204-6132e39f5261
-	github.com/chainreactors/parsers v0.0.0-20250222062812-66fe23cfde02
+	github.com/chainreactors/parsers v0.0.0-20250418131403-e9e233e9d804
 	github.com/chainreactors/proxyclient v1.0.3-0.20250219180226-a25a0c9e6ac8
 	github.com/chainreactors/utils v0.0.0-20240805193040-ff3b97aa3c3f
 	github.com/chainreactors/words v0.0.0-20240910083848-19a289e8984b
@@ -63,3 +63,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/chainreactors/proxyclient => github.com/chainreactors/proxyclient v1.0.3
