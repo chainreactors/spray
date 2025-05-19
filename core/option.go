@@ -132,10 +132,10 @@ type ModeOptions struct {
 	CheckPeriod     int      `long:"check-period" default:"200" description:"Int, check period when request" config:"check-period"`
 	ErrPeriod       int      `long:"error-period" default:"10" description:"Int, check period when error" config:"error-period"`
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold" config:"error-threshold"`
-	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
-	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
+	BlackStatus     string   `short:"B" long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
+	WhiteStatus     string   `short:"W" long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
 	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302,404" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
-	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
+	UniqueStatus    string   `short:"U" long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
 	SimhashDistance int      `long:"sim-distance" default:"8" config:"sim-distance"`
