@@ -241,18 +241,18 @@ func (opt *Option) Prepare() error {
 		ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
 	}
 
-	pkg.BlackStatus = pkg.ParseStatus(pkg.BlackStatus, opt.BlackStatus)
-	pkg.WhiteStatus = pkg.ParseStatus(pkg.WhiteStatus, opt.WhiteStatus)
+	pkg.BlackStatus = pkg.ParseStatus(pkg.DefaultBlackStatus, opt.BlackStatus)
+	pkg.WhiteStatus = pkg.ParseStatus(pkg.DefaultWhiteStatus, opt.WhiteStatus)
 	if opt.FuzzyStatus == "all" {
 		pool.EnableAllFuzzy = true
 	} else {
-		pkg.FuzzyStatus = pkg.ParseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
+		pkg.FuzzyStatus = pkg.ParseStatus(pkg.DefaultFuzzyStatus, opt.FuzzyStatus)
 	}
 
 	if opt.Unique {
 		pool.EnableAllUnique = true
 	} else {
-		pkg.UniqueStatus = pkg.ParseStatus(pkg.UniqueStatus, opt.UniqueStatus)
+		pkg.UniqueStatus = pkg.ParseStatus(pkg.DefaultUniqueStatus, opt.UniqueStatus)
 	}
 
 	logs.Log.Logf(pkg.LogVerbose, "Black Status: %v, WhiteStatus: %v, WAFStatus: %v", pkg.BlackStatus, pkg.WhiteStatus, pkg.WAFStatus)
