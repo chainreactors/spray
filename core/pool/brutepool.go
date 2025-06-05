@@ -176,6 +176,11 @@ func (pool *BrutePool) Run(offset, limit int) {
 		go pool.doBak()
 	}
 
+	if pool.Fuzzuli {
+		pool.wg.Add(1)
+		go pool.doFuzzuli()
+	}
+
 	if pool.Common {
 		pool.wg.Add(1)
 		go pool.doCommonFile()
@@ -793,17 +798,24 @@ func (pool *BrutePool) doScopeCrawl(bl *baseline.Baseline) {
 	}()
 }
 
+func (pool *BrutePool) doFuzzuli() {
+	defer pool.wg.Done()
+	if pool.Mod == HostSpray {
+		return
+	}
+	for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
+		pool.addAddition(&Unit{
+			path:   pool.dir + w,
+			source: parsers.BakSource,
+		})
+	}
+}
+
 func (pool *BrutePool) doBak() {
 	defer pool.wg.Done()
 	if pool.Mod == HostSpray {
 		return
 	}
-	//for w := range NewBruteDSL(pool.Config, "{?0}.{?@bak_ext}", [][]string{pkg.BakGenerator(pool.url.Host)}).Output {
-	//	pool.addAddition(&Unit{
-	//		path:   pool.dir + w,
-	//		source: parsers.BakSource,
-	//	})
-	//}
 
 	for w := range NewBruteDSL(pool.Config, "{?@bak_name}.{?@bak_ext}", nil).Output {
 		pool.addAddition(&Unit{

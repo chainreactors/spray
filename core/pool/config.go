@@ -42,6 +42,7 @@ type Config struct {
 	Scope             []string
 	Active            bool
 	Bak               bool
+	Fuzzuli           bool
 	Common            bool
 	RetryLimit        int
 	RandomUserAgent   bool

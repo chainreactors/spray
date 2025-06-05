@@ -114,6 +114,7 @@ type PluginOptions struct {
 	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
 	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
 	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
+	FuzzuliPlugin bool     `long:"fuzzuli" description:"Bool, enable fuzzuli plugin" config:"fuzzuli"`
 	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
 	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
 	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
@@ -531,6 +532,9 @@ func (opt *Option) PrintConfig(r *Runner) string {
 	if opt.BakPlugin {
 		pluginValues = append(pluginValues, "bak")
 	}
+	if opt.FuzzuliPlugin {
+		pluginValues = append(pluginValues, "fuzzuli")
+	}
 	if opt.CommonPlugin {
 		pluginValues = append(pluginValues, "common")
 	}
@@ -588,6 +592,7 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		opt.CrawlPlugin = true
 		opt.Finger = true
 		opt.BakPlugin = true
+		opt.FuzzuliPlugin = true
 		opt.CommonPlugin = true
 		opt.ActivePlugin = true
 		opt.ReconPlugin = true
