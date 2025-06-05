@@ -135,7 +135,7 @@ type ModeOptions struct {
 	BlackStatus     string   `short:"B" long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
 	WhiteStatus     string   `short:"W" long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
 	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302,404" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
-	UniqueStatus    string   `short:"U" long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
+	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
 	RetryCount      int      `long:"retry" default:"0" description:"Int, retry count" config:"retry"`
 	SimhashDistance int      `long:"sim-distance" default:"8" config:"sim-distance"`
