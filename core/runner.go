@@ -89,6 +89,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Scope:             r.Scope,
 		Active:            r.Finger,
 		Bak:               r.BakPlugin,
+		Fuzzuli:           r.FuzzuliPlugin,
 		Common:            r.CommonPlugin,
 		RetryLimit:        r.RetryCount,
 		ClientType:        r.ClientType,
