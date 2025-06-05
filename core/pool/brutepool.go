@@ -203,10 +203,6 @@ Loop:
 				continue
 			}
 			pool.Statistor.End++
-			if w == "" {
-				pool.Statistor.Skipped++
-				pool.Bar.Done()
-			}
 
 			pool.wordOffset++
 			if pool.wordOffset < offset {
@@ -215,6 +211,12 @@ Loop:
 
 			if pool.Statistor.End > limit {
 				done = true
+				continue
+			}
+
+			if w == "" {
+				pool.Statistor.Skipped++
+				pool.Bar.Done()
 				continue
 			}
 
