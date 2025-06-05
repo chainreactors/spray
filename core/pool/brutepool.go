@@ -545,7 +545,7 @@ func (pool *BrutePool) Upgrade(bl *baseline.Baseline) error {
 
 func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
 	status := resp.StatusCode()
-	if iutils.IntsContains(pkg.WhiteStatus, status) {
+	if pkg.StatusContain(pkg.WhiteStatus, status) {
 		// 如果为白名单状态码则直接返回
 		return nil
 	}
@@ -553,11 +553,11 @@ func (pool *BrutePool) PreCompare(resp *ihttp.Response) error {
 	//	return pkg.ErrSameStatus
 	//}
 
-	if iutils.IntsContains(pkg.BlackStatus, status) {
+	if pkg.StatusContain(pkg.BlackStatus, status) {
 		return pkg.ErrBadStatus
 	}
 
-	if iutils.IntsContains(pkg.WAFStatus, status) {
+	if pkg.StatusContain(pkg.WAFStatus, status) {
 		return pkg.ErrWaf
 	}
 
