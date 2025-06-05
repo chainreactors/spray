@@ -244,6 +244,7 @@ Loop:
 				pool.wg.Done()
 			} else {
 				pool.urls.Store(unit.path, nil)
+				unit.path = pool.safePath(unit.path)
 				unit.number = pool.wordOffset
 				pool.reqPool.Invoke(unit)
 			}
