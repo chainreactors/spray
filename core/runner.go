@@ -404,7 +404,7 @@ func (r *Runner) Output(bl *baseline.Baseline) {
 		if r.FileOutput == "json" {
 			r.OutputFile.SafeWrite(bl.ToJson() + "\n")
 		} else if r.FileOutput == "csv" {
-			r.OutputFile.SafeWrite(bl.ToCSV() + "\n")
+			r.OutputFile.SafeWrite(bl.ToCSV())
 		} else if r.FileOutput == "full" {
 			r.OutputFile.SafeWrite(bl.String() + "\n")
 		} else {
