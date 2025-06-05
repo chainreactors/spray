@@ -25,7 +25,7 @@ func Format(opts Option) {
 	if err != nil {
 		return
 	}
-	group := make(map[string][]*baseline.Baseline)
+	group := make(map[string]map[string]*baseline.Baseline)
 	for _, line := range bytes.Split(bytes.TrimSpace(content), []byte("\n")) {
 		var result baseline.Baseline
 		err := json.Unmarshal(line, &result)
@@ -37,7 +37,10 @@ func Format(opts Option) {
 		if err != nil {
 			continue
 		}
-		group[result.Url.Host] = append(group[result.Url.Host], &result)
+		if _, exists := group[result.Url.Host]; !exists {
+			group[result.Url.Host] = make(map[string]*baseline.Baseline)
+		}
+		group[result.Url.Host][result.Path] = &result
 	}
 
 	for _, results := range group {
