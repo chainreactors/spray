@@ -76,7 +76,7 @@ func Spray() {
 	}
 
 	// logs
-	logs.AddLevel(pkg.LogVerbose, "verbose", "[=] %s {{suffix}}")
+	logs.AddLevel(pkg.LogVerbose, "verbose", "[=] %s {{suffix}}\n")
 	if option.Debug {
 		logs.Log.SetLevel(logs.Debug)
 	} else if len(option.Verbose) > 0 {
@@ -95,6 +95,8 @@ func Spray() {
 		logs.Log.Info("init default config: ./config.yaml")
 		return
 	}
+
+	defer time.Sleep(time.Second)
 	if option.Config != "" {
 		err := core.LoadConfig(option.Config, &option)
 		if err != nil {
@@ -184,5 +186,4 @@ func Spray() {
 		return
 	}
 
-	time.Sleep(1 * time.Second)
 }

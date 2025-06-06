@@ -58,7 +58,7 @@ type InputOptions struct {
 	DefaultDict  bool     `short:"D" long:"default" description:"Bool, use default dictionary" config:"default"`
 	Word         string   `short:"w" long:"word" description:"String, word generate dsl, e.g.: -w test{?ld#4}" config:"word"`
 	Rules        []string `short:"r" long:"rules" description:"Files, rule files, e.g.: -r rule1.txt -r rule2.txt" config:"rules"`
-	AppendRule   []string `long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
+	AppendRule   []string `short:"R" long:"append-rule" description:"Files, when found valid path , use append rule generator new word with current path" config:"append-rules"`
 	FilterRule   string   `long:"filter-rule" description:"String, filter rule, e.g.: --rule-filter '>8 <4'" config:"filter-rule"`
 	AppendFile   []string `long:"append" description:"Files, when found valid path , use append file new word with current path" config:"append-files"`
 	Offset       int      `long:"offset" description:"Int, wordlist offset"`
@@ -114,6 +114,7 @@ type PluginOptions struct {
 	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
 	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
 	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
+	FuzzuliPlugin bool     `long:"fuzzuli" description:"Bool, enable fuzzuli plugin" config:"fuzzuli"`
 	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
 	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
 	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
@@ -132,8 +133,8 @@ type ModeOptions struct {
 	CheckPeriod     int      `long:"check-period" default:"200" description:"Int, check period when request" config:"check-period"`
 	ErrPeriod       int      `long:"error-period" default:"10" description:"Int, check period when error" config:"error-period"`
 	BreakThreshold  int      `long:"error-threshold" default:"20" description:"Int, break when the error exceeds the threshold" config:"error-threshold"`
-	BlackStatus     string   `long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
-	WhiteStatus     string   `long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
+	BlackStatus     string   `short:"B" long:"black-status" default:"400,410" description:"Strings (comma split),custom black status" config:"black-status"`
+	WhiteStatus     string   `short:"W" long:"white-status" default:"200" description:"Strings (comma split), custom white status" config:"white-status"`
 	FuzzyStatus     string   `long:"fuzzy-status" default:"500,501,502,503,301,302,404" description:"Strings (comma split), custom fuzzy status" config:"fuzzy-status"`
 	UniqueStatus    string   `long:"unique-status" default:"403,200,404" description:"Strings (comma split), custom unique status" config:"unique-status"`
 	Unique          bool     `long:"unique" description:"Bool, unique response" config:"unique"`
@@ -205,6 +206,11 @@ func (opt *Option) Prepare() error {
 		return err
 	}
 
+	err = pkg.Load()
+	if err != nil {
+		return err
+	}
+
 	if opt.Extracts != nil {
 		for _, e := range opt.Extracts {
 			if reg, ok := pkg.ExtractRegexps[e]; ok {
@@ -227,11 +233,6 @@ func (opt *Option) Prepare() error {
 		pkg.Extractors[opt.ExtractConfig] = extracts
 	}
 
-	err = pkg.Load()
-	if err != nil {
-		return err
-	}
-
 	// 初始化全局变量
 	baseline.Distance = uint8(opt.SimhashDistance)
 	if opt.MaxBodyLength == -1 {
@@ -240,18 +241,18 @@ func (opt *Option) Prepare() error {
 		ihttp.DefaultMaxBodySize = opt.MaxBodyLength * 1024
 	}
 
-	pkg.BlackStatus = pkg.ParseStatus(pkg.BlackStatus, opt.BlackStatus)
-	pkg.WhiteStatus = pkg.ParseStatus(pkg.WhiteStatus, opt.WhiteStatus)
+	pkg.BlackStatus = pkg.ParseStatus(pkg.DefaultBlackStatus, opt.BlackStatus)
+	pkg.WhiteStatus = pkg.ParseStatus(pkg.DefaultWhiteStatus, opt.WhiteStatus)
 	if opt.FuzzyStatus == "all" {
 		pool.EnableAllFuzzy = true
 	} else {
-		pkg.FuzzyStatus = pkg.ParseStatus(pkg.FuzzyStatus, opt.FuzzyStatus)
+		pkg.FuzzyStatus = pkg.ParseStatus(pkg.DefaultFuzzyStatus, opt.FuzzyStatus)
 	}
 
 	if opt.Unique {
 		pool.EnableAllUnique = true
 	} else {
-		pkg.UniqueStatus = pkg.ParseStatus(pkg.UniqueStatus, opt.UniqueStatus)
+		pkg.UniqueStatus = pkg.ParseStatus(pkg.DefaultUniqueStatus, opt.UniqueStatus)
 	}
 
 	logs.Log.Logf(pkg.LogVerbose, "Black Status: %v, WhiteStatus: %v, WAFStatus: %v", pkg.BlackStatus, pkg.WhiteStatus, pkg.WAFStatus)
@@ -531,6 +532,9 @@ func (opt *Option) PrintConfig(r *Runner) string {
 	if opt.BakPlugin {
 		pluginValues = append(pluginValues, "bak")
 	}
+	if opt.FuzzuliPlugin {
+		pluginValues = append(pluginValues, "fuzzuli")
+	}
 	if opt.CommonPlugin {
 		pluginValues = append(pluginValues, "common")
 	}
@@ -588,6 +592,7 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		opt.CrawlPlugin = true
 		opt.Finger = true
 		opt.BakPlugin = true
+		opt.FuzzuliPlugin = true
 		opt.CommonPlugin = true
 		opt.ActivePlugin = true
 		opt.ReconPlugin = true

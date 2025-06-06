@@ -25,13 +25,17 @@ import (
 )
 
 var (
-	LogVerbose   = logs.Warn - 2
-	LogFuzz      = logs.Warn - 1
-	WhiteStatus  = []int{} // cmd input, 200
-	BlackStatus  = []int{} // cmd input, 400,410
-	FuzzyStatus  = []int{} // cmd input, 500,501,502,503
-	WAFStatus    = []int{493, 418, 1020, 406, 429}
-	UniqueStatus = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
+	LogVerbose          = logs.Warn - 2
+	LogFuzz             = logs.Warn - 1
+	DefaultWhiteStatus  = []int{200}                               // cmd input
+	DefaultBlackStatus  = []int{400, 410}                          // cmd input
+	DefaultFuzzyStatus  = []int{500, 501, 502, 503, 301, 302, 404} // cmd input
+	DefaultUniqueStatus = []int{403, 200, 404}                     // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
+	WhiteStatus         = []int{}                                  // cmd input, 200
+	BlackStatus         = []int{}                                  // cmd input, 400,410
+	FuzzyStatus         = []int{}                                  // cmd input, 500,501,502,503
+	WAFStatus           = []int{493, 418, 1020, 406, 429, 406, 412}
+	UniqueStatus        = []int{} // 相同unique的403表示命中了同一条acl, 相同unique的200表示default页面
 
 	// plugins
 	EnableAllFingerEngine = false
@@ -417,40 +421,87 @@ func ParseExtension(s string) string {
 	return ""
 }
 
+// ParseStatus parses the input string and updates the preset status filters.
 func ParseStatus(preset []int, changed string) []int {
 	if changed == "" {
 		return preset
 	}
+
+	parseToken := func(s string) (int, bool) {
+		s = strings.TrimSpace(s)
+		if strings.HasSuffix(s, "*") {
+			prefix := s[:len(s)-1]
+			if t, err := strconv.Atoi(prefix); err == nil {
+				return t, true // isPrefix = true
+			}
+		} else if t, err := strconv.Atoi(s); err == nil {
+			return t, false // isPrefix = false
+		}
+		return 0, false
+	}
+
 	if strings.HasPrefix(changed, "+") {
 		for _, s := range strings.Split(changed[1:], ",") {
-			if t, err := strconv.Atoi(s); err != nil {
-				continue
-			} else {
+			if t, _ := parseToken(s); t != 0 {
 				preset = append(preset, t)
 			}
 		}
 	} else if strings.HasPrefix(changed, "!") {
 		for _, s := range strings.Split(changed[1:], ",") {
-			for i, status := range preset {
-				if t, err := strconv.Atoi(s); err != nil {
-					break
-				} else if t == status {
-					preset = append(preset[:i], preset[i+1:]...)
-					break
+			if t, _ := parseToken(s); t != 0 {
+				newPreset := preset[:0]
+				for _, val := range preset {
+					if val != t {
+						newPreset = append(newPreset, val)
+					}
 				}
+				preset = newPreset
 			}
 		}
 	} else {
 		preset = []int{}
 		for _, s := range strings.Split(changed, ",") {
-			if t, err := strconv.Atoi(s); err != nil {
-				continue
-			} else {
+			if t, _ := parseToken(s); t != 0 {
 				preset = append(preset, t)
 			}
 		}
 	}
-	return preset
+	return UniqueInts(preset)
+}
+
+func UniqueInts(input []int) []int {
+	seen := make(map[int]bool)
+	result := make([]int, 0, len(input))
+
+	for _, val := range input {
+		if !seen[val] {
+			seen[val] = true
+			result = append(result, val)
+		}
+	}
+	return result
+}
+
+// StatusContain checks if a status matches any of the preset filters.
+// Preset values < 100 are treated as prefix filters (e.g. 5 = 5xx, 51 = 51x).
+func StatusContain(preset []int, status int) bool {
+	if len(preset) == 0 {
+		return true
+	}
+	for _, s := range preset {
+		if s < 10 {
+			if status/100 == s {
+				return true
+			}
+		} else if s < 100 {
+			if status/10 == s {
+				return true
+			}
+		} else if s == status {
+			return true
+		}
+	}
+	return false
 }
 
 func LoadFileToSlice(filename string) ([]string, error) {

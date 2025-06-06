@@ -166,7 +166,7 @@ func (bl *Baseline) Collect() {
 	}
 
 	bl.Hashes = parsers.NewHashes(bl.Raw)
-	bl.Extracteds = pkg.Extractors.Extract(string(bl.Raw))
+	bl.Extracteds.Merge(pkg.Extractors.Extract(string(bl.Raw), true))
 	bl.Unique = UniqueHash(bl)
 }
 

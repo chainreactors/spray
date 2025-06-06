@@ -25,12 +25,17 @@ builds:
     ldflags: "-s -w -X 'github.com/chainreactors/spray/cmd.ver=={{ .Tag }}'"
     flags:
       - -trimpath
-      - -tags=forceposix
     asmflags:
       - all=-trimpath={{.Env.GOPATH}}
     gcflags:
       - all=-trimpath={{.Env.GOPATH}}
     no_unique_dist_dir: true
+    env:
+      - CGO_ENABLED=0
+    tags:
+      - forceposix
+      - osusergo
+      - netgo
 
 upx:
   -
