@@ -28,6 +28,7 @@ import (
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/expr-lang/expr"
 	"github.com/vbauerster/mpb/v8"
 )
@@ -293,9 +294,6 @@ func (opt *Option) Prepare() error {
 		pkg.UniqueStatus = pkg.ParseStatus(pkg.DefaultUniqueStatus, opt.UniqueStatus)
 	}
 
-	logs.Log.Logf(pkg.LogVerbose, "Black Status: %v, WhiteStatus: %v, WAFStatus: %v", pkg.BlackStatus, pkg.WhiteStatus, pkg.WAFStatus)
-	logs.Log.Logf(pkg.LogVerbose, "Fuzzy Status: %v, Unique Status: %v", pkg.FuzzyStatus, pkg.UniqueStatus)
-
 	return nil
 }
 
@@ -488,73 +486,93 @@ func (opt *Option) NewRunner() (*Runner, error) {
 
 func (opt *Option) PrintConfig(r *Runner) string {
 	// 定义颜色样式
-	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Width(20) // Key 加粗并设定宽度
-	stringValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA07A"))              // 字符串样式
-	arrayValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#98FB98"))               // 数组样式
-	numberValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ADD8E6"))              // 数字样式
-	panelWidth := 60                                                                           // 调整 panelWidth 使内容稍微靠左
-	padding := 2                                                                               // 减少 padding 以调整布局靠左
+	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#87CEEB")).Bold(true)
+	stringValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA07A"))
+	arrayValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#98FB98"))
+	numberValueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700"))
 
-	// 分割线样式和终端宽度计算
-	divider := strings.Repeat("─", panelWidth) // 使用"─"符号生成更加连贯的分割线
-
-	// 处理不同类型的值
+	// 格式化值的辅助函数
 	formatValue := func(value interface{}) string {
 		switch v := value.(type) {
 		case string:
+			if v == "" {
+				return stringValueStyle.Render("-")
+			}
 			return stringValueStyle.Render(v)
 		case []string:
+			if len(v) == 0 {
+				return arrayValueStyle.Render("-")
+			}
 			return arrayValueStyle.Render(fmt.Sprintf("%v", v))
-		case int, int64, float64:
+		case int, int64:
+			return numberValueStyle.Render(fmt.Sprintf("%v", v))
+		case float64:
+			return numberValueStyle.Render(fmt.Sprintf("%v", v))
+		case bool:
 			return numberValueStyle.Render(fmt.Sprintf("%v", v))
 		default:
-			return stringValueStyle.Render(fmt.Sprintf("%v", v)) // 默认为字符串样式
+			return stringValueStyle.Render(fmt.Sprintf("%v", v))
 		}
 	}
 
-	// 处理互斥参数，选择输出有值的那一个
-	inputSource := ""
+	// 收集所有配置行
+	var rows [][]string
+
+	// Input Source (互斥参数)
 	if opt.ResumeFrom != "" {
-		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "🌀 ", keyStyle.Render("ResumeFrom: "), formatValue(opt.ResumeFrom))
+		rows = append(rows, []string{keyStyle.Render("🌀 ResumeFrom"), formatValue(opt.ResumeFrom)})
 	} else if len(opt.URL) > 0 {
-		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "🌐 ", keyStyle.Render("URL: "), formatValue(opt.URL))
+		rows = append(rows, []string{keyStyle.Render("🌐 URL"), formatValue(opt.URL)})
 	} else if opt.URLFile != "" {
-		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "📂 ", keyStyle.Render("URLFile: "), formatValue(opt.URLFile))
+		rows = append(rows, []string{keyStyle.Render("📂 URLFile"), formatValue(opt.URLFile)})
 	} else if len(opt.CIDRs) > 0 {
-		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "📡 ", keyStyle.Render("CIDRs: "), formatValue(opt.CIDRs))
+		rows = append(rows, []string{keyStyle.Render("📡 CIDRs"), formatValue(opt.CIDRs)})
 	} else if opt.RawFile != "" {
-		inputSource = lipgloss.JoinHorizontal(lipgloss.Left, "📄 ", keyStyle.Render("RawFile: "), formatValue(opt.RawFile))
+		rows = append(rows, []string{keyStyle.Render("📄 RawFile"), formatValue(opt.RawFile)})
 	}
 
 	// Input Options
-	inputOptions := lipgloss.JoinVertical(lipgloss.Left,
-		inputSource, // 互斥量处理
-
-		// PortRange 展示
-		lipgloss.JoinHorizontal(lipgloss.Left, "🔢 ", keyStyle.Render("PortRange: "), formatValue(opt.PortRange)),
-
-		// Dictionaries 展示
-		lipgloss.JoinHorizontal(lipgloss.Left, "📚 ", keyStyle.Render("Dictionaries: "), formatValue(opt.Dictionaries)),
-
-		// Word, Rules, FilterRule 展开为单独的行
-		lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.JoinHorizontal(lipgloss.Left, "💡 ", keyStyle.Render("Word: "), formatValue(r.Word)),
-			lipgloss.JoinHorizontal(lipgloss.Left, "📜 ", keyStyle.Render("Rules: "), formatValue(opt.Rules)),
-			lipgloss.JoinHorizontal(lipgloss.Left, "🔍 ", keyStyle.Render("FilterRule: "), formatValue(opt.FilterRule)),
-		),
-
-		// AppendRule 和 AppendWords 展开为单独的行
-		lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.JoinHorizontal(lipgloss.Left, "🔧 ", keyStyle.Render("AppendRule: "), formatValue(r.AppendRule)),
-			lipgloss.JoinHorizontal(lipgloss.Left, "🧩 ", keyStyle.Render("AppendWords: "), formatValue(len(r.AppendWords))),
-		),
-	)
+	if opt.PortRange != "" {
+		rows = append(rows, []string{keyStyle.Render("🔢 PortRange"), formatValue(opt.PortRange)})
+	}
+	if len(opt.Dictionaries) > 0 {
+		rows = append(rows, []string{keyStyle.Render("📚 Dictionaries"), formatValue(opt.Dictionaries)})
+	}
+	if r.Word != "" {
+		rows = append(rows, []string{keyStyle.Render("💡 Word"), formatValue(r.Word)})
+	}
+	if len(opt.Rules) > 0 {
+		rows = append(rows, []string{keyStyle.Render("📜 Rules"), formatValue(opt.Rules)})
+	}
+	if opt.FilterRule != "" {
+		rows = append(rows, []string{keyStyle.Render("🔍 FilterRule"), formatValue(opt.FilterRule)})
+	}
+	if r.AppendRules != nil && len(r.AppendRules.Expressions) > 0 {
+		rows = append(rows, []string{keyStyle.Render("🔧 AppendRule"), formatValue(len(r.AppendRules.Expressions))})
+	}
+	if len(r.AppendWords) > 0 {
+		rows = append(rows, []string{keyStyle.Render("🧩 AppendWords"), formatValue(len(r.AppendWords))})
+	}
 
 	// Output Options
-	outputOptions := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Left, "📊 ", keyStyle.Render("Match: "), formatValue(opt.Match)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "⚙️ ", keyStyle.Render("Filter: "), formatValue(opt.Filter)),
-	)
+	if opt.Match != "" {
+		rows = append(rows, []string{keyStyle.Render("📊 Match"), formatValue(opt.Match)})
+	}
+	if opt.Filter != "" {
+		rows = append(rows, []string{keyStyle.Render("⚙️ Filter"), formatValue(opt.Filter)})
+	}
+	if opt.OutputFile != "" {
+		rows = append(rows, []string{keyStyle.Render("📝 OutputFile"), formatValue(opt.OutputFile)})
+	}
+	if opt.DumpFile != "" {
+		rows = append(rows, []string{keyStyle.Render("💾 DumpFile"), formatValue(opt.DumpFile)})
+	}
+	if !opt.NoStat && r.StatFile != nil {
+		rows = append(rows, []string{keyStyle.Render("📈 StatFile"), formatValue(r.StatFile.Filename)})
+	}
+	if opt.Fuzzy {
+		rows = append(rows, []string{keyStyle.Render("🔀 Fuzzy"), formatValue(opt.Fuzzy)})
+	}
 
 	// Plugin Options
 	pluginValues := []string{}
@@ -576,49 +594,50 @@ func (opt *Option) PrintConfig(r *Runner) string {
 	if opt.CrawlPlugin {
 		pluginValues = append(pluginValues, "crawl")
 	}
+	if opt.Finger {
+		pluginValues = append(pluginValues, "finger")
+	}
 
-	pluginOptions := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Left, "🔎 ", keyStyle.Render("Extracts: "), formatValue(opt.Extracts)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🔌 ", keyStyle.Render("Plugins: "), formatValue(strings.Join(pluginValues, ", "))),
-	)
+	if len(opt.Extracts) > 0 {
+		rows = append(rows, []string{keyStyle.Render("🔎 Extracts"), formatValue(opt.Extracts)})
+	}
+	if len(pluginValues) > 0 {
+		rows = append(rows, []string{keyStyle.Render("🔌 Plugins"), formatValue(strings.Join(pluginValues, ", "))})
+	}
 
 	// Mode Options
-	modeOptions := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Left, "🛑 ", keyStyle.Render("BlackStatus: "), formatValue(pkg.BlackStatus)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "✅ ", keyStyle.Render("WhiteStatus: "), formatValue(pkg.WhiteStatus)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🔄 ", keyStyle.Render("FuzzyStatus: "), formatValue(pkg.FuzzyStatus)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🔒 ", keyStyle.Render("UniqueStatus: "), formatValue(pkg.UniqueStatus)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🔑 ", keyStyle.Render("Unique: "), formatValue(opt.Unique)),
-	)
+	rows = append(rows, []string{keyStyle.Render("🛑 BlackStatus"), formatValue(pkg.BlackStatus)})
+	rows = append(rows, []string{keyStyle.Render("✅ WhiteStatus"), formatValue(pkg.WhiteStatus)})
+	rows = append(rows, []string{keyStyle.Render("🔄 FuzzyStatus"), formatValue(pkg.FuzzyStatus)})
+	rows = append(rows, []string{keyStyle.Render("🔒 UniqueStatus"), formatValue(pkg.UniqueStatus)})
+	if opt.Unique {
+		rows = append(rows, []string{keyStyle.Render("🔑 Unique"), formatValue(opt.Unique)})
+	}
+	if opt.Depth > 0 {
+		rows = append(rows, []string{keyStyle.Render("🌳 Depth"), formatValue(opt.Depth)})
+	}
 
 	// Misc Options
-	miscOptions := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Left, "⏱ ", keyStyle.Render("Timeout: "), formatValue(opt.Timeout)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "📈 ", keyStyle.Render("PoolSize: "), formatValue(opt.PoolSize)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🧵 ", keyStyle.Render("Threads: "), formatValue(opt.Threads)),
-		lipgloss.JoinHorizontal(lipgloss.Left, "🌍 ", keyStyle.Render("Proxies: "), formatValue(opt.Proxies)),
-	)
+	rows = append(rows, []string{keyStyle.Render("⏱ Timeout"), formatValue(fmt.Sprintf("%ds", opt.Timeout))})
+	rows = append(rows, []string{keyStyle.Render("🏊 PoolSize"), formatValue(opt.PoolSize)})
+	rows = append(rows, []string{keyStyle.Render("🧵 Threads"), formatValue(opt.Threads)})
+	if len(opt.Proxies) > 0 {
+		rows = append(rows, []string{keyStyle.Render("🌍 Proxies"), formatValue(opt.Proxies)})
+	}
+	if opt.RateLimit > 0 {
+		rows = append(rows, []string{keyStyle.Render("⚡ RateLimit"), formatValue(fmt.Sprintf("%d/s", opt.RateLimit))})
+	}
 
-	// 将所有内容拼接在一起
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		inputOptions,
-		outputOptions,
-		pluginOptions,
-		modeOptions,
-		miscOptions,
-	)
+	// 创建表格
+	t := table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("99"))).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			return lipgloss.NewStyle().Padding(0, 1)
+		}).
+		Rows(rows...)
 
-	// 使用正确的方式添加 padding，并居中显示内容
-	contentWithPadding := lipgloss.NewStyle().PaddingLeft(padding).Render(content)
-
-	// 使用 Place 方法来将整个内容居中显示
-	return lipgloss.Place(panelWidth+padding*2, 0, lipgloss.Center, lipgloss.Center,
-		lipgloss.JoinVertical(lipgloss.Center,
-			divider, // 顶部分割线
-			contentWithPadding,
-			divider, // 底部分割线
-		),
-	)
+	return t.String()
 }
 
 func (opt *Option) BuildPlugin(r *Runner) error {
