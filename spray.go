@@ -5,8 +5,8 @@ import (
 	"github.com/chainreactors/spray/cmd"
 	"github.com/gookit/config/v2"
 	"github.com/gookit/config/v2/yaml"
-	"net/http"
-	_ "net/http/pprof"
+	//"net/http"
+	//_ "net/http/pprof"
 )
 
 func init() {
@@ -18,10 +18,10 @@ func init() {
 }
 
 func main() {
-	// 启动 pprof HTTP 服务器
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
+	//// 启动 pprof HTTP 服务器
+	//go func() {
+	//	http.ListenAndServe("localhost:6060", nil)
+	//}()
 
 	cmd.Spray()
 }

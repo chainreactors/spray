@@ -209,6 +209,7 @@ Loop:
 		case w, ok := <-pool.Worder.Output:
 			if !ok {
 				done = true
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 			pool.Statistor.End++

@@ -71,6 +71,7 @@ Loop:
 		case u, ok := <-pool.Worder.Output:
 			if !ok {
 				done = true
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 
