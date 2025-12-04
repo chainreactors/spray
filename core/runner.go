@@ -150,9 +150,11 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			}
 
 			ch := make(chan string)
+			var tasks []*Task
 			go func() {
 				for t := range r.Tasks.tasks {
 					ch <- t.baseUrl
+					tasks = append(tasks, t)
 				}
 				close(ch)
 			}()
@@ -160,6 +162,19 @@ func (r *Runner) Prepare(ctx context.Context) error {
 			checkPool.Worder.Fns = r.Fns
 			checkPool.Bar = pkg.NewBar("check", r.Count-r.Offset, checkPool.Statistor, r.Progress)
 			checkPool.Run(ctx, r.Offset, r.Count)
+
+			// 保存 check 模式的统计信息
+			checkPool.Statistor.EndTime = time.Now().Unix()
+			checkPool.Statistor.End = r.Count
+			checkPool.Statistor.Total = r.Count
+			checkPool.Statistor.BaseUrl = r.Tasks.Name
+			if r.Color {
+				logs.Log.Important(checkPool.Statistor.ColorString())
+			} else {
+				logs.Log.Important(checkPool.Statistor.String())
+			}
+			r.saveStat(checkPool.Statistor.Json())
+
 			r.poolwg.Done()
 		})
 		r.RunWithCheck(ctx)
