@@ -31,9 +31,9 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 				ProxyClient: config.ProxyClient,
 			}),
 			wg:         &sync.WaitGroup{},
-			additionCh: make(chan *Unit, 1024),
+			additionCh: make(chan *Unit, config.Thread*10),
 			closeCh:    make(chan struct{}),
-			processCh:  make(chan *baseline.Baseline, config.Thread),
+			processCh:  make(chan *baseline.Baseline, config.Thread*2),
 		},
 	}
 	pool.Headers.Set("Connection", "close")
@@ -93,8 +93,10 @@ Loop:
 		case <-pool.closeCh:
 			break Loop
 		case <-ctx.Done():
+			// 手动退出，不等待任务完成，直接退出
 			break Loop
 		case <-pool.ctx.Done():
+			// 手动退出，不等待任务完成，直接退出
 			break Loop
 		}
 	}
@@ -156,22 +158,20 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	bl.ReqDepth = unit.depth
 	bl.Source = unit.source
 	bl.Spended = time.Since(start).Milliseconds()
+	if bl.RedirectURL != "" {
+		pool.doRedirect(bl, bl.ReqDepth)
+	}
 	pool.processCh <- bl
 }
 
 func (pool *CheckPool) Handler() {
 	for bl := range pool.processCh {
 		if bl.IsValid {
-			if bl.RedirectURL != "" {
-				pool.doRedirect(bl, bl.ReqDepth)
-				pool.putToOutput(bl)
-			} else {
-				params := map[string]interface{}{
-					"current": bl,
-				}
-				if pool.MatchExpr != nil && pkg.CompareWithExpr(pool.MatchExpr, params) {
-					bl.IsValid = true
-				}
+			params := map[string]interface{}{
+				"current": bl,
+			}
+			if pool.MatchExpr != nil && pkg.CompareWithExpr(pool.MatchExpr, params) {
+				bl.IsValid = true
 			}
 		}
 		if bl.Source == parsers.CheckSource {
@@ -196,17 +196,14 @@ func (pool *CheckPool) doRedirect(bl *baseline.Baseline, depth int) {
 		reURL = pkg.BaseURL(bl.Url) + pkg.FormatURL(pkg.BaseURL(bl.Url), bl.RedirectURL)
 	}
 
-	pool.wg.Add(1)
-	go func() {
-		pool.additionCh <- &Unit{
-			path:     reURL,
-			parent:   bl.Number,
-			source:   parsers.RedirectSource,
-			frontUrl: bl.UrlString,
-			depth:    depth + 1,
-			from:     bl.Source,
-		}
-	}()
+	pool.addAddition(&Unit{
+		path:     reURL,
+		parent:   bl.Number,
+		source:   parsers.RedirectSource,
+		frontUrl: bl.UrlString,
+		depth:    depth + 1,
+		from:     bl.Source,
+	})
 }
 
 // tcp与400进行协议转换
@@ -214,20 +211,17 @@ func (pool *CheckPool) doUpgrade(bl *baseline.Baseline) {
 	if bl.ReqDepth >= 1 {
 		return
 	}
-	pool.wg.Add(1)
 	var reurl string
 	if strings.HasPrefix(bl.UrlString, "https") {
 		reurl = strings.Replace(bl.UrlString, "https", "http", 1)
 	} else {
 		reurl = strings.Replace(bl.UrlString, "http", "https", 1)
 	}
-	go func() {
-		pool.additionCh <- &Unit{
-			path:   reurl,
-			parent: bl.Number,
-			source: parsers.UpgradeSource,
-			depth:  bl.ReqDepth + 1,
-			from:   bl.Source,
-		}
-	}()
+	pool.addAddition(&Unit{
+		path:   reurl,
+		parent: bl.Number,
+		source: parsers.UpgradeSource,
+		depth:  bl.ReqDepth + 1,
+		from:   bl.Source,
+	})
 }
