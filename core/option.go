@@ -302,10 +302,10 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	r := &Runner{
 		Option:   opt,
 		taskCh:   make(chan *Task),
-		outputCh: make(chan *baseline.Baseline, 256),
+		OutputCh: make(chan *baseline.Baseline, 256),
 		poolwg:   &sync.WaitGroup{},
-		outwg:    &sync.WaitGroup{},
-		fuzzyCh:  make(chan *baseline.Baseline, 256),
+		OutWg:    &sync.WaitGroup{},
+		FuzzyCh:  make(chan *baseline.Baseline, 256),
 		Headers:  make(map[string]string),
 		Total:    opt.Limit,
 		Color:    true,
