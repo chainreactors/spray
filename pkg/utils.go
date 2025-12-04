@@ -612,5 +612,12 @@ func SafeFilename(filename string) string {
 	filename = strings.ReplaceAll(filename, "https://", "")
 	filename = strings.ReplaceAll(filename, ":", "_")
 	filename = strings.ReplaceAll(filename, "/", "_")
+	filename = strings.ReplaceAll(filename, "?", "_")
+	filename = strings.ReplaceAll(filename, "=", "_")
+	filename = strings.ReplaceAll(filename, "*", "_")
+	filename = strings.ReplaceAll(filename, "\"", "_")
+	filename = strings.ReplaceAll(filename, "<", "_")
+	filename = strings.ReplaceAll(filename, ">", "_")
+	filename = strings.ReplaceAll(filename, "|", "_")
 	return filename
 }

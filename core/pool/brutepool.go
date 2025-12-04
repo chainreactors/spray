@@ -53,9 +53,10 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			processCh:  make(chan *baseline.Baseline, config.Thread*2),
 			wg:         &sync.WaitGroup{},
 		},
-		base:  u.Scheme + "://" + u.Host,
-		isDir: strings.HasSuffix(u.Path, "/"),
-		url:   u,
+		base:     u.Scheme + "://" + u.Host,
+		rawQuery: u.RawQuery,
+		isDir:    strings.HasSuffix(u.Path, "/"),
+		url:      u,
 
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
@@ -85,9 +86,10 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 type BrutePool struct {
 	*Baselines
 	*BasePool
-	base  string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
-	isDir bool
-	url   *url.URL
+	base     string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
+	rawQuery string // 原始URL的query参数, 在爆破时需要保留
+	isDir    bool
+	url      *url.URL
 
 	reqPool     *ants.PoolWithFunc
 	scopePool   *ants.PoolWithFunc
@@ -274,7 +276,13 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	var req *ihttp.Request
 	var err error
 
-	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.base, unit.path, unit.host, pool.Method)
+	// 构建完整的路径，包含原始的query参数
+	fullPath := unit.path
+	if pool.rawQuery != "" {
+		fullPath = unit.path + "?" + pool.rawQuery
+	}
+
+	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.base, fullPath, unit.host, pool.Method)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
@@ -296,7 +304,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
 		bl = &baseline.Baseline{
 			SprayResult: &parsers.SprayResult{
-				UrlString: pool.base + unit.path,
+				UrlString: pool.base + fullPath,
 				ErrString: reqerr.Error(),
 				Reason:    pkg.ErrRequestFailed.Error(),
 			},
