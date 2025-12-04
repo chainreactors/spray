@@ -30,9 +30,9 @@ type Runner struct {
 
 	taskCh   chan *Task
 	poolwg   *sync.WaitGroup
-	outwg    *sync.WaitGroup
-	outputCh chan *baseline.Baseline
-	fuzzyCh  chan *baseline.Baseline
+	OutWg    *sync.WaitGroup
+	OutputCh chan *baseline.Baseline
+	FuzzyCh  chan *baseline.Baseline
 	bar      *mpb.Bar
 	bruteMod bool
 
@@ -93,9 +93,9 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		RateLimit:      r.RateLimit,
 		Mod:            pool.ModMap[r.Mod],
 		Request:        requestConfig,
-		OutputCh:       r.outputCh,
-		FuzzyCh:        r.fuzzyCh,
-		Outwg:          r.outwg,
+		OutputCh:       r.OutputCh,
+		FuzzyCh:        r.FuzzyCh,
+		Outwg:          r.OutWg,
 		Fuzzy:          r.Fuzzy,
 		CheckPeriod:    r.CheckPeriod,
 		ErrPeriod:      int32(r.ErrPeriod),
@@ -302,7 +302,7 @@ Loop:
 		r.bar.Wait()
 	}
 	r.poolwg.Wait()
-	r.outwg.Wait()
+	r.OutWg.Wait()
 }
 
 func (r *Runner) RunWithCheck(ctx context.Context) {
@@ -328,7 +328,7 @@ Loop:
 		}
 	}
 
-	r.outwg.Wait()
+	r.OutWg.Wait()
 }
 
 func (r *Runner) AddRecursive(bl *baseline.Baseline) {
@@ -444,7 +444,7 @@ func (r *Runner) OutputHandler() {
 	go func() {
 		for {
 			select {
-			case bl, ok := <-r.outputCh:
+			case bl, ok := <-r.OutputCh:
 				if !ok {
 					return
 				}
@@ -464,7 +464,7 @@ func (r *Runner) OutputHandler() {
 						logs.Log.Debug(bl.String())
 					}
 				}
-				r.outwg.Done()
+				r.OutWg.Done()
 			}
 		}
 	}()
@@ -472,12 +472,12 @@ func (r *Runner) OutputHandler() {
 	go func() {
 		for {
 			select {
-			case bl, ok := <-r.fuzzyCh:
+			case bl, ok := <-r.FuzzyCh:
 				if !ok {
 					return
 				}
 				r.Output(bl)
-				r.outwg.Done()
+				r.OutWg.Done()
 			}
 		}
 	}()
