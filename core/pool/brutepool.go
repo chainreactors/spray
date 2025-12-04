@@ -35,6 +35,10 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 	if u, err = url.Parse(config.BaseURL); err != nil {
 		return nil, err
 	}
+
+	// 将URL的RawQuery设置到RequestConfig中
+	config.Request.RawQuery = u.RawQuery
+
 	pctx, cancel := context.WithCancel(ctx)
 	pool := &BrutePool{
 		Baselines: NewBaselines(),
@@ -53,10 +57,9 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			processCh:  make(chan *baseline.Baseline, config.Thread*2),
 			wg:         &sync.WaitGroup{},
 		},
-		base:     u.Scheme + "://" + u.Host,
-		rawQuery: u.RawQuery,
-		isDir:    strings.HasSuffix(u.Path, "/"),
-		url:      u,
+		base:  u.Scheme + "://" + u.Host,
+		isDir: strings.HasSuffix(u.Path, "/"),
+		url:   u,
 
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
@@ -86,10 +89,9 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 type BrutePool struct {
 	*Baselines
 	*BasePool
-	base     string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
-	rawQuery string // 原始URL的query参数, 在爆破时需要保留
-	isDir    bool
-	url      *url.URL
+	base  string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
+	isDir bool
+	url   *url.URL
 
 	reqPool     *ants.PoolWithFunc
 	scopePool   *ants.PoolWithFunc
@@ -273,22 +275,12 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	atomic.AddInt32(&pool.Statistor.ReqTotal, 1)
 	unit := v.(*Unit)
 
-	var req *ihttp.Request
-	var err error
-
-	// 构建完整的路径，包含原始的query参数
-	fullPath := unit.path
-	if pool.rawQuery != "" {
-		fullPath = unit.path + "?" + pool.rawQuery
-	}
-
-	req, err = ihttp.BuildRequest(pool.ctx, pool.ClientType, pool.base, fullPath, unit.host, pool.Method)
+	// 使用RequestConfig.Build()构建请求
+	req, err := pool.Request.Build(pool.ctx, pool.ClientType, pool.base, unit.path, unit.host)
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
 	}
-
-	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
 
 	start := time.Now()
 	resp, reqerr := pool.client.Do(req)
@@ -304,7 +296,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		atomic.AddInt32(&pool.Statistor.FailedNumber, 1)
 		bl = &baseline.Baseline{
 			SprayResult: &parsers.SprayResult{
-				UrlString: pool.base + fullPath,
+				UrlString: req.URI(),
 				ErrString: reqerr.Error(),
 				Reason:    pkg.ErrRequestFailed.Error(),
 			},
@@ -404,12 +396,21 @@ func (pool *BrutePool) Invoke(v interface{}) {
 func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 	defer pool.wg.Done()
 	unit := v.(*Unit)
-	req, err := ihttp.BuildRequest(pool.ctx, pool.ClientType, unit.path, "", "", "GET")
+
+	// 为NoScope请求创建一个简化的RequestConfig（固定使用GET方法）
+	scopeReqConfig := &ihttp.RequestConfig{
+		Method:          "GET",
+		Headers:         pool.Request.Headers,
+		CustomHost:      "",
+		Body:            nil,
+		RandomUserAgent: pool.Request.RandomUserAgent,
+	}
+
+	req, err := scopeReqConfig.Build(pool.ctx, pool.ClientType, unit.path, "", "")
 	if err != nil {
 		logs.Log.Error(err.Error())
 		return
 	}
-	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
 	resp, reqerr := pool.client.Do(req)
 	if pool.ClientType == ihttp.FAST {
 		defer fasthttp.ReleaseResponse(resp.FastResponse)

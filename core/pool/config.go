@@ -4,10 +4,10 @@ import (
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/proxyclient"
 	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/words"
 	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr/vm"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -26,9 +26,8 @@ type Config struct {
 	CheckPeriod       int
 	ErrPeriod         int32
 	BreakThreshold    int32
-	Method            string
 	Mod               SprayMod
-	Headers           http.Header
+	Request           *ihttp.RequestConfig
 	ClientType        int
 	MatchExpr         *vm.Program
 	FilterExpr        *vm.Program
@@ -45,7 +44,6 @@ type Config struct {
 	Fuzzuli           bool
 	Common            bool
 	RetryLimit        int
-	RandomUserAgent   bool
 	Random            string
 	Index             string
 	MaxRedirect       int

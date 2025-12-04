@@ -36,7 +36,7 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 			processCh:  make(chan *baseline.Baseline, config.Thread*2),
 		},
 	}
-	pool.Headers.Set("Connection", "close")
+	pool.Request.Headers.Set("Connection", "close")
 	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
 
 	pool.Pool = p
@@ -115,7 +115,17 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	}()
 
 	unit := v.(*Unit)
-	req, err := ihttp.BuildRequest(pool.ctx, pool.ClientType, unit.path, "", "", "GET")
+
+	// 为Check请求创建一个简化的RequestConfig（固定使用GET方法）
+	checkReqConfig := &ihttp.RequestConfig{
+		Method:          "GET",
+		Headers:         pool.Request.Headers,
+		CustomHost:      "",
+		Body:            nil,
+		RandomUserAgent: pool.Request.RandomUserAgent,
+	}
+
+	req, err := checkReqConfig.Build(pool.ctx, pool.ClientType, unit.path, "", "")
 	if err != nil {
 		logs.Log.Debug(err.Error())
 		bl := &baseline.Baseline{
@@ -130,7 +140,6 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		pool.processCh <- bl
 		return
 	}
-	req.SetHeaders(pool.Headers, pool.RandomUserAgent)
 	start := time.Now()
 	var bl *baseline.Baseline
 	resp, reqerr := pool.client.Do(req)

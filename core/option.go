@@ -100,6 +100,7 @@ type OutputOptions struct {
 type RequestOptions struct {
 	Method          string   `short:"X" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
 	Headers         []string `short:"H" long:"header" description:"Strings, custom headers, e.g.: --header 'Auth: example_auth'" config:"headers"`
+	Host            string   `long:"host" description:"String, custom host header, e.g.: --host example.com" config:"host"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
 	Cookie          []string `long:"cookie" description:"Strings, custom cookie" config:"cookies"`
@@ -842,8 +843,24 @@ func (opt *Option) BuildTasks(r *Runner) (*TaskGenerator, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			// Read request body if present
+			if req.Body != nil {
+				r.Body, err = ioutil.ReadAll(req.Body)
+				if err != nil {
+					return nil, err
+				}
+				req.Body.Close()
+			}
+
+			// Detect scheme: check if port is 443 or if any TLS-related headers suggest HTTPS
+			scheme := "http"
+			if strings.HasSuffix(req.Host, ":443") {
+				scheme = "https"
+			}
+
 			go func() {
-				gen.Run(fmt.Sprintf("http://%s%s", req.Host, req.URL.String()))
+				gen.Run(fmt.Sprintf("%s://%s%s", scheme, req.Host, req.URL.String()))
 				close(gen.In)
 			}()
 			r.Method = req.Method

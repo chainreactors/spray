@@ -5,9 +5,78 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/valyala/fasthttp"
 	"net/http"
+	"strings"
 )
 
+// RequestConfig 封装HTTP请求相关的配置参数
+type RequestConfig struct {
+	Method          string
+	Headers         http.Header
+	CustomHost      string
+	Body            []byte
+	RawQuery        string
+	RandomUserAgent bool
+}
+
+// Build 根据配置构建Request对象
+func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, host string) (*Request, error) {
+	// 使用自定义host或传入的host
+	hostToUse := host
+	if rc.CustomHost != "" {
+		hostToUse = rc.CustomHost
+	}
+
+	// 构建完整的路径，包含原始的query参数
+	fullPath := path
+	if rc.RawQuery != "" {
+		fullPath = path + "?" + rc.RawQuery
+	}
+
+	var req *Request
+	var err error
+
+	if clientType == FAST {
+		fastReq := fasthttp.AcquireRequest()
+		fastReq.Header.SetMethod(rc.Method)
+		fastReq.SetRequestURI(base + fullPath)
+		if hostToUse != "" {
+			fastReq.SetHost(hostToUse)
+		}
+		if rc.Body != nil && len(rc.Body) > 0 {
+			fastReq.SetBody(rc.Body)
+		}
+		req = &Request{FastRequest: fastReq, ClientType: FAST}
+	} else {
+		var bodyReader *strings.Reader
+		if rc.Body != nil && len(rc.Body) > 0 {
+			bodyReader = strings.NewReader(string(rc.Body))
+		}
+		var httpReq *http.Request
+		if bodyReader != nil {
+			httpReq, err = http.NewRequestWithContext(ctx, rc.Method, base+fullPath, bodyReader)
+		} else {
+			httpReq, err = http.NewRequestWithContext(ctx, rc.Method, base+fullPath, nil)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if hostToUse != "" {
+			httpReq.Host = hostToUse
+		}
+		req = &Request{StandardRequest: httpReq, ClientType: STANDARD}
+	}
+
+	// 设置headers
+	req.SetHeaders(rc.Headers, rc.RandomUserAgent)
+
+	return req, nil
+}
+
 func BuildRequest(ctx context.Context, clientType int, base, path, host, method string) (*Request, error) {
+	return BuildRequestWithBody(ctx, clientType, base, path, host, method, nil)
+}
+
+func BuildRequestWithBody(ctx context.Context, clientType int, base, path, host, method string, body []byte) (*Request, error) {
 	if clientType == FAST {
 		req := fasthttp.AcquireRequest()
 		req.Header.SetMethod(method)
@@ -15,9 +84,22 @@ func BuildRequest(ctx context.Context, clientType int, base, path, host, method 
 		if host != "" {
 			req.SetHost(host)
 		}
+		if body != nil && len(body) > 0 {
+			req.SetBody(body)
+		}
 		return &Request{FastRequest: req, ClientType: FAST}, nil
 	} else {
-		req, err := http.NewRequestWithContext(ctx, method, base+path, nil)
+		var bodyReader *strings.Reader
+		if body != nil && len(body) > 0 {
+			bodyReader = strings.NewReader(string(body))
+		}
+		var req *http.Request
+		var err error
+		if bodyReader != nil {
+			req, err = http.NewRequestWithContext(ctx, method, base+path, bodyReader)
+		} else {
+			req, err = http.NewRequestWithContext(ctx, method, base+path, nil)
+		}
 		if host != "" {
 			req.Host = host
 		}

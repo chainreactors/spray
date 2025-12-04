@@ -44,6 +44,7 @@ type Runner struct {
 	Rules         *rule.Program
 	AppendRules   *rule.Program
 	Headers       map[string]string
+	Body          []byte
 	FilterExpr    *vm.Program
 	MatchExpr     *vm.Program
 	RecursiveExpr *vm.Program
@@ -64,13 +65,34 @@ type Runner struct {
 }
 
 func (r *Runner) PrepareConfig() *pool.Config {
+	// 准备HTTP请求配置
+	headers := make(http.Header)
+	for k, v := range r.Headers {
+		headers.Set(k, v)
+	}
+
+	if headers.Get("User-Agent") == "" {
+		headers.Set("User-Agent", pkg.DefaultUserAgent)
+	}
+
+	if headers.Get("Accept") == "" {
+		headers.Set("Accept", "*/*")
+	}
+
+	requestConfig := &ihttp.RequestConfig{
+		Method:          r.Method,
+		Headers:         headers,
+		CustomHost:      r.Host,
+		Body:            r.Body,
+		RandomUserAgent: r.RandomUserAgent,
+	}
+
 	config := &pool.Config{
 		Thread:         r.Threads,
 		Timeout:        time.Duration(r.Timeout) * time.Second,
 		RateLimit:      r.RateLimit,
-		Headers:        make(http.Header),
-		Method:         r.Method,
 		Mod:            pool.ModMap[r.Mod],
+		Request:        requestConfig,
 		OutputCh:       r.outputCh,
 		FuzzyCh:        r.fuzzyCh,
 		Outwg:          r.outwg,
@@ -93,7 +115,6 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Common:            r.CommonPlugin,
 		RetryLimit:        r.RetryCount,
 		ClientType:        r.ClientType,
-		RandomUserAgent:   r.RandomUserAgent,
 		Random:            r.Random,
 		Index:             r.Index,
 		MaxRecursionDepth: r.Depth,
@@ -109,18 +130,6 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		} else if config.Mod == pool.HostSpray {
 			config.ClientType = ihttp.STANDARD
 		}
-	}
-
-	for k, v := range r.Headers {
-		config.Headers.Set(k, v)
-	}
-
-	if config.Headers.Get("User-Agent") == "" {
-		config.Headers.Set("User-Agent", pkg.DefaultUserAgent)
-	}
-
-	if config.Headers.Get("Accept") == "" {
-		config.Headers.Set("Accept", "*/*")
 	}
 
 	return config
