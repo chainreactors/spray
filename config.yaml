@@ -62,7 +62,7 @@ output:
   # Bool, No progress bar
   no-bar: false
   # Bool, No stat
-  no-stat: true
+  no-stat: false
 plugins:
   # Bool, enable all plugin
   all: false
