@@ -33,28 +33,27 @@ func (pool *BasePool) doRetry(bl *baseline.Baseline) {
 	if bl.Retry >= pool.RetryLimit {
 		return
 	}
-	pool.wg.Add(1)
-	go func() {
-		defer pool.wg.Done()
-		pool.addAddition(&Unit{
-			path:   bl.Path,
-			parent: bl.Number,
-			host:   bl.Host,
-			source: parsers.RetrySource,
-			from:   bl.Source,
-			retry:  bl.Retry + 1,
-		})
-	}()
+	pool.addAddition(&Unit{
+		path:   bl.Path,
+		parent: bl.Number,
+		host:   bl.Host,
+		source: parsers.RetrySource,
+		from:   bl.Source,
+		retry:  bl.Retry + 1,
+	})
 }
 
 func (pool *BasePool) addAddition(u *Unit) {
 	// 强行屏蔽报错, 防止goroutine泄露
-	pool.wg.Add(1)
 	defer func() {
 		if err := recover(); err != nil {
 		}
 	}()
-	pool.additionCh <- u
+	pool.wg.Add(1)
+	select {
+	case pool.additionCh <- u:
+	case <-pool.ctx.Done():
+	}
 }
 
 func (pool *BasePool) putToOutput(bl *baseline.Baseline) {

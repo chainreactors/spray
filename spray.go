@@ -5,7 +5,8 @@ import (
 	"github.com/chainreactors/spray/cmd"
 	"github.com/gookit/config/v2"
 	"github.com/gookit/config/v2/yaml"
-	//_ "net/http/pprof"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 func init() {
@@ -17,8 +18,10 @@ func init() {
 }
 
 func main() {
-	//f, _ := os.Create("cpu.txt")
-	//pprof.StartCPUProfile(f)
-	//defer pprof.StopCPUProfile()
+	// 启动 pprof HTTP 服务器
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
+
 	cmd.Spray()
 }
