@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
-	github.com/chainreactors/fingers v1.0.2-0.20251202165109-ce668e80a672
+	github.com/chainreactors/fingers v1.0.2-0.20251204155422-314b5907e607
 	github.com/chainreactors/logs v0.0.0-20241115105204-6132e39f5261
 	github.com/chainreactors/parsers v0.0.0-20250605044448-6bc270f12c0e
 	github.com/chainreactors/proxyclient v1.0.3-0.20250219180226-a25a0c9e6ac8

@@ -4,6 +4,17 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
@@ -19,16 +30,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/expr-lang/expr"
 	"github.com/vbauerster/mpb/v8"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -40,7 +41,6 @@ type Option struct {
 	FunctionOptions `group:"Function Options" config:"functions" `
 	OutputOptions   `group:"Output Options" config:"output"`
 	PluginOptions   `group:"Plugin Options" config:"plugins"`
-	FingerOptions   `group:"Finger Options" config:"finger"`
 	RequestOptions  `group:"Request Options" config:"request"`
 	ModeOptions     `group:"Modify Options" config:"mode"`
 	MiscOptions     `group:"Miscellaneous Options" config:"misc"`
@@ -120,6 +120,8 @@ type PluginOptions struct {
 	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
 	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
 	AppendDepth   int      `long:"append-depth" default:"2" description:"Int, append depth" config:"append-depth"`
+	Finger        bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
+	FingerEngines string   `long:"finger-engine" default:"all" description:"String, custom finger engine, e.g. --finger-engine ehole,goby" config:"finger-engine"`
 }
 
 type ModeOptions struct {
@@ -156,6 +158,7 @@ type MiscOptions struct {
 	Proxies     []string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxies"`
 	InitConfig  bool     `long:"init" description:"Bool, init config file"`
 	PrintPreset bool     `long:"print" description:"Bool, print preset all preset config "`
+	FingerFiles []string `long:"finger-file" description:"Strings, custom finger YAML file path or URL, support multiple files" config:"finger-files"`
 }
 
 func (opt *Option) Validate() error {
@@ -180,21 +183,53 @@ func (opt *Option) Validate() error {
 	return nil
 }
 
-func (opt *Option) Prepare() error {
-	var err error
-	logs.Log.SetColor(true)
-	if err = opt.FingerOptions.Validate(); err != nil {
+// ValidateFingerEngines validates the finger engine configuration
+func (opt *Option) ValidateFingerEngines() error {
+	if opt.FingerEngines != "all" {
+		// Import fingers package for AllEngines
+		allEngines := []string{"fingers", "fingerprinthub", "wappalyzer", "ehole", "goby", "nmap", "favicon"}
+		for _, name := range strings.Split(opt.FingerEngines, ",") {
+			if !iutils.StringsContains(allEngines, name) {
+				return fmt.Errorf("invalid finger engine: %s, please input one of %v", name, allEngines)
+			}
+		}
+	}
+	return nil
+}
+
+// LoadDynamicFingers loads custom finger YAML files from paths or URLs
+// This method should be called after the finger engine is initialized
+func (opt *Option) LoadDynamicFingers() error {
+	err := pkg.LoadFingers()
+	if err != nil {
 		return err
 	}
 
-	if opt.FingerUpdate {
-		err = opt.UpdateFinger()
-		if err != nil {
-			return err
-		}
+	if len(opt.FingerFiles) == 0 {
+		return nil
 	}
-	err = opt.LoadLocalFingerConfig()
-	if err != nil {
+
+	fingersEngine := pkg.FingerEngine.Fingers()
+	if fingersEngine == nil {
+		return fmt.Errorf("finger engine not initialized")
+	}
+
+	for _, file := range opt.FingerFiles {
+		if err := fingersEngine.LoadFromYAML(file); err != nil {
+			return fmt.Errorf("failed to load finger file %s: %w", file, err)
+		}
+		logs.Log.Importantf("loaded custom fingerprints from %s", file)
+	}
+
+	return nil
+}
+
+func (opt *Option) Prepare() error {
+	var err error
+	logs.Log.SetColor(true)
+
+	// Validate finger engines
+	if err = opt.ValidateFingerEngines(); err != nil {
 		return err
 	}
 
@@ -202,7 +237,9 @@ func (opt *Option) Prepare() error {
 	if err != nil {
 		return err
 	}
-	err = pkg.LoadFingers()
+
+	// Load dynamic fingerprints from custom files/URLs
+	err = opt.LoadDynamicFingers()
 	if err != nil {
 		return err
 	}
