@@ -117,12 +117,13 @@ func (pool *CheckPool) Invoke(v interface{}) {
 
 	unit := v.(*Unit)
 
-	// 为Check请求创建一个简化的RequestConfig（固定使用GET方法）
+	// 为Check请求创建RequestConfig，使用配置的参数
 	checkReqConfig := &ihttp.RequestConfig{
-		Method:          "GET",
+		Method:          pool.Request.Method, // 使用配置的 Method
 		Headers:         pool.Request.Headers,
-		CustomHost:      "",
-		Body:            nil,
+		Host:            pool.Request.Host, // 使用配置的 Host
+		Path:            pool.Request.Path, // 使用配置的 Path
+		Body:            pool.Request.Body, // 使用配置的 Body
 		RandomUserAgent: pool.Request.RandomUserAgent,
 	}
 
