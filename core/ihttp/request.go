@@ -12,7 +12,8 @@ import (
 type RequestConfig struct {
 	Method          string
 	Headers         http.Header
-	CustomHost      string
+	Host            string
+	Path            string
 	Body            []byte
 	RawQuery        string
 	RandomUserAgent bool
@@ -20,16 +21,22 @@ type RequestConfig struct {
 
 // Build 根据配置构建Request对象
 func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, host string) (*Request, error) {
-	// 使用自定义host或传入的host
+	// 使用配置的 Host 或传入的 host
 	hostToUse := host
-	if rc.CustomHost != "" {
-		hostToUse = rc.CustomHost
+	if rc.Host != "" {
+		hostToUse = rc.Host
+	}
+
+	// 使用配置的 Path 或传入的 path
+	pathToUse := path
+	if rc.Path != "" {
+		pathToUse = rc.Path
 	}
 
 	// 构建完整的路径，包含原始的query参数
-	fullPath := path
+	fullPath := pathToUse
 	if rc.RawQuery != "" {
-		fullPath = path + "?" + rc.RawQuery
+		fullPath = pathToUse + "?" + rc.RawQuery
 	}
 
 	var req *Request

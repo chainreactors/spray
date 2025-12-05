@@ -102,6 +102,7 @@ type RequestOptions struct {
 	Method          string   `short:"X" long:"method" default:"GET" description:"String, request method, e.g.: --method POST" config:"method"`
 	Headers         []string `short:"H" long:"header" description:"Strings, custom headers, e.g.: --header 'Auth: example_auth'" config:"headers"`
 	Host            string   `long:"host" description:"String, custom host header, e.g.: --host example.com" config:"host"`
+	Path            string   `long:"path" description:"String, custom request path, e.g.: --path /api/v1/test" config:"path"`
 	UserAgent       string   `long:"user-agent" description:"String, custom user-agent, e.g.: --user-agent Custom" config:"useragent"`
 	RandomUserAgent bool     `long:"random-agent" description:"Bool, use random with default user-agent" config:"random-useragent"`
 	Cookie          []string `long:"cookie" description:"Strings, custom cookie" config:"cookies"`
@@ -179,6 +180,42 @@ func (opt *Option) Validate() error {
 
 	if opt.ResumeFrom == "" && len(opt.URL) == 0 && opt.URLFile == "" && len(opt.CIDRs) == 0 && opt.RawFile == "" {
 		return fmt.Errorf("without any target, please use -u/-l/-c/--resume to set targets")
+	}
+
+	// FunctionOptions 只在 Brute 模式下生效
+	// Check 模式（无字典、无 word、无 rule）下使用 FunctionOptions 会报错
+	isCheckMode := len(opt.Dictionaries) == 0 && opt.Word == "" && len(opt.Rules) == 0 && len(opt.AppendRule) == 0 && !opt.DefaultDict
+	if isCheckMode {
+		if opt.Extensions != "" {
+			return errors.New("FunctionOptions: -e/--extension only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if opt.ForceExtension {
+			return errors.New("FunctionOptions: --force-extension only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if opt.ExcludeExtensions != "" {
+			return errors.New("FunctionOptions: --exclude-extension only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if opt.RemoveExtensions != "" {
+			return errors.New("FunctionOptions: --remove-extension only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if opt.Uppercase {
+			return errors.New("FunctionOptions: -U/--uppercase only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if opt.Lowercase {
+			return errors.New("FunctionOptions: -L/--lowercase only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if len(opt.Prefixes) > 0 {
+			return errors.New("FunctionOptions: --prefix only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if len(opt.Suffixes) > 0 {
+			return errors.New("FunctionOptions: --suffix only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if len(opt.Replaces) > 0 {
+			return errors.New("FunctionOptions: --replace only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
+		if len(opt.Skips) > 0 {
+			return errors.New("FunctionOptions: --skip only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
+		}
 	}
 
 	return nil

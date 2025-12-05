@@ -82,7 +82,8 @@ func (r *Runner) PrepareConfig() *pool.Config {
 	requestConfig := &ihttp.RequestConfig{
 		Method:          r.Method,
 		Headers:         headers,
-		CustomHost:      r.Host,
+		Host:            r.Host,
+		Path:            r.Path,
 		Body:            r.Body,
 		RandomUserAgent: r.RandomUserAgent,
 	}

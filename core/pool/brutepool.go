@@ -402,7 +402,6 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 	scopeReqConfig := &ihttp.RequestConfig{
 		Method:          "GET",
 		Headers:         pool.Request.Headers,
-		CustomHost:      "",
 		Body:            nil,
 		RandomUserAgent: pool.Request.RandomUserAgent,
 	}
