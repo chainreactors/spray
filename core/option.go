@@ -91,7 +91,7 @@ type OutputOptions struct {
 	Format      string `short:"F" long:"format" description:"String, output format, e.g.: --format 1.json" config:"format"`
 	Json        bool   `short:"j" long:"json" description:"Bool, output json" config:"json"`
 	FileOutput  string `short:"O" long:"file-output" default:"json" description:"Bool, file output format" config:"file_output"`
-	OutputProbe string `short:"o" long:"probe" description:"String, output format" config:"output"`
+	OutputProbe string `short:"o" long:"probe" default:"tree" description:"String, output mode: 'tree' for tree view, 'full' for full output, or comma-separated field names for probe output" config:"output"`
 	Quiet       bool   `short:"q" long:"quiet" description:"Bool, Quiet" config:"quiet"`
 	NoColor     bool   `long:"no-color" description:"Bool, no color" config:"no-color"`
 	NoBar       bool   `long:"no-bar" description:"Bool, No progress bar" config:"no-bar"`
@@ -437,7 +437,7 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.Headers["Cookie"] = strings.Join(opt.Cookie, "; ")
 	}
 
-	if opt.OutputProbe != "" {
+	if opt.OutputProbe != "" && opt.OutputProbe != "tree" && opt.OutputProbe != "full" {
 		r.Probes = strings.Split(opt.OutputProbe, ",")
 	}
 
