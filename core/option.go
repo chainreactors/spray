@@ -380,6 +380,11 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	} else if opt.Client == "standard" || opt.Client == "base" || opt.Client == "http" {
 		r.ClientType = ihttp.STANDARD
 	}
+	// 临时解决方案：如果使用了 --host 或 -m host，则强制使用 standard client，
+	// 避免 fasthttp 在 Host 覆盖场景下修改 dial 目标并触发不必要的 DNS 解析。
+	if opt.Host != "" || opt.Mod == "host" {
+		r.ClientType = ihttp.STANDARD
+	}
 
 	if len(opt.Proxies) > 0 {
 		urls, err := proxyclient.ParseProxyURLs(opt.Proxies)
