@@ -21,14 +21,6 @@ type Unit struct {
 	depth    int
 }
 
-func (u *Unit) Update(bl *baseline.Baseline) {
-	bl.Number = u.number
-	bl.Parent = u.parent
-	bl.Host = u.host
-	bl.Path = u.path
-	bl.Source = u.source
-}
-
 func NewBaselines() *Baselines {
 	return &Baselines{
 		baselines: map[int]*baseline.Baseline{},

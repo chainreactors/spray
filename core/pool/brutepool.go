@@ -57,10 +57,10 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			processCh:  make(chan *baseline.Baseline, config.Thread*2),
 			wg:         &sync.WaitGroup{},
 		},
-		base:  u.Scheme + "://" + u.Host,
-		isDir: strings.HasSuffix(u.Path, "/"),
-		url:   u,
-
+		base:        u.Scheme + "://" + u.Host,
+		isDir:       strings.HasSuffix(u.Path, "/"),
+		url:         u,
+		urihost:     u.Hostname(),
 		scopeurls:   make(map[string]struct{}),
 		uniques:     make(map[uint16]struct{}),
 		checkCh:     make(chan struct{}, config.Thread),
@@ -89,9 +89,11 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 type BrutePool struct {
 	*Baselines
 	*BasePool
-	base  string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
-	isDir bool
-	url   *url.URL
+	base    string // url的根目录, 在爬虫或者redirect时, 会需要用到根目录进行拼接
+	isDir   bool
+	dir     string
+	urihost string
+	url     *url.URL
 
 	reqPool     *ants.PoolWithFunc
 	scopePool   *ants.PoolWithFunc
@@ -329,7 +331,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 	if !ihttp.CheckBodySize(int64(bl.BodyLength)) {
 		bl.ExceedLength = true
 	}
-	unit.Update(bl)
+	bl.Number = unit.number
+	bl.Parent = unit.parent
+	bl.Source = unit.source
 	bl.Spended = time.Since(start).Milliseconds()
 	switch unit.source {
 	case parsers.InitRandomSource:

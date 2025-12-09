@@ -13,14 +13,14 @@ import (
 
 type BasePool struct {
 	*Config
-	Statistor   *pkg.Statistor
-	Bar         *pkg.Bar
-	Worder      *words.Worder
-	Cancel      context.CancelFunc
-	client      *ihttp.Client
-	ctx         context.Context
-	processCh   chan *baseline.Baseline // 待处理的baseline
-	dir         string
+	Statistor *pkg.Statistor
+	Bar       *pkg.Bar
+	Worder    *words.Worder
+	Cancel    context.CancelFunc
+	client    *ihttp.Client
+	ctx       context.Context
+	processCh chan *baseline.Baseline // 待处理的baseline
+
 	reqCount    int
 	failedCount int
 	additionCh  chan *Unit
