@@ -44,16 +44,21 @@ func (pool *BasePool) doRetry(bl *baseline.Baseline) {
 }
 
 func (pool *BasePool) addAddition(u *Unit) {
-	// 强行屏蔽报错, 防止goroutine泄露
-	defer func() {
-		if err := recover(); err != nil {
-		}
-	}()
 	pool.wg.Add(1)
 	select {
 	case pool.additionCh <- u:
-	case <-pool.ctx.Done():
+	default:
 	}
+	pool.wg.Add(1)
+	// 强行屏蔽报错, 防止goroutine泄露
+	go func() {
+		select {
+		case pool.additionCh <- u:
+			pool.wg.Done()
+		case <-pool.ctx.Done():
+			pool.wg.Done()
+		}
+	}()
 }
 
 func (pool *BasePool) putToOutput(bl *baseline.Baseline) {

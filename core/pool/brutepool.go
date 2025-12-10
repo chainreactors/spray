@@ -173,22 +173,18 @@ func (pool *BrutePool) Init() error {
 func (pool *BrutePool) Run(offset, limit int) {
 	pool.Worder.Run()
 	if pool.Active {
-		pool.wg.Add(1)
 		go pool.doActive()
 	}
 
 	if pool.Bak {
-		pool.wg.Add(1)
 		go pool.doBak()
 	}
 
 	if pool.Fuzzuli {
-		pool.wg.Add(1)
 		go pool.doFuzzuli()
 	}
 
 	if pool.Common {
-		pool.wg.Add(1)
 		go pool.doCommonFile()
 	}
 
@@ -430,7 +426,6 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 		bl.ReqDepth = unit.depth
 		bl.Collect()
 		bl.CollectURL()
-		pool.wg.Add(1)
 		pool.doScopeCrawl(bl)
 		pool.putToOutput(bl)
 	}
@@ -733,9 +728,7 @@ func (pool *BrutePool) doRedirect(bl *baseline.Baseline, depth int) {
 	//	return // 不同域名的重定向不处理
 	//}
 	reURL := pkg.FormatURL(bl.Url.Path, bl.RedirectURL)
-	pool.wg.Add(1)
 	go func() {
-		defer pool.wg.Done()
 		pool.addAddition(&Unit{
 			path:     reURL,
 			parent:   bl.Number,
@@ -758,11 +751,10 @@ func (pool *BrutePool) doCrawl(bl *baseline.Baseline) {
 		return
 	}
 
-	pool.wg.Add(2)
+	pool.wg.Add(1)
 	pool.doScopeCrawl(bl)
 
 	go func() {
-		defer pool.wg.Done()
 		for _, u := range bl.URLs {
 			if u = pkg.FormatURL(bl.Url.Path, u); u == "" {
 				continue
@@ -782,12 +774,10 @@ func (pool *BrutePool) doCrawl(bl *baseline.Baseline) {
 
 func (pool *BrutePool) doScopeCrawl(bl *baseline.Baseline) {
 	if bl.ReqDepth >= pool.MaxCrawlDepth {
-		pool.wg.Done()
 		return
 	}
 
 	go func() {
-		defer pool.wg.Done()
 		for _, u := range bl.URLs {
 			if strings.HasPrefix(u, "http") {
 				if v, _ := url.Parse(u); v == nil || !pkg.MatchWithGlobs(v.Host, pool.Scope) {
@@ -812,7 +802,6 @@ func (pool *BrutePool) doScopeCrawl(bl *baseline.Baseline) {
 }
 
 func (pool *BrutePool) doFuzzuli() {
-	defer pool.wg.Done()
 	if pool.Mod == HostSpray {
 		return
 	}
@@ -825,7 +814,6 @@ func (pool *BrutePool) doFuzzuli() {
 }
 
 func (pool *BrutePool) doBak() {
-	defer pool.wg.Done()
 	if pool.Mod == HostSpray {
 		return
 	}
@@ -839,19 +827,16 @@ func (pool *BrutePool) doBak() {
 }
 
 func (pool *BrutePool) doAppend(bl *baseline.Baseline) {
-	pool.wg.Add(2)
 	pool.doAppendWords(bl)
 	pool.doAppendRule(bl)
 }
 
 func (pool *BrutePool) doAppendRule(bl *baseline.Baseline) {
 	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
-		pool.wg.Done()
 		return
 	}
 
 	go func() {
-		defer pool.wg.Done()
 		for u := range rule.RunAsStream(pool.AppendRule.Expressions, path.Base(bl.Path)) {
 			pool.addAddition(&Unit{
 				path:   pkg.Dir(bl.Url.Path) + u,
@@ -868,13 +853,10 @@ func (pool *BrutePool) doAppendRule(bl *baseline.Baseline) {
 func (pool *BrutePool) doAppendWords(bl *baseline.Baseline) {
 	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
 		// 防止自身递归
-		pool.wg.Done()
 		return
 	}
 
 	go func() {
-		defer pool.wg.Done()
-
 		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
 			pool.addAddition(&Unit{
 				path:   pkg.SafePath(bl.Path, u),
@@ -889,7 +871,6 @@ func (pool *BrutePool) doAppendWords(bl *baseline.Baseline) {
 }
 
 func (pool *BrutePool) doActive() {
-	defer pool.wg.Done()
 	if pool.Mod == HostSpray {
 		return
 	}
@@ -902,7 +883,6 @@ func (pool *BrutePool) doActive() {
 }
 
 func (pool *BrutePool) doCommonFile() {
-	defer pool.wg.Done()
 	if pool.Mod == HostSpray {
 		return
 	}

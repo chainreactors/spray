@@ -127,7 +127,10 @@ func Format(opts Option) {
 		return
 	}
 
-	// Group by host:port instead of just host
+	// Group by host+path for deduplication.
+	// Prefer the HTTP Host header when present so that
+	// different virtual hosts on the same IP:port do not
+	// get merged together.
 	group := make(map[string]map[string]*baseline.Baseline)
 	for _, line := range bytes.Split(bytes.TrimSpace(content), []byte("\n")) {
 		var result baseline.Baseline
@@ -141,26 +144,33 @@ func Format(opts Option) {
 			continue
 		}
 
-		// Use host:port as the key
-		hostPort := result.Url.Host
-		if result.Url.Port() == "" {
-			if result.Url.Scheme == "https" {
-				hostPort += ":443"
-			} else if result.Url.Scheme == "http" {
-				hostPort += ":80"
+		// Determine host key: prefer Host header when available.
+		hostKey := result.Host
+		if hostKey == "" {
+			hostKey = result.Url.Host
+			// Normalize default ports when URL host does not include one.
+			if result.Url.Port() == "" {
+				if result.Url.Scheme == "https" {
+					hostKey += ":443"
+				} else if result.Url.Scheme == "http" {
+					hostKey += ":80"
+				}
 			}
 		}
-
-		if _, exists := group[hostPort]; !exists {
-			group[hostPort] = make(map[string]*baseline.Baseline)
+		if hostKey == "" {
+			continue
 		}
-		group[hostPort][result.Path] = &result
+
+		if _, exists := group[hostKey]; !exists {
+			group[hostKey] = make(map[string]*baseline.Baseline)
+		}
+		group[hostKey][result.Path] = &result
 	}
 
 	// Default to tree mode if not specified
 	outputProbe := opts.OutputProbe
 	if outputProbe == "" {
-		outputProbe = "tree"
+		outputProbe = "full"
 	}
 
 	if outputProbe == "tree" {

@@ -5,7 +5,6 @@ import (
 	"github.com/chainreactors/spray/cmd"
 	"github.com/gookit/config/v2"
 	"github.com/gookit/config/v2/yaml"
-	//"net/http"
 	//_ "net/http/pprof"
 )
 
@@ -18,9 +17,10 @@ func init() {
 }
 
 func main() {
-	//// 启动 pprof HTTP 服务器
+	// 启动 pprof HTTP 服务器，用于调试 goroutine 泄露等问题
 	//go func() {
-	//	http.ListenAndServe("localhost:6060", nil)
+	//	// 仅监听本地 6060 端口，避免对外暴露
+	//	_ = http.ListenAndServe("127.0.0.1:6060", nil)
 	//}()
 
 	cmd.Spray()
