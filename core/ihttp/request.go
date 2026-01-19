@@ -2,10 +2,12 @@ package ihttp
 
 import (
 	"context"
+	"net/http"
+	"net/url"
+	"strings"
+
 	"github.com/chainreactors/spray/pkg"
 	"github.com/valyala/fasthttp"
-	"net/http"
-	"strings"
 )
 
 // RequestConfig 封装HTTP请求相关的配置参数
@@ -33,10 +35,16 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 		pathToUse = rc.Path
 	}
 
-	// 构建完整的路径，包含原始的query参数
-	fullPath := pathToUse
-	if rc.RawQuery != "" {
-		fullPath = pathToUse + "?" + rc.RawQuery
+	// 构建完整的URL，使用 SafePath 避免 host + path 直接拼接
+	var fullURL string
+	if u, err := url.Parse(base); err == nil && u.Scheme != "" && u.Host != "" {
+		u.Path = pkg.SafePath(pkg.Dir(u.Path), pathToUse)
+		if rc.RawQuery != "" {
+			u.RawQuery = rc.RawQuery
+		}
+		fullURL = u.String()
+	} else {
+		fullURL = base + pkg.SafePath("/", pathToUse)
 	}
 
 	var req *Request
@@ -45,7 +53,7 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 	if clientType == FAST {
 		fastReq := fasthttp.AcquireRequest()
 		fastReq.Header.SetMethod(rc.Method)
-		fastReq.SetRequestURI(base + fullPath)
+		fastReq.SetRequestURI(fullURL)
 		if hostToUse != "" {
 			fastReq.SetHost(hostToUse)
 		}
@@ -60,9 +68,9 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 		}
 		var httpReq *http.Request
 		if bodyReader != nil {
-			httpReq, err = http.NewRequestWithContext(ctx, rc.Method, base+fullPath, bodyReader)
+			httpReq, err = http.NewRequestWithContext(ctx, rc.Method, fullURL, bodyReader)
 		} else {
-			httpReq, err = http.NewRequestWithContext(ctx, rc.Method, base+fullPath, nil)
+			httpReq, err = http.NewRequestWithContext(ctx, rc.Method, fullURL, nil)
 		}
 		if err != nil {
 			return nil, err
