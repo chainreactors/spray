@@ -48,17 +48,15 @@ func (pool *BasePool) addAddition(u *Unit) {
 	select {
 	case pool.additionCh <- u:
 	default:
+		// 强行屏蔽报错, 防止goroutine泄露
+		go func() {
+			select {
+			case pool.additionCh <- u:
+			case <-pool.ctx.Done():
+				pool.wg.Done()
+			}
+		}()
 	}
-	pool.wg.Add(1)
-	// 强行屏蔽报错, 防止goroutine泄露
-	go func() {
-		select {
-		case pool.additionCh <- u:
-			pool.wg.Done()
-		case <-pool.ctx.Done():
-			pool.wg.Done()
-		}
-	}()
 }
 
 func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
