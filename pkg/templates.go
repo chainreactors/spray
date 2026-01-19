@@ -1,13 +1,12 @@
 package pkg
 
 import (
-	"github.com/chainreactors/files"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/encode"
 )
 
 func LoadConfig(typ string) []byte {
 	if typ == "http" {
-		return files.UnFlate(parsers.Base64Decode(""))
+		return encode.MustDeflateDeCompress(encode.Base64Decode(""))
 	}
 	return []byte{}
 }

@@ -84,7 +84,7 @@ func (opt *FingerOptions) LoadLocalFingerConfig() error {
 				case fingers.FingersEngine:
 					resources.FingersHTTPData = content
 				case fingers.FingerPrintEngine:
-					resources.Fingerprinthubdata = content
+					resources.FingerprinthubWebData = content
 				case fingers.EHoleEngine:
 					resources.EholeData = content
 				case fingers.GobyEngine:

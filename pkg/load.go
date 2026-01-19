@@ -36,11 +36,8 @@ func LoadFingers() error {
 			}
 		}
 	}
-	for _, f := range FingerEngine.FingerPrintHub().FingerPrints {
-		if f.Path != "/" {
-			ActivePath = append(ActivePath, f.Path)
-		}
-	}
+	// 注意: FingerPrintHub 的 FingerPrints 字段已在新版本中移除
+	// 现在使用 neutron templates 代替，不再提供 Path 字段
 	return nil
 }
 
