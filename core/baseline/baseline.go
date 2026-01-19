@@ -25,7 +25,7 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 		},
 	}
 
-	if t, ok := pkg.ContentTypeMap[resp.ContentType()]; ok {
+	if t, ok := pkg.MatchContentType(resp.ContentType()); ok {
 		bl.ContentType = t
 		bl.Title = t + " data"
 	} else {

@@ -52,7 +52,7 @@ var (
 
 	FingerEngine   *fingers.Engine
 	ActivePath     []string
-	ContentTypeMap = map[string]string{
+	contentTypeMap = map[string]string{
 		"application/javascript":   "js",
 		"application/json":         "json",
 		"application/xml":          "xml",
@@ -94,6 +94,33 @@ var (
 	uacount          = len(randomUserAgent)
 	DefaultUserAgent = randomUserAgent[rand.Intn(uacount)]
 )
+
+func MatchContentType(contentType string) (string, bool) {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	if ct == "" {
+		return "", false
+	}
+	if v, ok := contentTypeMap[ct]; ok {
+		return v, true
+	}
+	// Fuzzy match for vendor-specific or structured types like application/vnd.*+json.
+	if strings.Contains(ct, "yaml") || strings.Contains(ct, "yml") {
+		return "yaml", true
+	}
+	if strings.Contains(ct, "json") {
+		return "json", true
+	}
+	if strings.Contains(ct, "xml") {
+		return "xml", true
+	}
+	if strings.Contains(ct, "html") {
+		return "html", true
+	}
+	if strings.Contains(ct, "javascript") || strings.Contains(ct, "ecmascript") {
+		return "js", true
+	}
+	return "", false
+}
 
 type BS []byte
 
