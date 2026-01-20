@@ -174,22 +174,26 @@ func (bl *Baseline) CollectURL() {
 	if len(bl.Body) == 0 {
 		return
 	}
-	for _, reg := range pkg.ExtractRegexps["js"][0].CompiledRegexps {
-		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
-		for _, u := range urls {
-			u[1] = pkg.CleanURL(u[1])
-			if u[1] != "" && !pkg.FilterJs(u[1]) {
-				bl.URLs = append(bl.URLs, u[1])
+	if jsExtracts, ok := pkg.ExtractRegexps["js"]; ok && len(jsExtracts) > 0 {
+		for _, reg := range jsExtracts[0].CompiledRegexps {
+			urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
+			for _, u := range urls {
+				u[1] = pkg.CleanURL(u[1])
+				if u[1] != "" && !pkg.FilterJs(u[1]) {
+					bl.URLs = append(bl.URLs, u[1])
+				}
 			}
 		}
 	}
 
-	for _, reg := range pkg.ExtractRegexps["url"][0].CompiledRegexps {
-		urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
-		for _, u := range urls {
-			u[1] = pkg.CleanURL(u[1])
-			if u[1] != "" && !pkg.FilterUrl(u[1]) {
-				bl.URLs = append(bl.URLs, u[1])
+	if urlExtracts, ok := pkg.ExtractRegexps["url"]; ok && len(urlExtracts) > 0 {
+		for _, reg := range urlExtracts[0].CompiledRegexps {
+			urls := reg.FindAllStringSubmatch(string(bl.Body), -1)
+			for _, u := range urls {
+				u[1] = pkg.CleanURL(u[1])
+				if u[1] != "" && !pkg.FilterUrl(u[1]) {
+					bl.URLs = append(bl.URLs, u[1])
+				}
 			}
 		}
 	}

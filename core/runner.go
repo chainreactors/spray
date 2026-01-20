@@ -36,18 +36,19 @@ type Runner struct {
 	bar      *mpb.Bar
 	bruteMod bool
 
-	ProxyClient   proxyclient.Dial
-	IsCheck       bool
-	Pools         *ants.PoolWithFunc
-	PoolName      map[string]bool
-	Tasks         *TaskGenerator
-	Rules         *rule.Program
-	AppendRules   *rule.Program
-	Headers       map[string]string
-	FilterExpr    *vm.Program
-	MatchExpr     *vm.Program
-	RecursiveExpr *vm.Program
-	OutputFile    *files.File
+	ProxyClient          proxyclient.Dial
+	IsCheck              bool
+	DisableOutputHandler bool // 禁用内置的 OutputHandler，用于 SDK 等外部控制
+	Pools                *ants.PoolWithFunc
+	PoolName             map[string]bool
+	Tasks                *TaskGenerator
+	Rules                *rule.Program
+	AppendRules          *rule.Program
+	Headers              map[string]string
+	FilterExpr           *vm.Program
+	MatchExpr            *vm.Program
+	RecursiveExpr        *vm.Program
+	OutputFile           *files.File
 	//FuzzyFile     *files.File
 	DumpFile    *files.File
 	StatFile    *files.File
@@ -134,7 +135,11 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	if r.bruteMod {
 		r.IsCheck = false
 	}
-	r.OutputHandler()
+	// 如果设置了 DisableOutputHandler，则跳过内置的输出处理器
+	// 这允许 SDK 等外部调用者完全控制 OutputCh 的处理
+	if !r.DisableOutputHandler {
+		r.OutputHandler()
+	}
 	var err error
 	if r.IsCheck {
 		// 仅check, 类似httpx
