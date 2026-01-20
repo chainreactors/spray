@@ -852,7 +852,7 @@ func (opt *Option) BuildWords(r *Runner) error {
 	}
 
 	if opt.RemoveExtensions != "" {
-		rexts := strings.Split(opt.ExcludeExtensions, ",")
+		rexts := strings.Split(opt.RemoveExtensions, ",")
 		r.AppendFunction(func(s string) []string {
 			if ext := pkg.ParseExtension(s); iutils.StringsContains(rexts, ext) {
 				return []string{strings.TrimSuffix(s, "."+ext)}
