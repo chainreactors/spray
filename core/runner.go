@@ -2,6 +2,11 @@ package core
 
 import (
 	"context"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/proxyclient"
@@ -15,10 +20,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -145,137 +146,92 @@ func (r *Runner) Prepare(ctx context.Context) error {
 		r.IsCheck = false
 	}
 	r.OutputHandler()
-	var err error
-	if r.IsCheck {
-		// 仅check, 类似httpx
-		r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
-			config := r.PrepareConfig()
-
-			checkPool, err := pool.NewCheckPool(ctx, config)
-			if err != nil {
-				logs.Log.Error(err.Error())
-				checkPool.Cancel()
-				r.poolwg.Done()
-				return
-			}
-
-			ch := make(chan string)
-			var tasks []*Task
-			go func() {
-				for t := range r.Tasks.tasks {
-					ch <- t.baseUrl
-					tasks = append(tasks, t)
-				}
-				close(ch)
-			}()
-			checkPool.Worder = words.NewWorderWithChan(ch)
-			checkPool.Worder.Fns = r.Fns
-			checkPool.Bar = pkg.NewBar("check", r.Count-r.Offset, checkPool.Statistor, r.Progress)
-			checkPool.Run(ctx, r.Offset, r.Count)
-
-			// 保存 check 模式的统计信息
-			checkPool.Statistor.EndTime = time.Now().Unix()
-			checkPool.Statistor.End = r.Count
-			checkPool.Statistor.Total = r.Count
-			checkPool.Statistor.BaseUrl = r.Tasks.Name
-			if r.Color {
-				logs.Log.Important(checkPool.Statistor.ColorString())
-			} else {
-				logs.Log.Important(checkPool.Statistor.String())
-			}
-			r.saveStat(checkPool.Statistor.Json())
-
-			r.poolwg.Done()
-		})
-		r.RunWithCheck(ctx)
-	} else {
-		// 完整探测模式
-		go func() {
-			for t := range r.Tasks.tasks {
-				r.taskCh <- t
-			}
-			close(r.taskCh)
-		}()
-
-		if r.Count > 0 {
-			r.newBar(r.Count)
-		}
-
-		r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
-			t := i.(*Task)
-			if t.origin != nil && t.origin.End == t.origin.Total {
-				r.saveStat(t.origin.Json())
-				r.Done()
-				return
-			}
-			config := r.PrepareConfig()
-			config.BaseURL = t.baseUrl
-
-			brutePool, err := pool.NewBrutePool(ctx, config)
-			if err != nil {
-				logs.Log.Error(err.Error())
-				brutePool.Cancel()
-				r.Done()
-				return
-			}
-			if t.origin != nil && len(r.Wordlist) == 0 {
-				// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
-				brutePool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
-				brutePool.Worder, err = t.origin.InitWorder(r.Fns)
-				if err != nil {
-					logs.Log.Error(err.Error())
-					r.Done()
-					return
-				}
-				brutePool.Statistor.Total = t.origin.sum
-			} else {
-				brutePool.Statistor = pkg.NewStatistor(t.baseUrl)
-				brutePool.Worder = words.NewWorderWithList(r.Wordlist)
-				brutePool.Worder.Fns = r.Fns
-				brutePool.Worder.Rules = r.Rules.Expressions
-			}
-
-			var limit int
-			if brutePool.Statistor.Total > r.Limit && r.Limit != 0 {
-				limit = r.Limit
-			} else {
-				limit = brutePool.Statistor.Total
-			}
-			brutePool.Bar = pkg.NewBar(config.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Statistor, r.Progress)
-			logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %v",
-				brutePool.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Thread, r.Proxies)
-			err = brutePool.Init()
-			if err != nil {
-				brutePool.Statistor.Error = err.Error()
-				if !r.Force {
-					// 如果没开启force, init失败将会关闭pool
-					brutePool.Bar.Close()
-					brutePool.Close()
-					r.PrintStat(brutePool)
-					r.Done()
-					return
-				}
-			}
-
-			brutePool.Run(brutePool.Statistor.Offset, limit)
-
-			if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
-				// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
-				brutePool.Statistor.End = brutePool.FailedBaselines[0].Number
-			}
-			r.PrintStat(brutePool)
-			r.Done()
-		})
-		r.Run(ctx)
-	}
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (r *Runner) Run(ctx context.Context) {
+func (r *Runner) RunWithBrute(ctx context.Context) {
+	go func() {
+		for t := range r.Tasks.tasks {
+			r.taskCh <- t
+		}
+		close(r.taskCh)
+	}()
+
+	if r.Count > 0 {
+		r.newBar(r.Count)
+	}
+	var err error
+	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
+		t := i.(*Task)
+		if t.origin != nil && t.origin.End == t.origin.Total {
+			r.saveStat(t.origin.Json())
+			r.Done()
+			return
+		}
+		config := r.PrepareConfig()
+		config.BaseURL = t.baseUrl
+
+		brutePool, err := pool.NewBrutePool(ctx, config)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			brutePool.Cancel()
+			r.Done()
+			return
+		}
+		if t.origin != nil && len(r.Wordlist) == 0 {
+			// 如果是从断点续传中恢复的任务, 则自动设置word,dict与rule, 不过优先级低于命令行参数
+			brutePool.Statistor = pkg.NewStatistorFromStat(t.origin.Statistor)
+			brutePool.Worder, err = t.origin.InitWorder(r.Fns)
+			if err != nil {
+				logs.Log.Error(err.Error())
+				r.Done()
+				return
+			}
+			brutePool.Statistor.Total = t.origin.sum
+		} else {
+			brutePool.Statistor = pkg.NewStatistor(t.baseUrl)
+			brutePool.Worder = words.NewWorderWithList(r.Wordlist)
+			brutePool.Worder.Fns = r.Fns
+			brutePool.Worder.Rules = r.Rules.Expressions
+		}
+
+		var limit int
+		if brutePool.Statistor.Total > r.Limit && r.Limit != 0 {
+			limit = r.Limit
+		} else {
+			limit = brutePool.Statistor.Total
+		}
+		brutePool.Bar = pkg.NewBar(config.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Statistor, r.Progress)
+		logs.Log.Importantf("[pool] task: %s, total %d words, %d threads, proxy: %v",
+			brutePool.BaseURL, limit-brutePool.Statistor.Offset, brutePool.Thread, r.Proxies)
+		err = brutePool.Init()
+		if err != nil {
+			brutePool.Statistor.Error = err.Error()
+			if !r.Force {
+				// 如果没开启force, init失败将会关闭pool
+				brutePool.Bar.Close()
+				brutePool.Close()
+				r.PrintStat(brutePool)
+				r.Done()
+				return
+			}
+		}
+
+		brutePool.Run(brutePool.Statistor.Offset, limit)
+
+		if brutePool.IsFailed && len(brutePool.FailedBaselines) > 0 {
+			// 如果因为错误积累退出, end将指向第一个错误发生时, 防止resume时跳过大量目标
+			brutePool.Statistor.End = brutePool.FailedBaselines[0].Number
+		}
+		r.PrintStat(brutePool)
+		r.Done()
+	})
+
+	if err != nil {
+		logs.Log.Error(err.Error())
+		return
+	}
+
 Loop:
 	for {
 		select {
@@ -307,9 +263,51 @@ Loop:
 }
 
 func (r *Runner) RunWithCheck(ctx context.Context) {
+	// 仅check, 类似httpx
+	var err error
+	r.Pools, err = ants.NewPoolWithFunc(1, func(i interface{}) {
+		config := r.PrepareConfig()
+
+		checkPool, err := pool.NewCheckPool(ctx, config)
+		if err != nil {
+			logs.Log.Error(err.Error())
+			checkPool.Cancel()
+			r.poolwg.Done()
+			return
+		}
+
+		ch := make(chan string)
+		var tasks []*Task
+		go func() {
+			for t := range r.Tasks.tasks {
+				ch <- t.baseUrl
+				tasks = append(tasks, t)
+			}
+			close(ch)
+		}()
+		checkPool.Worder = words.NewWorderWithChan(ch)
+		checkPool.Worder.Fns = r.Fns
+		checkPool.Bar = pkg.NewBar("check", r.Count-r.Offset, checkPool.Statistor, r.Progress)
+		checkPool.Run(ctx, r.Offset, r.Count)
+
+		// 保存 check 模式的统计信息
+		checkPool.Statistor.EndTime = time.Now().Unix()
+		checkPool.Statistor.End = r.Count
+		checkPool.Statistor.Total = r.Count
+		checkPool.Statistor.BaseUrl = r.Tasks.Name
+		if r.Color {
+			logs.Log.Important(checkPool.Statistor.ColorString())
+		} else {
+			logs.Log.Important(checkPool.Statistor.String())
+		}
+		r.saveStat(checkPool.Statistor.Json())
+
+		r.poolwg.Done()
+	})
+
 	stopCh := make(chan struct{})
 	r.poolwg.Add(1)
-	err := r.Pools.Invoke(struct{}{})
+	err = r.Pools.Invoke(struct{}{})
 	if err != nil {
 		return
 	}

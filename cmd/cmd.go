@@ -3,6 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/spray/core"
@@ -10,10 +15,6 @@ import (
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/jessevdk/go-flags"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 var ver = "dev"
@@ -186,4 +187,9 @@ func Spray() {
 		return
 	}
 
+	if runner.IsCheck {
+		runner.RunWithCheck(ctx)
+	} else {
+		runner.RunWithBrute(ctx)
+	}
 }
