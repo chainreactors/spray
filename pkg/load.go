@@ -2,14 +2,15 @@ package pkg
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
-	"os"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
-	"strings"
 )
 
 func LoadPorts() error {
@@ -36,11 +37,7 @@ func LoadFingers() error {
 			}
 		}
 	}
-	for _, f := range FingerEngine.FingerPrintHub().FingerPrints {
-		if f.Path != "/" {
-			ActivePath = append(ActivePath, f.Path)
-		}
-	}
+
 	return nil
 }
 
