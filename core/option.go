@@ -334,6 +334,18 @@ func (opt *Option) Prepare() error {
 	return nil
 }
 
+// NewStatistor 在Option层面创建Statistor
+func (opt *Option) NewStatistor(url string, total int) *pkg.Statistor {
+	stat := pkg.NewStatistor(url)
+	stat.Total = total
+	stat.Dictionaries = opt.Dictionaries
+	stat.Word = opt.Word
+	stat.Offset = opt.Offset
+	stat.RuleFiles = opt.Rules
+	stat.RuleFilter = opt.FilterRule
+	return stat
+}
+
 func (opt *Option) NewRunner() (*Runner, error) {
 	var err error
 	r := &Runner{
@@ -408,16 +420,6 @@ func (opt *Option) NewRunner() (*Runner, error) {
 
 	if opt.Threads == DefaultThreads && r.bruteMod {
 		r.Threads = 1000
-	}
-
-	pkg.DefaultStatistor = pkg.Statistor{
-		Word:         opt.Word,
-		WordCount:    len(r.Wordlist),
-		Dictionaries: opt.Dictionaries,
-		Offset:       opt.Offset,
-		RuleFiles:    opt.Rules,
-		RuleFilter:   opt.FilterRule,
-		Total:        r.Total,
 	}
 
 	r.Tasks, err = opt.BuildTasks(r)

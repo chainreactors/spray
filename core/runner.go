@@ -189,7 +189,7 @@ func (r *Runner) RunWithBrute(ctx context.Context) {
 			}
 			brutePool.Statistor.Total = t.origin.sum
 		} else {
-			brutePool.Statistor = pkg.NewStatistor(t.baseUrl)
+			brutePool.Statistor = r.Option.NewStatistor(t.baseUrl, r.Total)
 			brutePool.Worder = words.NewWorderWithList(r.Wordlist)
 			brutePool.Worder.Fns = r.Fns
 			brutePool.Worder.Rules = r.Rules.Expressions
@@ -239,7 +239,7 @@ Loop:
 			// 如果超过了deadline, 尚未开始的任务都将被记录到stat中
 			if len(r.taskCh) > 0 {
 				for t := range r.taskCh {
-					stat := pkg.NewStatistor(t.baseUrl)
+					stat := r.Option.NewStatistor(t.baseUrl, 0)
 					r.saveStat(stat.Json())
 				}
 			}
@@ -328,6 +328,10 @@ Loop:
 	}
 
 	r.OutWg.Wait()
+
+	// 关闭 OutputCh，通知所有监听者没有更多结果了
+	close(r.OutputCh)
+	close(r.FuzzyCh)
 }
 
 func (r *Runner) AddRecursive(bl *baseline.Baseline) {
@@ -335,7 +339,7 @@ func (r *Runner) AddRecursive(bl *baseline.Baseline) {
 	task := &Task{
 		baseUrl: bl.UrlString,
 		depth:   bl.RecuDepth + 1,
-		origin:  NewOrigin(pkg.NewStatistor(bl.UrlString)),
+		origin:  NewOrigin(r.Option.NewStatistor(bl.UrlString, 0)),
 	}
 
 	r.AddPool(task)
