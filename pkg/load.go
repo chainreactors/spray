@@ -31,6 +31,9 @@ func LoadFingers() error {
 		return err
 	}
 	for _, f := range FingerEngine.Fingers().HTTPFingers {
+		if f.SendDataStr != "" {
+			ActivePath = append(ActivePath, f.SendDataStr)
+		}
 		for _, rule := range f.Rules {
 			if rule.SendDataStr != "" {
 				ActivePath = append(ActivePath, rule.SendDataStr)
