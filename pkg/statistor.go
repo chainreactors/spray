@@ -4,23 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
 	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
 )
 
-var DefaultStatistor Statistor
-
 func NewStatistor(url string) *Statistor {
-	stat := DefaultStatistor
-	stat.StartTime = time.Now().Unix()
-	stat.Counts = make(map[int]int)
-	stat.Sources = make(map[parsers.SpraySource]int)
-	stat.BaseUrl = url
-	return &stat
+	return &Statistor{
+		BaseUrl:   url,
+		StartTime: time.Now().Unix(),
+		Counts:    make(map[int]int),
+		Sources:   make(map[parsers.SpraySource]int),
+	}
 }
 
 func NewStatistorFromStat(origin *Statistor) *Statistor {
