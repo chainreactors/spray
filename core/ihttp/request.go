@@ -38,7 +38,10 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 	// 构建完整的URL，使用 SafePath 避免 host + path 直接拼接
 	var fullURL string
 	if u, err := url.Parse(base); err == nil && u.Scheme != "" && u.Host != "" {
-		u.Path = pkg.SafePath(pkg.Dir(u.Path), pathToUse)
+		// 只有当pathToUse不为空时才修改路径，否则保留原始URL的路径
+		if pathToUse != "" {
+			u.Path = pkg.SafePath(pkg.Dir(u.Path), pathToUse)
+		}
 		if rc.RawQuery != "" {
 			u.RawQuery = rc.RawQuery
 		}
