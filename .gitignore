@@ -15,4 +15,4 @@
 # vendor/
 .idea/
 bin/
-*.stat
+*.statspray
