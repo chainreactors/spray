@@ -699,11 +699,11 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 	if opt.ReconPlugin {
 		// Combine pentest and info extractors for recon
 		// Pre-allocate capacity for both pentest and info extractors to avoid reallocation
-		pentestLen := len(pkg.ExtractRegexps["pentest"])
-		infoLen := len(pkg.ExtractRegexps["info"])
-		reconExtractors := make([]*parsers.Extractor, 0, pentestLen+infoLen)
-		reconExtractors = append(reconExtractors, pkg.ExtractRegexps["pentest"]...)
-		reconExtractors = append(reconExtractors, pkg.ExtractRegexps["info"]...)
+		pentestExtractors := pkg.ExtractRegexps["pentest"]
+		infoExtractors := pkg.ExtractRegexps["info"]
+		reconExtractors := make([]*parsers.Extractor, 0, len(pentestExtractors)+len(infoExtractors))
+		reconExtractors = append(reconExtractors, pentestExtractors...)
+		reconExtractors = append(reconExtractors, infoExtractors...)
 		pkg.Extractors["recon"] = reconExtractors
 	}
 
