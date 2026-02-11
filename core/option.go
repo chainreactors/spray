@@ -702,12 +702,8 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		pentestLen := len(pkg.ExtractRegexps["pentest"])
 		infoLen := len(pkg.ExtractRegexps["info"])
 		reconExtractors := make([]*parsers.Extractor, 0, pentestLen+infoLen)
-		if pentestLen > 0 {
-			reconExtractors = append(reconExtractors, pkg.ExtractRegexps["pentest"]...)
-		}
-		if infoLen > 0 {
-			reconExtractors = append(reconExtractors, pkg.ExtractRegexps["info"]...)
-		}
+		reconExtractors = append(reconExtractors, pkg.ExtractRegexps["pentest"]...)
+		reconExtractors = append(reconExtractors, pkg.ExtractRegexps["info"]...)
 		pkg.Extractors["recon"] = reconExtractors
 	}
 
