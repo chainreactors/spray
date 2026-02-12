@@ -1,8 +1,6 @@
 module github.com/chainreactors/spray
 
-go 1.21
-
-toolchain go1.24.12
+go 1.20
 
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
