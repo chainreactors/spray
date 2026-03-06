@@ -678,8 +678,9 @@ func (pool *BrutePool) Close() {
 		// 等待缓存的待处理任务完成
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
-	close(pool.additionCh) // 关闭addition管道
-	//close(pool.checkCh)    // 关闭check管道
+	pool.additionClosed.Store(true)
+	// additionCh 可能仍有异步 producer（redirect/crawl/retry/append），
+	// 依赖 closeCh/ctx 停止消费循环，不直接关闭 channel
 	pool.Statistor.EndTime = time.Now().Unix()
 	pool.reqPool.Release()
 	pool.scopePool.Release()
