@@ -52,10 +52,11 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 				Timeout:     config.Timeout,
 				ProxyClient: config.ProxyClient,
 			}),
-			additionCh: make(chan *Unit, config.Thread*10),
-			closeCh:    make(chan struct{}),
-			processCh:  make(chan *baseline.Baseline, config.Thread*2),
-			wg:         &sync.WaitGroup{},
+			additionCh:  make(chan *Unit, config.Thread*10),
+			closeCh:     make(chan struct{}),
+			processCh:   make(chan *baseline.Baseline, config.Thread*2),
+			wg:          &sync.WaitGroup{},
+			handlerDone: make(chan struct{}),
 		},
 		base:        u.Scheme + "://" + u.Host,
 		isDir:       strings.HasSuffix(u.Path, "/"),
@@ -105,7 +106,6 @@ type BrutePool struct {
 	urls        sync.Map
 	scopeurls   map[string]struct{}
 	uniques     map[uint16]struct{}
-	analyzeDone bool
 	limiter     *rate.Limiter
 	locker      sync.Mutex
 	scopeLocker sync.Mutex
@@ -196,6 +196,11 @@ func (pool *BrutePool) Run(offset, limit int) {
 				pool.wg.Wait()
 				close(pool.closeCh)
 				return
+			}
+			select {
+			case <-pool.ctx.Done():
+				return
+			default:
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -376,7 +381,7 @@ func (pool *BrutePool) Invoke(v interface{}) {
 
 	case parsers.WordSource:
 		// 异步进行性能消耗较大的深度对比
-		pool.processCh <- bl
+		pool.sendProcess(bl)
 		if int(pool.Statistor.ReqTotal)%pool.CheckPeriod == 0 {
 			// 间歇插入check waf的探针
 			pool.doCheck()
@@ -388,9 +393,9 @@ func (pool *BrutePool) Invoke(v interface{}) {
 		pool.Bar.Done()
 	case parsers.RedirectSource:
 		bl.FrontURL = unit.frontUrl
-		pool.processCh <- bl
+		pool.sendProcess(bl)
 	default:
-		pool.processCh <- bl
+		pool.sendProcess(bl)
 	}
 }
 
@@ -432,6 +437,7 @@ func (pool *BrutePool) NoScopeInvoke(v interface{}) {
 }
 
 func (pool *BrutePool) Handler() {
+	defer close(pool.handlerDone)
 	for bl := range pool.processCh {
 		if bl.IsValid {
 			pool.addFuzzyBaseline(bl)
@@ -516,8 +522,6 @@ func (pool *BrutePool) Handler() {
 		}
 		pool.wg.Done()
 	}
-
-	pool.analyzeDone = true
 }
 
 func (pool *BrutePool) checkRedirect(redirectURL string) bool {
@@ -674,16 +678,12 @@ func (pool *BrutePool) fallback() {
 }
 
 func (pool *BrutePool) Close() {
-	for pool.analyzeDone {
-		// 等待缓存的待处理任务完成
-		time.Sleep(time.Duration(100) * time.Millisecond)
-	}
-	pool.additionClosed.Store(true)
-	// additionCh 可能仍有异步 producer（redirect/crawl/retry/append），
-	// 依赖 closeCh/ctx 停止消费循环，不直接关闭 channel
-	pool.Statistor.EndTime = time.Now().Unix()
+	pool.Cancel()
 	pool.reqPool.Release()
 	pool.scopePool.Release()
+	close(pool.processCh)
+	<-pool.handlerDone
+	pool.Statistor.EndTime = time.Now().Unix()
 }
 
 func (pool *BrutePool) safePath(u string) string {
@@ -714,9 +714,15 @@ func (pool *BrutePool) doCheck() {
 	}
 
 	if pool.Mod == HostSpray {
-		pool.checkCh <- struct{}{}
+		select {
+		case pool.checkCh <- struct{}{}:
+		case <-pool.ctx.Done():
+		}
 	} else if pool.Mod == PathSpray {
-		pool.checkCh <- struct{}{}
+		select {
+		case pool.checkCh <- struct{}{}:
+		case <-pool.ctx.Done():
+		}
 	}
 }
 
@@ -756,6 +762,7 @@ func (pool *BrutePool) doCrawl(bl *baseline.Baseline) {
 	pool.doScopeCrawl(bl)
 
 	go func() {
+		defer pool.wg.Done()
 		for _, u := range bl.URLs {
 			if u = pkg.FormatURL(bl.Url.Path, u); u == "" {
 				continue
