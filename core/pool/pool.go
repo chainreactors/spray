@@ -26,6 +26,7 @@ type BasePool struct {
 	additionCh  chan *Unit
 	closeCh     chan struct{}
 	wg          *sync.WaitGroup
+	handlerDone chan struct{}
 	isFallback  atomic.Bool
 }
 
@@ -44,18 +45,21 @@ func (pool *BasePool) doRetry(bl *baseline.Baseline) {
 }
 
 func (pool *BasePool) addAddition(u *Unit) {
+	if pool.ctx.Err() != nil {
+		return
+	}
 	pool.wg.Add(1)
 	select {
 	case pool.additionCh <- u:
-	default:
-		// 强行屏蔽报错, 防止goroutine泄露
-		go func() {
-			select {
-			case pool.additionCh <- u:
-			case <-pool.ctx.Done():
-				pool.wg.Done()
-			}
-		}()
+	case <-pool.ctx.Done():
+		pool.wg.Done()
+	}
+}
+
+func (pool *BasePool) sendProcess(bl *baseline.Baseline) {
+	select {
+	case pool.processCh <- bl:
+	case <-pool.ctx.Done():
 	}
 }
 
@@ -64,11 +68,19 @@ func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
 		bl.Collect()
 	}
 	pool.Outwg.Add(1)
-	pool.OutputCh <- bl
+	select {
+	case pool.OutputCh <- bl:
+	case <-pool.ctx.Done():
+		pool.Outwg.Done()
+	}
 }
 
 func (pool *BasePool) putToFuzzy(bl *baseline.Baseline) {
 	pool.Outwg.Add(1)
 	bl.IsFuzzy = true
-	pool.FuzzyCh <- bl
+	select {
+	case pool.FuzzyCh <- bl:
+	case <-pool.ctx.Done():
+		pool.Outwg.Done()
+	}
 }
