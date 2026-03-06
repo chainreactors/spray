@@ -3,6 +3,7 @@ package baseline
 import (
 	"bytes"
 	"github.com/chainreactors/fingers/common"
+	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
@@ -53,15 +54,14 @@ func NewBaseline(u, host string, resp *ihttp.Response) *Baseline {
 	bl.Raw = append(bl.Header, bl.Body...)
 	bl.Response, err = pkg.ParseRawResponse(bl.Raw)
 	if err != nil {
-		bl.IsValid = false
-		bl.Reason = pkg.ErrResponseError.Error()
-		bl.ErrString = err.Error()
-		return bl
+		// raw 重解析失败不影响 baseline 有效性，live response 已提供所有需要的数据
+		logs.Log.Debugf("ParseRawResponse failed for %s: %s", u, err.Error())
 	}
-	if r := bl.Response.Header.Get("Location"); r != "" {
+	// 始终从 live response 读取 Location
+	if r := resp.GetHeader("Location"); r != "" {
 		bl.RedirectURL = r
 	} else {
-		bl.RedirectURL = bl.Response.Header.Get("location")
+		bl.RedirectURL = resp.GetHeader("location")
 	}
 
 	bl.Dir = bl.IsDir()
