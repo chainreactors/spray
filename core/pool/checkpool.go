@@ -34,6 +34,7 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 			additionCh: make(chan *Unit, config.Thread*10),
 			closeCh:    make(chan struct{}),
 			processCh:  make(chan *baseline.Baseline, config.Thread*2),
+			handlerDone: make(chan struct{}),
 		},
 	}
 	pool.Request.Headers.Set("Connection", "close")
@@ -105,6 +106,9 @@ Loop:
 	pool.Close()
 }
 func (pool *CheckPool) Close() {
+	pool.Cancel()
+	close(pool.processCh)
+	<-pool.handlerDone
 	pool.Bar.Close()
 	pool.Pool.Release()
 }
@@ -139,7 +143,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 				ReqDepth:  unit.depth,
 			},
 		}
-		pool.processCh <- bl
+		pool.sendProcess(bl)
 		return
 	}
 	start := time.Now()
@@ -172,10 +176,11 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	if bl.RedirectURL != "" {
 		pool.doRedirect(bl, bl.ReqDepth)
 	}
-	pool.processCh <- bl
+	pool.sendProcess(bl)
 }
 
 func (pool *CheckPool) Handler() {
+	defer close(pool.handlerDone)
 	for bl := range pool.processCh {
 		if bl.IsValid {
 			params := map[string]interface{}{
