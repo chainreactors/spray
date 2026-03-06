@@ -21,12 +21,13 @@ type BasePool struct {
 	ctx       context.Context
 	processCh chan *baseline.Baseline // 待处理的baseline
 
-	reqCount    int
-	failedCount int
-	additionCh  chan *Unit
-	closeCh     chan struct{}
-	wg          *sync.WaitGroup
-	isFallback  atomic.Bool
+	reqCount       int
+	failedCount    int
+	additionCh     chan *Unit
+	closeCh        chan struct{}
+	wg             *sync.WaitGroup
+	isFallback     atomic.Bool
+	additionClosed atomic.Bool
 }
 
 func (pool *BasePool) doRetry(bl *baseline.Baseline) {
@@ -44,12 +45,31 @@ func (pool *BasePool) doRetry(bl *baseline.Baseline) {
 }
 
 func (pool *BasePool) addAddition(u *Unit) {
+	if pool.ctx.Err() != nil || pool.additionClosed.Load() {
+		return
+	}
+
 	pool.wg.Add(1)
+	defer func() {
+		if recover() != nil {
+			pool.wg.Done()
+		}
+	}()
+
 	select {
+	case <-pool.ctx.Done():
+		pool.wg.Done()
+		return
 	case pool.additionCh <- u:
+		return
 	default:
 		// 强行屏蔽报错, 防止goroutine泄露
 		go func() {
+			defer func() {
+				if recover() != nil {
+					pool.wg.Done()
+				}
+			}()
 			select {
 			case pool.additionCh <- u:
 			case <-pool.ctx.Done():
