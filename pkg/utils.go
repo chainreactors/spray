@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	LogVerbose          = logs.Warn - 2
-	LogFuzz             = logs.Warn - 1
+	LogVerbose          = logs.Level(18)
+	LogFuzz             = logs.Level(19)
 	DefaultWhiteStatus  = []int{200}                               // cmd input
 	DefaultBlackStatus  = []int{400, 410}                          // cmd input
 	DefaultFuzzyStatus  = []int{500, 501, 502, 503, 301, 302, 404} // cmd input
