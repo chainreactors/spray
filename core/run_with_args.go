@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -18,6 +19,17 @@ type RunOptions struct {
 	Output        io.Writer
 	DefaultConfig string
 	Version       string
+	BeforePrepare func(*Option) error
+	AfterPrepare  func(*Option) error
+}
+
+func Help() string {
+	var option Option
+	parser := flags.NewParser(&option, flags.Default&^flags.PrintErrors)
+	parser.Usage = Usage()
+	var buf bytes.Buffer
+	parser.WriteHelp(&buf)
+	return buf.String()
 }
 
 func RunWithArgs(ctx context.Context, args []string, opts RunOptions) error {
@@ -126,8 +138,18 @@ func RunWithArgs(ctx context.Context, args []string, opts RunOptions) error {
 	default:
 	}
 
+	if opts.BeforePrepare != nil {
+		if err := opts.BeforePrepare(&option); err != nil {
+			return err
+		}
+	}
 	if err := option.Prepare(); err != nil {
 		return err
+	}
+	if opts.AfterPrepare != nil {
+		if err := opts.AfterPrepare(&option); err != nil {
+			return err
+		}
 	}
 
 	runner, err := option.NewRunner()
