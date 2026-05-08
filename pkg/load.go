@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"github.com/chainreactors/fingers"
+	fingerscommon "github.com/chainreactors/fingers/common"
+	"github.com/chainreactors/fingers/favicon"
+	fingerslib "github.com/chainreactors/fingers/fingers"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
@@ -26,7 +29,35 @@ func LoadPorts() error {
 
 func LoadFingers() error {
 	var err error
-	FingerEngine, err = fingers.NewEngine()
+	ActivePath = ActivePath[:0]
+	if httpData := LoadConfig("http"); len(httpData) > 0 {
+		httpFingers, err := fingerslib.LoadFingers(httpData)
+		if err != nil {
+			return err
+		}
+		socketFingers, err := fingerslib.LoadFingers(LoadConfig("socket"))
+		if err != nil {
+			return err
+		}
+		fingerImpl, err := fingerslib.NewEngine(httpFingers, socketFingers)
+		if err != nil {
+			return err
+		}
+		FingerEngine = &fingers.Engine{
+			EnginesImpl:  make(map[string]fingers.EngineImpl),
+			Enabled:      make(map[string]bool),
+			Capabilities: make(map[string]fingerscommon.EngineCapability),
+		}
+		faviconEngine := favicon.NewFavicons()
+		FingerEngine.EnginesImpl[fingers.FaviconEngine] = faviconEngine
+		FingerEngine.Capabilities[fingers.FaviconEngine] = faviconEngine.Capability()
+		FingerEngine.Register(fingerImpl)
+		if err := FingerEngine.Compile(); err != nil {
+			return err
+		}
+	} else {
+		FingerEngine, err = fingers.NewEngine()
+	}
 	if err != nil {
 		return err
 	}
@@ -46,6 +77,10 @@ func LoadFingers() error {
 
 func LoadTemplates() error {
 	var err error
+	Rules = make(map[string]string)
+	Dicts = make(map[string][]string)
+	ExtractRegexps = make(parsers.Extractors)
+	Extractors = make(parsers.Extractors)
 	// load rule
 
 	err = yaml.Unmarshal(LoadConfig("spray_rule"), &Rules)
