@@ -21,8 +21,8 @@ type BasePool struct {
 	ctx       context.Context
 	processCh chan *baseline.Baseline // 待处理的baseline
 
-	reqCount    int
-	failedCount int
+	reqCount    atomic.Int64
+	failedCount atomic.Int64
 	additionCh  chan *Unit
 	closeCh     chan struct{}
 	wg          *sync.WaitGroup

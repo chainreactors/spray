@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -130,7 +131,17 @@ func (b BS) String() string {
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-var src = rand.NewSource(time.Now().UnixNano())
+var (
+	src   = rand.NewSource(time.Now().UnixNano())
+	srcMu sync.Mutex
+)
+
+func randInt63() int64 {
+	srcMu.Lock()
+	n := src.Int63()
+	srcMu.Unlock()
+	return n
+}
 
 const (
 	// 6 bits to represent a letter index
@@ -144,9 +155,9 @@ func RandPath() string {
 	n := 16
 	b := make([]byte, n)
 	// A rand.Int63() generates 63 random bits, enough for letterIdMax letters!
-	for i, cache, remain := n-1, src.Int63(), letterIdMax; i >= 0; {
+	for i, cache, remain := n-1, randInt63(), letterIdMax; i >= 0; {
 		if remain == 0 {
-			cache, remain = src.Int63(), letterIdMax
+			cache, remain = randInt63(), letterIdMax
 		}
 		if idx := int(cache & letterIdMask); idx < len(letters) {
 			b[i] = letters[idx]
@@ -162,9 +173,9 @@ func RandHost() string {
 	n := 8
 	b := make([]byte, n)
 	// A rand.Int63() generates 63 random bits, enough for letterIdMax letters!
-	for i, cache, remain := n-1, src.Int63(), letterIdMax; i >= 1; {
+	for i, cache, remain := n-1, randInt63(), letterIdMax; i >= 1; {
 		if remain == 0 {
-			cache, remain = src.Int63(), letterIdMax
+			cache, remain = randInt63(), letterIdMax
 		}
 		if idx := int(cache & letterIdMask); idx < len(letters) {
 			b[i] = letters[idx]
