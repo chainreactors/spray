@@ -158,7 +158,7 @@ func (bl *Baseline) Collect() {
 	if len(bl.Body) > 0 {
 		if bl.ContentType == "html" {
 			bl.Title = iutils.AsciiEncode(parsers.MatchTitle(bl.Body))
-		} else if bl.ContentType == "ico" {
+		} else if bl.ContentType == "ico" && pkg.FingerEngine != nil && pkg.FingerEngine.Favicon() != nil {
 			if frame := pkg.FingerEngine.Favicon().WebMatch(bl.Body); frame != nil {
 				bl.Frameworks.Merge(frame)
 			}
