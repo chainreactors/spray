@@ -161,7 +161,12 @@ func (r *Runner) RunWithBrute(ctx context.Context) {
 		r.newBar(r.Count)
 	}
 	var err error
-	r.Pools, err = ants.NewPoolWithFunc(r.PoolSize, func(i interface{}) {
+	poolSize := r.PoolSize
+	if poolSize <= 0 {
+		poolSize = 1
+	}
+
+	r.Pools, err = ants.NewPoolWithFunc(poolSize, func(i interface{}) {
 		t := i.(*Task)
 		if t.origin != nil && t.origin.End == t.origin.Total {
 			r.saveStat(t.origin.Json())
@@ -174,7 +179,6 @@ func (r *Runner) RunWithBrute(ctx context.Context) {
 		brutePool, err := pool.NewBrutePool(ctx, config)
 		if err != nil {
 			logs.Log.Error(err.Error())
-			brutePool.Cancel()
 			r.Done()
 			return
 		}
@@ -231,6 +235,12 @@ func (r *Runner) RunWithBrute(ctx context.Context) {
 		logs.Log.Error(err.Error())
 		return
 	}
+	// r.Pools 内部有 ticktock / purgeStaleWorkers 后台 goroutine,
+	// 必须 Release 才能回收, 否则 SDK 多次 Execute 会泄露.
+	defer func() {
+		r.Pools.Release()
+		r.Pools = nil
+	}()
 
 Loop:
 	for {
@@ -260,6 +270,9 @@ Loop:
 	}
 	r.poolwg.Wait()
 	r.OutWg.Wait()
+
+	close(r.OutputCh)
+	close(r.FuzzyCh)
 }
 
 func (r *Runner) RunWithCheck(ctx context.Context) {
@@ -305,7 +318,15 @@ func (r *Runner) RunWithCheck(ctx context.Context) {
 		r.poolwg.Done()
 	})
 
-	stopCh := make(chan struct{})
+	// r.Pools 内部有 ticktock / purgeStaleWorkers 后台 goroutine,
+	// 必须 Release 才能回收, 否则 SDK 多次 Execute 会泄露.
+	defer func() {
+		r.Pools.Release()
+		r.Pools = nil
+	}()
+
+	// 缓冲 1: ctx 先取消时主循环走 ctx.Done 分支退出, 这个 goroutine 不能阻塞在 send.
+	stopCh := make(chan struct{}, 1)
 	r.poolwg.Add(1)
 	err = r.Pools.Invoke(struct{}{})
 	if err != nil {
