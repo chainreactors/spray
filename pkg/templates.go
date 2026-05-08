@@ -1,3 +1,6 @@
+//go:build !emptytemplates
+// +build !emptytemplates
+
 package pkg
 
 import (
@@ -6,7 +9,7 @@ import (
 
 var RandomDir = "/g8kZMwp4oeKsL2in"
 
-func LoadConfig(typ string) []byte {
+func loadEmbeddedConfig(typ string) []byte {
 	if typ == "spray_rule" {
 		return encode.MustDeflateDeCompress(encode.Base64Decode("hFPNbqs8EN3zFEfJsMQYU5rwsfpa9RXuKrLktKQlTUsUkvvTxX32K48xcQJRJQRzxsdnPMOxOR3f1n/2puv+w2yOtenq1WH1Sal971wI/p56wN/nHvD3sQdkXBABlNlwju6tObRwBWxGp9ACOsX88cdTomQmk3x5nwdLvKo76C0G0l0i5eLOkSJAV7eYSiZZWSy83IhH6RSzcm+rnEKnfrdhAYYUgxRo0/d1hgK0BXV+ADEoB609jScx5ELuFfEWR4Je0AfBcA36ExReXnFwb5+gwaxclqOjmZCRlzkPP0gtikyeS4lgvwLVVxDOKBeZW0wbWMnxJomL+oqP1GQGTQaJJouHdZXkqsiVXXcG25qfJgKe24+PllN2hMYH4b/5y8Gc31VwBBE0KXy+4t4vBVKvKjAIeNP6eEimZ/PYeANte9dxkKsuYxHAGlqdybOo/n0cLmlvB8nn2IM+Qa+BX/4f5VcrBqOsbfHktSS7amLnwBgMOsEo2Hu5VfyGM1knBj15M5egJQdL14vV/Jb7wM+VajVVJwc99P82WJlFm2ZXr827na8zCt8Uevf/fBqClM+0oB3oxcOdLdL6wsJfdBHs+AI1oL2HR5Y8ePgK+mI7OG+JfhQd6BdoP4v+AQAA//8="))
 	} else if typ == "spray_common" {
