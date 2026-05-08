@@ -362,12 +362,18 @@ func (opt *Option) NewRunner() (*Runner, error) {
 
 	// log and bar
 	if opt.NoColor {
-		logs.Log.SetColor(false)
+		if logs.Log.Color {
+			logs.Log.SetColor(false)
+		}
 		r.Color = false
 	}
 	if opt.Quiet {
-		logs.Log.SetQuiet(true)
-		logs.Log.SetColor(false)
+		if !logs.Log.Quiet {
+			logs.Log.SetQuiet(true)
+		}
+		if logs.Log.Color {
+			logs.Log.SetColor(false)
+		}
 		r.Color = false
 	}
 
@@ -697,17 +703,18 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 	}
 
 	if opt.ReconPlugin {
-		// Combine pentest and info extractors for recon
-		// Pre-allocate capacity for both pentest and info extractors to avoid reallocation
-		pentestExtractors := pkg.ExtractRegexps["pentest"]
-		infoExtractors := pkg.ExtractRegexps["info"]
-		reconExtractors := make([]*parsers.Extractor, 0, len(pentestExtractors)+len(infoExtractors))
-		reconExtractors = append(reconExtractors, pentestExtractors...)
-		reconExtractors = append(reconExtractors, infoExtractors...)
-		pkg.Extractors["recon"] = reconExtractors
+		if _, ok := pkg.Extractors["recon"]; !ok {
+			// Combine pentest and info extractors for recon.
+			pentestExtractors := pkg.ExtractRegexps["pentest"]
+			infoExtractors := pkg.ExtractRegexps["info"]
+			reconExtractors := make([]*parsers.Extractor, 0, len(pentestExtractors)+len(infoExtractors))
+			reconExtractors = append(reconExtractors, pentestExtractors...)
+			reconExtractors = append(reconExtractors, infoExtractors...)
+			pkg.Extractors["recon"] = reconExtractors
+		}
 	}
 
-	if opt.Finger {
+	if opt.Finger && !pkg.EnableAllFingerEngine {
 		pkg.EnableAllFingerEngine = true
 	}
 
