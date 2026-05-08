@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -30,10 +31,10 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 				Timeout:     config.Timeout,
 				ProxyClient: config.ProxyClient,
 			}),
-			wg:         &sync.WaitGroup{},
-			additionCh: make(chan *Unit, config.Thread*10),
-			closeCh:    make(chan struct{}),
-			processCh:  make(chan *baseline.Baseline, config.Thread*2),
+			wg:          &sync.WaitGroup{},
+			additionCh:  make(chan *Unit, config.Thread*10),
+			closeCh:     make(chan struct{}),
+			processCh:   make(chan *baseline.Baseline, config.Thread*2),
 			handlerDone: make(chan struct{}),
 		},
 	}
@@ -53,11 +54,11 @@ type CheckPool struct {
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
 	pool.Worder.Run()
 
-	var done bool
+	var done atomic.Bool
 	// 挂起一个监控goroutine, 每100ms判断一次done, 如果已经done, 则关闭closeCh, 然后通过Loop中的select case closeCh去break, 实现退出
 	go func() {
 		for {
-			if done {
+			if done.Load() {
 				pool.wg.Wait()
 				close(pool.closeCh)
 				return
@@ -71,34 +72,40 @@ Loop:
 		select {
 		case u, ok := <-pool.Worder.Output:
 			if !ok {
-				done = true
+				done.Store(true)
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 
-			if pool.reqCount < offset {
-				pool.reqCount++
+			if pool.reqCount.Load() < int64(offset) {
+				pool.reqCount.Add(1)
 				continue
 			}
 
-			if pool.reqCount > limit {
+			if pool.reqCount.Load() > int64(limit) {
 				continue
 			}
 
 			pool.wg.Add(1)
-			_ = pool.Pool.Invoke(newUnit(u, parsers.CheckSource))
+			if err := pool.Pool.Invoke(newUnit(u, parsers.CheckSource)); err != nil {
+				pool.wg.Done()
+			}
 		case u, ok := <-pool.additionCh:
 			if !ok {
 				continue
 			}
-			_ = pool.Pool.Invoke(u)
+			if err := pool.Pool.Invoke(u); err != nil {
+				pool.wg.Done()
+			}
 		case <-pool.closeCh:
 			break Loop
 		case <-ctx.Done():
 			// 手动退出，不等待任务完成，直接退出
+			done.Store(true)
 			break Loop
 		case <-pool.ctx.Done():
 			// 手动退出，不等待任务完成，直接退出
+			done.Store(true)
 			break Loop
 		}
 	}
@@ -107,15 +114,40 @@ Loop:
 }
 func (pool *CheckPool) Close() {
 	pool.Cancel()
+	pool.waitWorkers()
 	close(pool.processCh)
 	<-pool.handlerDone
-	pool.Bar.Close()
-	pool.Pool.Release()
+	if pool.Bar != nil {
+		pool.Bar.Close()
+	}
+	if pool.Pool != nil {
+		pool.Pool.Release()
+	}
+}
+
+func (pool *CheckPool) waitWorkers() {
+	done := make(chan struct{})
+	go func() {
+		pool.wg.Wait()
+		close(done)
+	}()
+
+	for {
+		select {
+		case <-done:
+			return
+		case _, ok := <-pool.additionCh:
+			if !ok {
+				return
+			}
+			pool.wg.Done()
+		}
+	}
 }
 
 func (pool *CheckPool) Invoke(v interface{}) {
 	defer func() {
-		pool.reqCount++
+		pool.reqCount.Add(1)
 		pool.wg.Done()
 	}()
 
@@ -150,7 +182,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 	var bl *baseline.Baseline
 	resp, reqerr := pool.client.Do(req)
 	if reqerr != nil {
-		pool.failedCount++
+		pool.failedCount.Add(1)
 		bl = &baseline.Baseline{
 			SprayResult: &parsers.SprayResult{
 				UrlString: unit.path,
