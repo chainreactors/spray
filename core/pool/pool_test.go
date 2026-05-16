@@ -2,8 +2,12 @@ package pool
 
 import (
 	"context"
+	"net/url"
+	"strings"
+
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/pkg"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -77,6 +81,134 @@ func TestAddAddition_Normal(t *testing.T) {
 	pool.wg.Wait() // must not hang
 }
 
+func TestAppendBasePathTreatsValidPathAsDirectory(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "empty", in: "", want: "/"},
+		{name: "root", in: "/", want: "/"},
+		{name: "directory", in: "/xxl-job-admin/", want: "/xxl-job-admin/"},
+		{name: "path without slash", in: "/xxl-job-admin", want: "/xxl-job-admin/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := appendBasePath(tt.in); got != tt.want {
+				t.Fatalf("appendBasePath(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAppendDerivationSourcesDoNotCascadePluginOutputs(t *testing.T) {
+	allowed := []parsers.SpraySource{
+		parsers.InitIndexSource,
+		parsers.WordSource,
+		parsers.RedirectSource,
+		parsers.CrawlSource,
+	}
+	for _, source := range allowed {
+		if !canDeriveAppendFromSource(source) {
+			t.Fatalf("%s should allow append derivation", source.Name())
+		}
+	}
+
+	blocked := []parsers.SpraySource{
+		parsers.FingerSource,
+		parsers.BakSource,
+		parsers.CommonFileSource,
+		parsers.AppendSource,
+		parsers.AppendRuleSource,
+		parsers.RuleSource,
+		parsers.RetrySource,
+	}
+	for _, source := range blocked {
+		if canDeriveAppendFromSource(source) {
+			t.Fatalf("%s should not allow append derivation", source.Name())
+		}
+	}
+}
+
+func TestAdaptiveFuzzyBaselineSuppressesRepeatedUnauthorizedPages(t *testing.T) {
+	withStatusFilters(t)
+	pool := newTestBrutePoolForCompare(t)
+
+	first := newCompareBaseline(401, "/orders.log.1", "auth required for /orders.log.1")
+	first.Source = parsers.AppendSource
+	pool.handleBaseline(first)
+	drainOutput(t, pool)
+
+	if first.IsValid {
+		t.Fatal("first 401 baseline sample stayed valid")
+	}
+	if !first.IsFuzzy {
+		t.Fatal("first 401 baseline sample was not marked fuzzy")
+	}
+	if _, ok := pool.baselines[401]; !ok {
+		t.Fatal("401 adaptive baseline was not learned")
+	}
+
+	second := newCompareBaseline(401, "/orders.log.old", "auth required for /orders.log.old")
+	second.Source = parsers.AppendSource
+	pool.handleBaseline(second)
+	drainOutput(t, pool)
+
+	if second.IsValid {
+		t.Fatal("repeated 401 default page stayed valid")
+	}
+	if second.Reason != pkg.ErrFuzzyCompareFailed.Error() {
+		t.Fatalf("reason = %q, want %q", second.Reason, pkg.ErrFuzzyCompareFailed.Error())
+	}
+}
+
+func TestFuzzyStatusLearnsAndSuppressesDefaultResponseVariants(t *testing.T) {
+	withStatusFilters(t)
+	pool := newTestBrutePoolForCompare(t)
+
+	results := []*baseline.Baseline{
+		newCompareBaseline(500, "/temp.zip.2", "json data "+strings.Repeat("a", 120)),
+		newCompareBaseline(500, "/temp.zip.zip", "json data "+strings.Repeat("b", 122)),
+		newCompareBaseline(500, "/jolokia/exec/ch.qos.logback.classic", "json data "+strings.Repeat("c", 220)),
+	}
+	for _, result := range results {
+		result.Source = parsers.AppendRuleSource
+		pool.handleBaseline(result)
+		drainOutput(t, pool)
+		if result.IsValid {
+			t.Fatalf("%s stayed valid; fuzzy status default variants should be suppressed", result.Path)
+		}
+		if !result.IsFuzzy {
+			t.Fatalf("%s was not marked fuzzy", result.Path)
+		}
+		if result.Reason != pkg.ErrFuzzyCompareFailed.Error() {
+			t.Fatalf("%s reason = %q, want %q", result.Path, result.Reason, pkg.ErrFuzzyCompareFailed.Error())
+		}
+	}
+
+	if got := len(pool.fuzzyBaselines[500]); got < 2 {
+		t.Fatalf("learned fuzzy 500 baselines = %d, want multiple default variants", got)
+	}
+}
+
+func TestAdaptiveFuzzyBaselineDoesNotLearnSuccessStatus(t *testing.T) {
+	withStatusFilters(t)
+	pool := newTestBrutePoolForCompare(t)
+
+	result := newCompareBaseline(200, "/admin", strings.Repeat("admin panel ", 8))
+	result.Source = parsers.AppendSource
+	pool.handleBaseline(result)
+	drainOutput(t, pool)
+
+	if !result.IsValid {
+		t.Fatalf("200 result was filtered: %s", result.Reason)
+	}
+	if _, ok := pool.baselines[200]; ok {
+		t.Fatal("200 status should not be learned as adaptive fuzzy baseline")
+	}
+}
+
 func TestAddAddition_AfterCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := newTestBasePool(ctx, cancel)
@@ -91,6 +223,79 @@ func TestAddAddition_AfterCancel(t *testing.T) {
 	}
 	// wg must be zero — the cancelled path must not leak a counter
 	pool.wg.Wait()
+}
+
+func withStatusFilters(t *testing.T) {
+	t.Helper()
+	oldWhite := append([]int(nil), pkg.WhiteStatus...)
+	oldBlack := append([]int(nil), pkg.BlackStatus...)
+	oldFuzzy := append([]int(nil), pkg.FuzzyStatus...)
+	oldWAF := append([]int(nil), pkg.WAFStatus...)
+	pkg.WhiteStatus = []int{200}
+	pkg.BlackStatus = []int{400, 410}
+	pkg.FuzzyStatus = []int{500, 501, 502, 503, 301, 302, 404}
+	pkg.WAFStatus = []int{493, 418, 1020, 406, 429, 412}
+	t.Cleanup(func() {
+		pkg.WhiteStatus = oldWhite
+		pkg.BlackStatus = oldBlack
+		pkg.FuzzyStatus = oldFuzzy
+		pkg.WAFStatus = oldWAF
+	})
+}
+
+func newTestBrutePoolForCompare(t *testing.T) *BrutePool {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	base := newTestBasePool(ctx, cancel)
+	base.Statistor = pkg.NewStatistor("http://example.com")
+	pool := &BrutePool{
+		Baselines: NewBaselines(),
+		BasePool:  base,
+	}
+	pool.random = newCompareBaseline(200, "/__random__", strings.Repeat("not found ", 8))
+	pool.index = newCompareBaseline(200, "/", strings.Repeat("index ", 8))
+	return pool
+}
+
+func newCompareBaseline(status int, path string, body string) *baseline.Baseline {
+	raw := []byte(body)
+	u := "http://example.com" + path
+	parsed, _ := url.Parse(u)
+	return &baseline.Baseline{
+		SprayResult: &parsers.SprayResult{
+			UrlString:   u,
+			Path:        path,
+			Host:        "example.com",
+			IsValid:     true,
+			Status:      status,
+			BodyLength:  len(body),
+			ContentType: "txt",
+			Title:       "txt data",
+			Hashes:      parsers.NewHashes(raw),
+			Unique:      pkg.CRC16Hash([]byte("example.com")),
+		},
+		Url:  parsed,
+		Body: []byte(body),
+		Raw:  raw,
+	}
+}
+
+func drainOutput(t *testing.T, pool *BrutePool) {
+	t.Helper()
+	select {
+	case <-pool.OutputCh:
+		pool.Outwg.Done()
+	default:
+	}
+	for {
+		select {
+		case <-pool.FuzzyCh:
+			pool.Outwg.Done()
+		default:
+			return
+		}
+	}
 }
 
 // Regression: old code had a `default` branch that spawned an async goroutine.

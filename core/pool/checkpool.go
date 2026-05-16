@@ -225,7 +225,32 @@ func (pool *CheckPool) Handler() {
 		if bl.Source == parsers.CheckSource {
 			pool.Bar.Done()
 		}
+		pool.recordCheckStat(bl)
 		pool.putToOutput(bl)
+	}
+}
+
+func (pool *CheckPool) recordCheckStat(bl *baseline.Baseline) {
+	if pool.Statistor == nil || bl == nil || bl.SprayResult == nil {
+		return
+	}
+	if pool.Statistor.Counts == nil {
+		pool.Statistor.Counts = make(map[int]int)
+	}
+	if pool.Statistor.Sources == nil {
+		pool.Statistor.Sources = make(map[parsers.SpraySource]int)
+	}
+	if bl.Status != 0 {
+		pool.Statistor.Counts[bl.Status]++
+	}
+	if bl.Source.Name() != "" {
+		pool.Statistor.Sources[bl.Source]++
+	}
+	if bl.IsValid {
+		pool.Statistor.FoundNumber++
+	}
+	if bl.IsFuzzy {
+		pool.Statistor.FuzzyNumber++
 	}
 }
 

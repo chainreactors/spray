@@ -23,7 +23,8 @@ type Unit struct {
 
 func NewBaselines() *Baselines {
 	return &Baselines{
-		baselines: map[int]*baseline.Baseline{},
+		baselines:      map[int]*baseline.Baseline{},
+		fuzzyBaselines: map[int][]*baseline.Baseline{},
 	}
 }
 
@@ -32,6 +33,7 @@ type Baselines struct {
 	random          *baseline.Baseline
 	index           *baseline.Baseline
 	baselines       map[int]*baseline.Baseline
+	fuzzyBaselines  map[int][]*baseline.Baseline
 }
 
 type SprayMod int
