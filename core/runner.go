@@ -26,6 +26,14 @@ var (
 	MAX = 2147483647
 )
 
+type RunnerStats struct {
+	Targets  int64
+	Tasks    int64
+	Requests int64
+	Results  int64
+	Errors   int64
+}
+
 type Runner struct {
 	*Option
 
@@ -63,6 +71,33 @@ type Runner struct {
 	Total       int // wordlist total number
 	Color       bool
 	Jsonify     bool
+	statsMu     sync.Mutex
+	stats       RunnerStats
+}
+
+func (r *Runner) Stats() RunnerStats {
+	r.statsMu.Lock()
+	defer r.statsMu.Unlock()
+	return r.stats
+}
+
+func (r *Runner) recordStat(stat *pkg.Statistor) {
+	if stat == nil {
+		return
+	}
+
+	targets := int64(1)
+	if r.IsCheck {
+		targets = int64(stat.Total)
+	}
+
+	r.statsMu.Lock()
+	r.stats.Targets += targets
+	r.stats.Tasks += int64(stat.Total)
+	r.stats.Requests += int64(stat.ReqTotal)
+	r.stats.Results += int64(stat.FoundNumber)
+	r.stats.Errors += int64(stat.FailedNumber)
+	r.statsMu.Unlock()
 }
 
 func (r *Runner) PrepareConfig() *pool.Config {
@@ -308,12 +343,15 @@ func (r *Runner) RunWithCheck(ctx context.Context) {
 		checkPool.Statistor.End = r.Count
 		checkPool.Statistor.Total = r.Count
 		checkPool.Statistor.BaseUrl = r.Tasks.Name
+		checkPool.Statistor.ReqTotal = int32(checkPool.RequestCount())
+		checkPool.Statistor.FailedNumber = int32(checkPool.FailedCount())
 		if r.Color {
 			logs.Log.Important(checkPool.Statistor.ColorString())
 		} else {
 			logs.Log.Important(checkPool.Statistor.String())
 		}
 		r.saveStat(checkPool.Statistor.Json())
+		r.recordStat(checkPool.Statistor)
 
 		r.poolwg.Done()
 	})
@@ -422,6 +460,7 @@ func (r *Runner) PrintStat(pool *pool.BrutePool) {
 	}
 
 	r.saveStat(pool.Statistor.Json())
+	r.recordStat(pool.Statistor)
 }
 
 func (r *Runner) saveStat(content string) {

@@ -498,41 +498,47 @@ func (pool *BrutePool) handleBaseline(bl *baseline.Baseline) {
 		pool.Statistor.Sources[bl.Source] = 1
 	}
 
-	if bl.IsValid {
-		pool.addFuzzyBaseline(bl)
-	}
-
 	params := pool.compareParams(bl)
-	ok := false
-	if pool.MatchExpr != nil {
-		ok = pkg.CompareWithExpr(pool.MatchExpr, params)
-	} else if pool.shouldPreCompare(bl) {
-		if err := pool.PreCompareBaseline(bl); err == nil {
-			ok = pool.BaseCompare(bl)
-		} else {
-			bl.Reason = err.Error()
-		}
-	} else {
-		ok = pool.BaseCompare(bl)
-	}
-
-	if ok {
-		// unique判断
-		if EnableAllUnique || iutils.IntsContains(pkg.UniqueStatus, bl.Status) {
-			if _, ok := pool.uniques[bl.Unique]; ok {
-				bl.IsValid = false
-				bl.IsFuzzy = true
-				bl.Reason = pkg.ErrFuzzyNotUnique.Error()
-			} else {
-				pool.uniques[bl.Unique] = struct{}{}
-			}
-		}
-
-		// 对通过所有对比的有效数据进行再次filter
-		if bl.IsValid && pool.FilterExpr != nil && pkg.CompareWithExpr(pool.FilterExpr, params) {
-			pool.Statistor.FilteredNumber++
-			bl.Reason = pkg.ErrCustomFilter.Error()
+	if bl.IsValid {
+		if pool.addFuzzyBaseline(bl) {
 			bl.IsValid = false
+			bl.IsFuzzy = true
+			bl.Reason = pkg.ErrFuzzyCompareFailed.Error()
+		} else {
+			ok := false
+			if pool.MatchExpr != nil {
+				ok = pkg.CompareWithExpr(pool.MatchExpr, params)
+			} else if pool.shouldPreCompare(bl) {
+				if err := pool.PreCompareBaseline(bl); err == nil {
+					ok = pool.BaseCompare(bl)
+				} else {
+					bl.Reason = err.Error()
+				}
+			} else {
+				ok = pool.BaseCompare(bl)
+			}
+
+			if ok {
+				// unique判断
+				if EnableAllUnique || iutils.IntsContains(pkg.UniqueStatus, bl.Status) {
+					if _, ok := pool.uniques[bl.Unique]; ok {
+						bl.IsValid = false
+						bl.IsFuzzy = true
+						bl.Reason = pkg.ErrFuzzyNotUnique.Error()
+					} else {
+						pool.uniques[bl.Unique] = struct{}{}
+					}
+				}
+
+				// 对通过所有对比的有效数据进行再次filter
+				if bl.IsValid && pool.FilterExpr != nil && pkg.CompareWithExpr(pool.FilterExpr, params) {
+					pool.Statistor.FilteredNumber++
+					bl.Reason = pkg.ErrCustomFilter.Error()
+					bl.IsValid = false
+				}
+			} else {
+				bl.IsValid = false
+			}
 		}
 	} else {
 		bl.IsValid = false
@@ -759,7 +765,7 @@ func (pool *BrutePool) BaseCompare(bl *baseline.Baseline) bool {
 	//	}
 	//}
 
-	if ok && status == 0 && base.FuzzyCompare(bl) {
+	if ok && status == 0 && pool.sameDefaultResponse(base, bl) {
 		pool.Statistor.FuzzyNumber++
 		bl.Reason = pkg.ErrFuzzyCompareFailed.Error()
 		pool.putToFuzzy(bl)
@@ -769,14 +775,75 @@ func (pool *BrutePool) BaseCompare(bl *baseline.Baseline) bool {
 	return true
 }
 
-func (pool *BrutePool) addFuzzyBaseline(bl *baseline.Baseline) {
-	if _, ok := pool.baselines[bl.Status]; !ok && (EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status)) {
-		bl.IsBaseline = true
-		bl.Collect()
-		pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
-		pool.baselines[bl.Status] = bl
-		logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+func (pool *BrutePool) sameDefaultResponse(base, bl *baseline.Baseline) bool {
+	if base.FuzzyCompare(bl) {
+		return true
 	}
+	return pool.isAdaptiveFuzzyStatus(bl.Status)
+}
+
+func (pool *BrutePool) addFuzzyBaseline(bl *baseline.Baseline) bool {
+	if !pool.shouldLearnFuzzyBaseline(bl) {
+		return false
+	}
+	for _, base := range pool.fuzzyBaselines[bl.Status] {
+		if pool.sameFuzzyBaseline(base, bl) {
+			return true
+		}
+	}
+	pool.learnFuzzyBaseline(bl)
+	return true
+}
+
+func (pool *BrutePool) sameFuzzyBaseline(base, bl *baseline.Baseline) bool {
+	switch base.Compare(bl) {
+	case 1:
+		return true
+	case 0:
+		return true
+	default:
+		return false
+	}
+}
+
+func (pool *BrutePool) learnFuzzyBaseline(bl *baseline.Baseline) {
+	if pool.baselines == nil {
+		pool.baselines = make(map[int]*baseline.Baseline)
+	}
+	if pool.fuzzyBaselines == nil {
+		pool.fuzzyBaselines = make(map[int][]*baseline.Baseline)
+	}
+	bl.IsBaseline = true
+	bl.Collect()
+	pool.doCrawl(bl) // 非有效页面也可能存在一些特殊的url可以用来爬取
+	if _, ok := pool.baselines[bl.Status]; !ok {
+		pool.baselines[bl.Status] = bl
+	}
+	pool.fuzzyBaselines[bl.Status] = append(pool.fuzzyBaselines[bl.Status], bl)
+	logs.Log.Logf(pkg.LogVerbose, "[baseline.%dinit] %s", bl.Status, bl.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+}
+
+func (pool *BrutePool) shouldLearnFuzzyBaseline(bl *baseline.Baseline) bool {
+	if EnableAllFuzzy || iutils.IntsContains(pkg.FuzzyStatus, bl.Status) {
+		return true
+	}
+	return pool.isAdaptiveFuzzyStatus(bl.Status)
+}
+
+func (pool *BrutePool) isAdaptiveFuzzyStatus(status int) bool {
+	if status == 0 || (status >= 200 && status < 300) {
+		return false
+	}
+	if len(pkg.WhiteStatus) > 0 && pkg.StatusContain(pkg.WhiteStatus, status) {
+		return false
+	}
+	if len(pkg.BlackStatus) > 0 && pkg.StatusContain(pkg.BlackStatus, status) {
+		return false
+	}
+	if len(pkg.WAFStatus) > 0 && pkg.StatusContain(pkg.WAFStatus, status) {
+		return false
+	}
+	return true
 }
 
 func (pool *BrutePool) fallback() {
@@ -963,7 +1030,7 @@ func (pool *BrutePool) doAppend(bl *baseline.Baseline) {
 }
 
 func (pool *BrutePool) doAppendRule(bl *baseline.Baseline) {
-	if pool.AppendRule == nil || bl.Source == parsers.AppendRuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
+	if pool.AppendRule == nil || !canDeriveAppendFromSource(bl.Source) || bl.ReqDepth >= pool.MaxAppendDepth {
 		return
 	}
 
@@ -982,7 +1049,7 @@ func (pool *BrutePool) doAppendRule(bl *baseline.Baseline) {
 }
 
 func (pool *BrutePool) doAppendWords(bl *baseline.Baseline) {
-	if pool.AppendWords == nil || bl.Source == parsers.AppendSource || bl.Source == parsers.RuleSource || bl.ReqDepth >= pool.MaxAppendDepth {
+	if pool.AppendWords == nil || !canDeriveAppendFromSource(bl.Source) || bl.ReqDepth >= pool.MaxAppendDepth {
 		// 防止自身递归
 		return
 	}
@@ -990,15 +1057,34 @@ func (pool *BrutePool) doAppendWords(bl *baseline.Baseline) {
 	pool.launchProducer(func() {
 		for u := range NewBruteWords(pool.Config, pool.AppendWords).Output {
 			pool.addAddition(&Unit{
-				path:   pkg.SafePath(bl.Path, u),
+				path:   pkg.SafePath(appendBasePath(bl.Path), u),
 				parent: bl.Number,
 				host:   bl.Host,
 				source: parsers.AppendSource,
 				from:   bl.Source,
-				depth:  bl.RecuDepth + 1,
+				depth:  bl.ReqDepth + 1,
 			})
 		}
 	})
+}
+
+func canDeriveAppendFromSource(source parsers.SpraySource) bool {
+	switch source {
+	case parsers.InitIndexSource, parsers.WordSource, parsers.RedirectSource, parsers.CrawlSource:
+		return true
+	default:
+		return false
+	}
+}
+
+func appendBasePath(current string) string {
+	if current == "" {
+		return "/"
+	}
+	if strings.HasSuffix(current, "/") {
+		return current
+	}
+	return current + "/"
 }
 
 func (pool *BrutePool) doActive() {

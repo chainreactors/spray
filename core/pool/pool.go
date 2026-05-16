@@ -30,6 +30,20 @@ type BasePool struct {
 	isFallback  atomic.Bool
 }
 
+func (pool *BasePool) RequestCount() int64 {
+	if pool == nil {
+		return 0
+	}
+	return pool.reqCount.Load()
+}
+
+func (pool *BasePool) FailedCount() int64 {
+	if pool == nil {
+		return 0
+	}
+	return pool.failedCount.Load()
+}
+
 func (pool *BasePool) doRetry(bl *baseline.Baseline) {
 	if bl.Retry >= pool.RetryLimit {
 		return
