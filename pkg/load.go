@@ -56,7 +56,7 @@ func LoadFingers() error {
 			return err
 		}
 	} else {
-		FingerEngine, err = fingers.NewEngine()
+		FingerEngine, err = fingers.NewEngine(fingers.FingersEngine)
 	}
 	if err != nil {
 		return err
