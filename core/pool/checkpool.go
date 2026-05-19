@@ -2,6 +2,7 @@ package pool
 
 import (
 	"context"
+	"fmt"
 	"github.com/chainreactors/logs"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/core/baseline"
@@ -39,7 +40,11 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 		},
 	}
 	pool.Request.Headers.Set("Connection", "close")
-	p, _ := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
+	p, err := ants.NewPoolWithFunc(config.Thread, pool.Invoke)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("create check pool: %w", err)
+	}
 
 	pool.Pool = p
 	go pool.Handler()

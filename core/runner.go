@@ -92,12 +92,12 @@ func (r *Runner) recordStat(stat *pkg.Statistor) {
 	}
 
 	r.statsMu.Lock()
+	defer r.statsMu.Unlock()
 	r.stats.Targets += targets
 	r.stats.Tasks += int64(stat.Total)
 	r.stats.Requests += int64(stat.ReqTotal)
 	r.stats.Results += int64(stat.FoundNumber)
 	r.stats.Errors += int64(stat.FailedNumber)
-	r.statsMu.Unlock()
 }
 
 func (r *Runner) PrepareConfig() *pool.Config {

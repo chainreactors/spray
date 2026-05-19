@@ -79,8 +79,17 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 	}
 
 	// 每个 BrutePool 自持请求/scope 线程池, 与其他 BrutePool 完全隔离
-	pool.reqPool, _ = ants.NewPoolWithFunc(config.Thread, pool.invoke)
-	pool.scopePool, _ = ants.NewPoolWithFunc(config.Thread, pool.invokeNoScope)
+	pool.reqPool, err = ants.NewPoolWithFunc(config.Thread, pool.invoke)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("create request pool: %w", err)
+	}
+	pool.scopePool, err = ants.NewPoolWithFunc(config.Thread, pool.invokeNoScope)
+	if err != nil {
+		pool.reqPool.Release()
+		cancel()
+		return nil, fmt.Errorf("create scope pool: %w", err)
+	}
 
 	// 挂起一个异步的处理结果线程, 不干扰主线程的请求并发
 	go pool.Handler()
@@ -353,12 +362,6 @@ func (pool *BrutePool) invoke(v interface{}) {
 		bl = baseline.NewBaseline(req.URI(), req.Host(), resp)
 	}
 
-	// 手动处理重定向
-	if bl.IsValid && unit.source != parsers.CheckSource && bl.RedirectURL != "" {
-		bl.SameRedirectDomain = pool.checkHost(bl.RedirectURL)
-		pool.doRedirect(bl, unit.depth)
-	}
-
 	if !ihttp.CheckBodySize(int64(bl.BodyLength)) {
 		bl.ExceedLength = true
 	}
@@ -372,6 +375,14 @@ func (pool *BrutePool) invoke(v interface{}) {
 		bl.FrontURL = unit.frontUrl
 	}
 	bl.Spended = time.Since(start).Milliseconds()
+
+	// doRedirect launches a goroutine that reads bl fields,
+	// so all field writes must complete before this call.
+	if bl.IsValid && unit.source != parsers.CheckSource && bl.RedirectURL != "" {
+		bl.SameRedirectDomain = pool.checkHost(bl.RedirectURL)
+		pool.doRedirect(bl, unit.depth)
+	}
+
 	pool.sendProcess(bl)
 }
 
@@ -974,14 +985,16 @@ func (pool *BrutePool) doScopeCrawl(bl *baseline.Baseline) {
 				if v, _ := url.Parse(u); v == nil || !pkg.MatchWithGlobs(v.Host, pool.Scope) {
 					continue
 				}
-				var submit bool
-				pool.scopeLocker.Lock()
-				if _, ok := pool.scopeurls[u]; !ok {
-					pool.scopeurls[u] = struct{}{}
-					pool.urls.Store(u, nil)
-					submit = true
-				}
-				pool.scopeLocker.Unlock()
+				submit := func() bool {
+					pool.scopeLocker.Lock()
+					defer pool.scopeLocker.Unlock()
+					if _, ok := pool.scopeurls[u]; !ok {
+						pool.scopeurls[u] = struct{}{}
+						pool.urls.Store(u, nil)
+						return true
+					}
+					return false
+				}()
 				if submit {
 					pool.wg.Add(1)
 					if err := pool.scopePool.Invoke(&Unit{

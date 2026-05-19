@@ -31,6 +31,7 @@ func (r *Response) Body() []byte {
 	} else if r.StandardResponse != nil {
 		if r.StandardResponse.ContentLength == -1 {
 			body, err := io.ReadAll(r.StandardResponse.Body)
+			_ = r.StandardResponse.Body.Close()
 			if err != nil {
 				return nil
 			}
@@ -56,7 +57,6 @@ func (r *Response) Body() []byte {
 				return nil
 			}
 		}
-		return nil
 	} else {
 		return nil
 	}
