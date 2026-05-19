@@ -186,10 +186,14 @@ func (r *Runner) Prepare(ctx context.Context) error {
 
 func (r *Runner) RunWithBrute(ctx context.Context) {
 	go func() {
+		defer close(r.taskCh)
 		for t := range r.Tasks.tasks {
-			r.taskCh <- t
+			select {
+			case r.taskCh <- t:
+			case <-ctx.Done():
+				return
+			}
 		}
-		close(r.taskCh)
 	}()
 
 	if r.Count > 0 {
@@ -281,16 +285,6 @@ Loop:
 	for {
 		select {
 		case <-ctx.Done():
-			// 如果超过了deadline, 尚未开始的任务都将被记录到stat中
-			if len(r.taskCh) > 0 {
-				for t := range r.taskCh {
-					stat := r.Option.NewStatistor(t.baseUrl, 0)
-					r.saveStat(stat.Json())
-				}
-			}
-			if r.StatFile != nil {
-				logs.Log.Importantf("already save all stat to %s", r.StatFile.Filename)
-			}
 			break Loop
 		case t, ok := <-r.taskCh:
 			if !ok {
@@ -405,14 +399,16 @@ func (r *Runner) AddRecursive(bl *baseline.Baseline) {
 }
 
 func (r *Runner) AddPool(task *Task) {
-	// 递归新任务
 	if _, ok := r.PoolName[task.baseUrl]; ok {
 		logs.Log.Importantf("already added pool, skip %s", task.baseUrl)
 		return
 	}
 	task.depth++
 	r.poolwg.Add(1)
-	r.Pools.Invoke(task)
+	if err := r.Pools.Invoke(task); err != nil {
+		r.poolwg.Done()
+		logs.Log.Errorf("submit pool task: %v", err)
+	}
 }
 
 func (r *Runner) newBar(total int) {

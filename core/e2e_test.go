@@ -74,9 +74,6 @@ func TestE2E_NormalBruteScan(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestE2E_ContextCancellation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping context cancellation test in short mode")
-	}
 	var reqCount int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&reqCount, 1)
