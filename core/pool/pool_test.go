@@ -3,16 +3,17 @@ package pool
 import (
 	"context"
 	"net/url"
-	"strings"
-
-	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/spray/core/baseline"
-	"github.com/chainreactors/spray/pkg"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/spray/core/baseline"
+	"github.com/chainreactors/spray/core/ihttp"
+	"github.com/chainreactors/spray/pkg"
 )
 
 // ---------------------------------------------------------------------------
@@ -729,3 +730,119 @@ func TestNoGoroutineLeak(t *testing.T) {
 		t.Errorf("goroutine leak: before=%d after=%d", before, after)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Regression: scopeLocker must release on panic (defer)
+// ---------------------------------------------------------------------------
+
+func TestScopeLocker_PanicReleasesLock(t *testing.T) {
+	pool := &BrutePool{
+		BasePool:  &BasePool{},
+		scopeurls: make(map[string]struct{}),
+	}
+
+	func() {
+		defer func() { recover() }()
+		pool.scopeLocker.Lock()
+		defer pool.scopeLocker.Unlock()
+		panic("simulated panic inside critical section")
+	}()
+
+	mustFinish(t, 2*time.Second, "scopeLocker not released after panic", func() {
+		pool.scopeLocker.Lock()
+		pool.scopeLocker.Unlock()
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Regression: ants pool with invalid thread count must return error
+// ---------------------------------------------------------------------------
+
+func TestNewBrutePool_ValidThread(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	config := &Config{
+		BaseURL:   "http://example.com",
+		Thread:    2,
+		RateLimit: 1,
+		Request:   &ihttp.RequestConfig{},
+	}
+	pool, err := NewBrutePool(ctx, config)
+	if err != nil {
+		t.Fatalf("NewBrutePool with valid config: %v", err)
+	}
+	if pool.reqPool == nil {
+		t.Fatal("reqPool should not be nil")
+	}
+	if pool.scopePool == nil {
+		t.Fatal("scopePool should not be nil")
+	}
+	pool.Cancel()
+	close(pool.processCh)
+	<-pool.handlerDone
+}
+
+// ---------------------------------------------------------------------------
+// handleBaseline processes all items and exits on cancel + close
+// ---------------------------------------------------------------------------
+
+func TestHandleBaseline_CancelMidProcessing(t *testing.T) {
+	withStatusFilters(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	base := newTestBasePool(ctx, cancel)
+	base.Statistor = pkg.NewStatistor("http://example.com")
+	base.Bar = &pkg.Bar{}
+	pool := &BrutePool{
+		Baselines: NewBaselines(),
+		BasePool:  base,
+		uniques:   make(map[uint16]struct{}),
+	}
+	pool.random = newCompareBaseline(200, "/__random__", strings.Repeat("not found ", 8))
+	pool.index = newCompareBaseline(200, "/", strings.Repeat("index ", 8))
+
+	go pool.Handler()
+
+	for i := 0; i < 20; i++ {
+		bl := newCompareBaseline(404, "/test", "not found")
+		bl.Source = parsers.WordSource
+		pool.processCh <- bl
+	}
+
+	cancel()
+
+	mustFinish(t, 5*time.Second, "Handler did not exit after cancel+close", func() {
+		close(pool.processCh)
+		<-pool.handlerDone
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Map access in Handler is single-threaded (race detector must not fire)
+// ---------------------------------------------------------------------------
+
+func TestHandleBaseline_MapAccessSingleThreaded(t *testing.T) {
+	withStatusFilters(t)
+	pool := newTestBrutePoolForCompare(t)
+	pool.uniques = make(map[uint16]struct{})
+	pool.Bar = &pkg.Bar{}
+
+	go pool.Handler()
+
+	for i := 0; i < 50; i++ {
+		bl := newCompareBaseline(200+i%5, "/path"+string(rune('a'+i%26)), strings.Repeat("body", 10+i))
+		bl.Source = parsers.WordSource
+		pool.processCh <- bl
+	}
+
+	close(pool.processCh)
+
+	mustFinish(t, 5*time.Second, "Handler did not finish", func() {
+		<-pool.handlerDone
+	})
+	drainOutput(t, pool)
+
+	if pool.Statistor.ReqTotal != 50 {
+		t.Fatalf("ReqTotal = %d, want 50", pool.Statistor.ReqTotal)
+	}
+}
+

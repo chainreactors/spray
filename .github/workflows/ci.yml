@@ -1,17 +1,27 @@
-name: CI
+name: ci
 
 on:
-  pull_request:
-    branches: [ master ]
   push:
-    branches: [ master ]
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  basic:
+    name: basic checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,14 +31,21 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: '1.20.x'
+          cache: true
 
-      - name: Build
-        run: go build ./...
+      - name: Download dependencies
+        run: go mod download
 
-      - name: Test (race)
-        run: go test ./core/pool/ ./core/baseline/ ./core/ihttp/ ./pkg/ -v -race -count=1 -timeout=120s
+      - name: Test
+        run: go test -count=1 -timeout 300s ./...
+
+      - name: Test (race detector)
+        if: runner.os == 'Linux'
+        run: go test -race -short -count=1 -timeout 300s ./...
 
       - name: Vet
-        run: go vet ./core/... ./pkg/... ./cmd/...
-        continue-on-error: true
+        run: go vet ./...
+
+      - name: Build packages
+        run: go build ./...

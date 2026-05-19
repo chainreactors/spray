@@ -31,9 +31,11 @@ func LoadEmbeddedConfig(typ string) []byte {
 // LoadConfig loads config bytes from the external provider first, then from
 // the embedded templates kept for standalone spray compatibility.
 func LoadConfig(typ string) []byte {
-	resourceProvider.RLock()
-	provider := resourceProvider.fn
-	resourceProvider.RUnlock()
+	provider := func() ResourceProvider {
+		resourceProvider.RLock()
+		defer resourceProvider.RUnlock()
+		return resourceProvider.fn
+	}()
 	if provider != nil {
 		if data := provider(typ); len(data) > 0 {
 			return data

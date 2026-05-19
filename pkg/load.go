@@ -110,8 +110,12 @@ func LoadTemplates() error {
 	}
 
 	for k, v := range keywords {
-		t := make([]string, len(v.([]interface{})))
-		for i, vv := range v.([]interface{}) {
+		items, ok := v.([]interface{})
+		if !ok {
+			continue
+		}
+		t := make([]string, len(items))
+		for i, vv := range items {
 			t[i] = iutils.ToString(vv)
 		}
 		mask.SpecialWords[k] = t

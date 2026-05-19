@@ -952,6 +952,7 @@ func (opt *Option) BuildTasks(r *Runner) (*TaskGenerator, error) {
 			if err != nil {
 				return nil, err
 			}
+			defer raw.Close()
 
 			req, err := http.ReadRequest(bufio.NewReader(raw))
 			if err != nil {
