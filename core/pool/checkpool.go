@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -59,26 +58,25 @@ type CheckPool struct {
 func (pool *CheckPool) Run(ctx context.Context, offset, limit int) {
 	pool.Worder.Run()
 
-	var done atomic.Bool
-	// 挂起一个监控goroutine, 每100ms判断一次done, 如果已经done, 则关闭closeCh, 然后通过Loop中的select case closeCh去break, 实现退出
-	go func() {
-		for {
-			if done.Load() {
-				pool.wg.Wait()
-				close(pool.closeCh)
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
+	worderCh := pool.Worder.Output
+	var allDone <-chan struct{}
+
+	var drainOnce sync.Once
+	startDrain := func() {
+		drainOnce.Do(func() {
+			worderCh = nil
+			ch := make(chan struct{})
+			go func() { pool.wg.Wait(); close(ch) }()
+			allDone = ch
+		})
+	}
 
 Loop:
 	for {
 		select {
-		case u, ok := <-pool.Worder.Output:
+		case u, ok := <-worderCh:
 			if !ok {
-				done.Store(true)
-				time.Sleep(100 * time.Millisecond)
+				startDrain()
 				continue
 			}
 
@@ -88,6 +86,7 @@ Loop:
 			}
 
 			if pool.reqCount.Load() > int64(limit) {
+				startDrain()
 				continue
 			}
 
@@ -102,15 +101,11 @@ Loop:
 			if err := pool.Pool.Invoke(u); err != nil {
 				pool.wg.Done()
 			}
-		case <-pool.closeCh:
+		case <-allDone:
 			break Loop
 		case <-ctx.Done():
-			// 手动退出，不等待任务完成，直接退出
-			done.Store(true)
 			break Loop
 		case <-pool.ctx.Done():
-			// 手动退出，不等待任务完成，直接退出
-			done.Store(true)
 			break Loop
 		}
 	}

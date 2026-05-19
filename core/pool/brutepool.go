@@ -19,7 +19,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -171,18 +170,18 @@ func (pool *BrutePool) Init() error {
 	}
 	if pool.index.ErrString != "" {
 		logs.Log.Error(pool.index.String())
-		return fmt.Errorf(pool.index.ErrString)
+		return fmt.Errorf("%s", pool.index.ErrString)
 	}
 	if pool.index.Chunked && pool.ClientType == ihttp.FAST {
 		logs.Log.Warn("chunk encoding! buf current client FASTHTTP not support chunk decode")
 	}
-	logs.Log.Logf(pkg.LogVerbose, "[baseline.index] "+pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+	logs.Log.Logf(pkg.LogVerbose, "[baseline.index] %s", pool.index.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 	// 检测基本访问能力
 	if pool.random.ErrString != "" {
 		logs.Log.Error(pool.index.String())
-		return fmt.Errorf(pool.index.ErrString)
+		return fmt.Errorf("%s", pool.index.ErrString)
 	}
-	logs.Log.Logf(pkg.LogVerbose, "[baseline.random] "+pool.random.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
+	logs.Log.Logf(pkg.LogVerbose, "[baseline.random] %s", pool.random.Format([]string{"status", "length", "spend", "title", "frame", "redirect"}))
 
 	// 某些网站http会重定向到https, 如果发现随机目录出现这种情况, 则自定将baseurl升级为https
 	if pool.url.Scheme == "http" {
@@ -218,29 +217,29 @@ func (pool *BrutePool) Run(offset, limit int) {
 		pool.launchProducer(pool.doCommonFile)
 	}
 
-	// 监控 goroutine: word 流结束 / 超 limit / ctx 取消时, 等 wg 归零后关闭 closeCh
-	var done atomic.Bool
-	go func() {
-		for {
-			if done.Load() {
-				pool.wg.Wait()
-				close(pool.closeCh)
-				return
-			}
-			select {
-			case <-pool.ctx.Done():
-				done.Store(true)
-			case <-time.After(100 * time.Millisecond):
-			}
-		}
-	}()
+	// worderCh 指向 Worder 输出; 设为 nil 后 select 不再接受新词,
+	// 随后 allDone 等待 in-flight 工作全部结束再退出循环.
+	// 这比 atomic.Bool + 轮询 monitor goroutine 更安全: wg.Add 只发生在
+	// worderCh 分支, nil 掉之后不会再有新 Add, 消除了 Add/Wait 竞态.
+	worderCh := pool.Worder.Output
+	var allDone <-chan struct{} // nil channel: select 永远不选中
+
+	var drainOnce sync.Once
+	startDrain := func() {
+		drainOnce.Do(func() {
+			worderCh = nil
+			ch := make(chan struct{})
+			go func() { pool.wg.Wait(); close(ch) }()
+			allDone = ch
+		})
+	}
 
 Loop:
 	for {
 		select {
-		case w, ok := <-pool.Worder.Output:
+		case w, ok := <-worderCh:
 			if !ok {
-				done.Store(true)
+				startDrain()
 				continue
 			}
 			pool.Statistor.End++
@@ -251,7 +250,7 @@ Loop:
 			}
 
 			if pool.Statistor.End > limit {
-				done.Store(true)
+				startDrain()
 				continue
 			}
 
@@ -267,7 +266,6 @@ Loop:
 					pool.wg.Done()
 				}
 			} else {
-				// 原样的目录拼接, 输入了几个"/"就是几个, 适配/有语义的中间件
 				if err := pool.reqPool.Invoke(&Unit{path: pool.safePath(w), source: parsers.WordSource, number: pool.wordOffset}); err != nil {
 					pool.wg.Done()
 				}
@@ -288,10 +286,10 @@ Loop:
 					pool.wg.Done()
 				}
 			}
-		case <-pool.closeCh:
+		case <-allDone:
 			break Loop
 		case <-pool.ctx.Done():
-			done.Store(true)
+			break Loop
 		}
 	}
 	pool.Close()
