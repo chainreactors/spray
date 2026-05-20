@@ -867,9 +867,15 @@ func (pool *BrutePool) fallback() {
 
 func (pool *BrutePool) Close() {
 	pool.Cancel()
-	// 先等待所有 in-flight 的 invoke / launchProducer goroutine 完成,
-	// 再 Release ants 池, 否则 ants worker 可能在 Release 后才执行 wg.Done.
+	// drain additionCh: Run 主循环退出后可能还有未消费的 addition item,
+	// 每个都持有 wg.Add(1), 必须 Done 掉否则 wg.Wait 永远阻塞.
+	go func() {
+		for range pool.additionCh {
+			pool.wg.Done()
+		}
+	}()
 	pool.wg.Wait()
+	close(pool.additionCh)
 	pool.reqPool.Release()
 	pool.scopePool.Release()
 	close(pool.processCh)
