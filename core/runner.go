@@ -150,6 +150,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Bak:               r.BakPlugin,
 		Fuzzuli:           r.FuzzuliPlugin,
 		Common:            r.CommonPlugin,
+		Poc:               r.PocPlugin,
 		RetryLimit:        r.RetryCount,
 		ClientType:        r.ClientType,
 		Random:            r.Random,

@@ -121,6 +121,7 @@ func LoadTemplates() error {
 		mask.SpecialWords[k] = t
 	}
 
+	// Load legacy extractors (still used for URL crawl regexps: js, url)
 	var extracts []*parsers.Extractor
 	err = yaml.Unmarshal(LoadConfig("extract"), &extracts)
 	if err != nil {
@@ -139,7 +140,37 @@ func LoadTemplates() error {
 			}
 		}
 	}
+
+	// Load proton templates for high-performance extraction
+	if err := LoadProtonRules(); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// LoadProtonRules loads embedded proton YAML templates.
+// The data is a YAML array of template objects produced by recuLoadPoc.
+func LoadProtonRules() error {
+	rulesData := LoadConfig("proton_rules")
+	if len(rulesData) == 0 {
+		return nil
+	}
+
+	var templates []interface{}
+	if err := yaml.Unmarshal(rulesData, &templates); err != nil {
+		return err
+	}
+
+	docs := make([][]byte, 0, len(templates))
+	for _, tmpl := range templates {
+		doc, err := yaml.Marshal(tmpl)
+		if err != nil {
+			continue
+		}
+		docs = append(docs, doc)
+	}
+	return LoadProtonTemplates(docs)
 }
 
 func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
@@ -172,4 +203,8 @@ func Load() error {
 	}
 
 	return nil
+}
+
+func LoadNeutron() error {
+	return LoadNeutronTemplates()
 }

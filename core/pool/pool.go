@@ -80,12 +80,25 @@ func (pool *BasePool) sendProcess(bl *baseline.Baseline) {
 func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
 	if bl.IsValid || bl.IsFuzzy {
 		bl.Collect()
+		pool.doPoc(bl)
 	}
 	pool.Outwg.Add(1)
 	select {
 	case pool.OutputCh <- bl:
 	case <-pool.ctx.Done():
 		pool.Outwg.Done()
+	}
+}
+
+func (pool *BasePool) doPoc(bl *baseline.Baseline) {
+	if !pool.Poc || len(bl.Frameworks) == 0 || bl.Url == nil {
+		return
+	}
+
+	baseURL := pkg.BaseURL(bl.Url)
+	results := pkg.NeutronScan(baseURL, bl.Frameworks)
+	if len(results) > 0 {
+		bl.Extracteds.Merge(pkg.PocResultToExtracteds(results))
 	}
 }
 
