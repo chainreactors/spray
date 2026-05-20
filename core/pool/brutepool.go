@@ -914,10 +914,7 @@ func (pool *BrutePool) doCheck() {
 	} else {
 		return
 	}
-	pool.wg.Add(1)
-	if err := pool.reqPool.Invoke(unit); err != nil {
-		pool.wg.Done()
-	}
+	pool.addAddition(unit)
 }
 
 func (pool *BrutePool) doRedirect(bl *baseline.Baseline, depth int) {
