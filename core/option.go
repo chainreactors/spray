@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/proxyclient"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/core/ihttp"
@@ -124,6 +122,8 @@ type PluginOptions struct {
 	AppendDepth   int      `long:"append-depth" default:"2" description:"Int, append depth" config:"append-depth"`
 	Finger        bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
 	FingerEngines string   `long:"finger-engine" default:"all" description:"String, custom finger engine, e.g. --finger-engine ehole,goby" config:"finger-engine"`
+	PocPlugin     bool     `long:"poc" description:"Bool, enable neutron poc verify after finger detect" config:"poc"`
+	PocConfig     string   `long:"poc-config" description:"String, custom poc template directory" config:"poc-config"`
 }
 
 type ModeOptions struct {
@@ -288,25 +288,21 @@ func (opt *Option) Prepare() error {
 	}
 
 	if opt.Extracts != nil {
+		var knownNames []string
 		for _, e := range opt.Extracts {
-			if reg, ok := pkg.ExtractRegexps[e]; ok {
-				pkg.Extractors[e] = reg
+			// Check if it's a known template name/tag or a raw regex
+			if _, ok := pkg.ExtractRegexps[e]; ok {
+				knownNames = append(knownNames, e)
 			} else {
-				pkg.Extractors[e] = []*parsers.Extractor{
-					&parsers.Extractor{
-						Name:            e,
-						CompiledRegexps: []*regexp.Regexp{regexp.MustCompile(e)},
-					},
-				}
+				// Treat as raw regex pattern — add as custom proton extractor
+				pkg.AddCustomExtractor(e, e)
+				knownNames = append(knownNames, e)
 			}
 		}
+		pkg.EnableExtractors(knownNames)
 	}
 	if opt.ExtractConfig != "" {
-		extracts, err := pkg.LoadExtractorConfig(opt.ExtractConfig)
-		if err != nil {
-			return err
-		}
-		pkg.Extractors[opt.ExtractConfig] = extracts
+		pkg.LoadProtonTemplatesFromDir(opt.ExtractConfig)
 	}
 
 	// 初始化全局变量
@@ -700,18 +696,12 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		opt.CommonPlugin = true
 		opt.ActivePlugin = true
 		opt.ReconPlugin = true
+		opt.PocPlugin = true
 	}
 
 	if opt.ReconPlugin {
-		if _, ok := pkg.Extractors["recon"]; !ok {
-			// Combine pentest and info extractors for recon.
-			pentestExtractors := pkg.ExtractRegexps["pentest"]
-			infoExtractors := pkg.ExtractRegexps["info"]
-			reconExtractors := make([]*parsers.Extractor, 0, len(pentestExtractors)+len(infoExtractors))
-			reconExtractors = append(reconExtractors, pentestExtractors...)
-			reconExtractors = append(reconExtractors, infoExtractors...)
-			pkg.Extractors["recon"] = reconExtractors
-		}
+		// Enable pentest + info tagged proton templates for recon
+		pkg.EnableExtractors([]string{"pentest", "info"})
 	}
 
 	if opt.Finger && !pkg.EnableAllFingerEngine {
@@ -737,6 +727,23 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 
 	if opt.CrawlPlugin {
 		r.bruteMod = true
+	}
+
+	if opt.PocPlugin {
+		pkg.NeutronEnabled = true
+		pkg.NeutronPocMode = pkg.PocModeAll
+		if !pkg.EnableAllFingerEngine {
+			pkg.EnableAllFingerEngine = true
+		}
+		if opt.PocConfig != "" {
+			if err := pkg.LoadNeutronTemplatesFromDir(opt.PocConfig); err != nil {
+				return err
+			}
+		} else {
+			if err := pkg.LoadNeutron(); err != nil {
+				return err
+			}
+		}
 	}
 
 	if r.bruteMod {

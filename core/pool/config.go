@@ -43,6 +43,7 @@ type Config struct {
 	Bak               bool
 	Fuzzuli           bool
 	Common            bool
+	Poc               bool
 	RetryLimit        int
 	Random            string
 	Index             string
