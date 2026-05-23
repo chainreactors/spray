@@ -86,7 +86,14 @@ func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
 	select {
 	case pool.OutputCh <- bl:
 	case <-pool.ctx.Done():
-		pool.Outwg.Done()
+		// Close cancels the pool context before draining processCh. If OutputCh
+		// still has room, keep the already-produced result instead of dropping it
+		// because the local pool is shutting down.
+		select {
+		case pool.OutputCh <- bl:
+		default:
+			pool.Outwg.Done()
+		}
 	}
 }
 
@@ -108,6 +115,10 @@ func (pool *BasePool) putToFuzzy(bl *baseline.Baseline) {
 	select {
 	case pool.FuzzyCh <- bl:
 	case <-pool.ctx.Done():
-		pool.Outwg.Done()
+		select {
+		case pool.FuzzyCh <- bl:
+		default:
+			pool.Outwg.Done()
+		}
 	}
 }
