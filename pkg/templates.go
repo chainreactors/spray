@@ -24,13 +24,6 @@ var extractData []byte
 //go:embed data/port.bin
 var portData []byte
 
-//go:embed data/proton_rules.bin
-var protonRulesData []byte
-
-//go:embed data/neutron.bin
-var neutronData []byte
-
-var RandomDir = "/g8kZMwp4oeKsL2in"
 
 func loadEmbeddedConfig(typ string) []byte {
 	if typ == "spray_rule" {
@@ -43,10 +36,6 @@ func loadEmbeddedConfig(typ string) []byte {
 		return encode.MustDeflateDeCompress(extractData)
 	}else if typ == "port" {
 		return encode.MustDeflateDeCompress(portData)
-	}else if typ == "proton_rules" {
-		return encode.MustDeflateDeCompress(protonRulesData)
-	}else if typ == "neutron" {
-		return encode.MustDeflateDeCompress(neutronData)
 	}
 	return nil
 }

@@ -264,8 +264,8 @@ func PrintPreset() {
 		logs.Log.Consolef("\t%s\t%d words\n", name, len(words))
 	}
 
-	logs.Log.Console("\ninternal extractor:\n")
-	for name, _ := range pkg.ExtractRegexps {
+	logs.Log.Console("\ninternal extractor (proton):\n")
+	for _, name := range pkg.ProtonExtractorNames() {
 		logs.Log.Consolef("\t%s\n", name)
 	}
 
