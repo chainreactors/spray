@@ -166,7 +166,7 @@ func (bl *Baseline) Collect() {
 	}
 
 	bl.Hashes = parsers.NewHashes(bl.Raw)
-	bl.Extracteds.Merge(pkg.Extractors.Extract(string(bl.Raw), true))
+	bl.Extracteds.Merge(pkg.ProtonExtract(bl.Raw))
 	bl.Unique = UniqueHash(bl)
 }
 
@@ -235,7 +235,6 @@ func (bl *Baseline) Compare(other *Baseline) int {
 			return -1
 		}
 	}
-	return -1
 }
 
 func (bl *Baseline) ProbeOutput(format []string) string {

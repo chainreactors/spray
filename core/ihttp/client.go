@@ -130,7 +130,8 @@ func customDialFunc(dialer proxyclient.Dial, timeout time.Duration) fasthttp.Dia
 		}
 	}
 	return func(addr string) (net.Conn, error) {
-		ctx, _ := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 		return dialer.DialContext(ctx, "tcp", addr)
 	}
 }

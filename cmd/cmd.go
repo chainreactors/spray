@@ -19,9 +19,9 @@ var DefaultConfig = "config.yaml"
 
 func init() {
 	logs.Log.SetColorMap(map[logs.Level]func(string) string{
-		logs.Info:      logs.PurpleBold,
-		logs.Important: logs.GreenBold,
-		pkg.LogVerbose: logs.Green,
+		logs.InfoLevel:      logs.PurpleBold,
+		logs.ImportantLevel: logs.GreenBold,
+		pkg.LogVerbose:      logs.Green,
 	})
 }
 
