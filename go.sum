@@ -74,6 +74,7 @@ github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmV
 github.com/armon/go-metrics v0.3.10/go.mod h1:4O98XIr/9W0sxpJ8UaYkvjk10Iff7SnFrb4QAOwNTFc=
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
 github.com/armon/go-radix v1.0.0/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
+github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
@@ -101,15 +102,15 @@ github.com/chainreactors/files v0.0.0-20231123083421-cea5b4ad18a8/go.mod h1:/Xa9
 github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0 h1:cU3sGEODXZsUZGBXfnz0nyxF6+37vA+ZGDx6L/FKN4o=
 github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0/go.mod h1:NSxGNMRWryAyrDzZpVwmujI22wbGw6c52bQOd5zEvyU=
 github.com/chainreactors/fingers v0.0.0-20240702104653-a66e34aa41df/go.mod h1:l8AO6ZbIL8WQ8PkihCK/MD6Iww/O+LY/osAhRJjThs4=
-github.com/chainreactors/fingers v1.1.1-0.20260127104843-a77f7d9e7b6c h1:QZK1820vc2O0yFK5ve90i+oj3dNuMTEkomOwbDTyR0U=
-github.com/chainreactors/fingers v1.1.1-0.20260127104843-a77f7d9e7b6c/go.mod h1:vXGHeolL31QtHMPVs/+fMhispMS86rDpRL3ayEMOlXY=
+github.com/chainreactors/fingers v1.2.0 h1:x699lshOI8gAsoedk/QQDtpMPA8mXfcKWmUgQ292UbM=
+github.com/chainreactors/fingers v1.2.0/go.mod h1:owlti2VYK2YpnLqdZ1HWACK4upuyFgjDOfSdm36pAjw=
 github.com/chainreactors/logs v0.0.0-20240207121836-c946f072f81f/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
 github.com/chainreactors/logs v0.0.0-20241030063019-8ca66a3ee307/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
 github.com/chainreactors/logs v0.0.0-20250312104344-9f30fa69d3c9 h1:u3qAuV4/IY5lvE0utSl5w0p6MdTNpXYA2FJee93c21A=
 github.com/chainreactors/logs v0.0.0-20250312104344-9f30fa69d3c9/go.mod h1:6Mv6W70JrtL6VClulZhmMRZnoYpcTahcDTKLMNEjK0o=
-github.com/chainreactors/neutron v0.0.0-20251216154716-7c28cb6fdf03/go.mod h1:CktNFh1I1sNwFI9Ml+t0X/uuEoO4eAW5Dmb/cuzV8BY=
-github.com/chainreactors/neutron v0.0.0-20260519161201-b0482d8bb58b h1:bX3sRTEkXUIyqD9zsywNItE/gt7vKQGZnRv8esMFaMI=
-github.com/chainreactors/neutron v0.0.0-20260519161201-b0482d8bb58b/go.mod h1:Gh/QvVFVB9Gt0OeUrPpKq+kORAIHOD2O5a8MbKmu2IY=
+github.com/chainreactors/neutron v0.0.0-20260203032004-95c9e8431214/go.mod h1:CktNFh1I1sNwFI9Ml+t0X/uuEoO4eAW5Dmb/cuzV8BY=
+github.com/chainreactors/neutron v0.0.1 h1:3FBtqORuCfAzeo5I+Ur004F1kMDPsuH78bwAGRLCMJ8=
+github.com/chainreactors/neutron v0.0.1/go.mod h1:fvrw6Z8gXqYkZVIjl04HBoQ7LW7ptiBcUBXxJZWn0n0=
 github.com/chainreactors/parsers v0.0.0-20250605044448-6bc270f12c0e h1:8AgGNkG1JoO6CIGlMNOecUCaQCnB/Ko/WI3Y6VgVPrI=
 github.com/chainreactors/parsers v0.0.0-20250605044448-6bc270f12c0e/go.mod h1:7rXdYz6jrdjF0WUH1ICcAXKIKKjKmJo2PU8u43V7jkA=
 github.com/chainreactors/proton v0.0.0-20260520014408-07a02dfb1b00 h1:4xzKQLv5YOTtLyhkZvBd79NkU05xAnk7MpcbkcUwpP4=
@@ -379,6 +380,8 @@ github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfn
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+github.com/lcvvvv/logs v0.0.3 h1:5cuH/GnJANnUAMHoA8p/3ryTlYzhxdk4cZ0d+YZPgHE=
+github.com/lcvvvv/logs v0.0.3/go.mod h1:C94n/NhKNNzhUnWIl2XlDO0tpSPStUXNm4QuVoK1Mo4=
 github.com/leodido/go-urn v1.4.0 h1:WT9HwE9SGECu3lg4d/dIA+jxlljEa1/ffXKmRjqdmIQ=
 github.com/leodido/go-urn v1.4.0/go.mod h1:bvxc+MVxLKB4z00jd1z+Dvzr47oO32F/QSNjSBOlFxI=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
@@ -537,6 +540,7 @@ github.com/wasilibs/go-re2 v1.10.0 h1:vQZEBYZOCA9jdBMmrO4+CvqyCj0x4OomXTJ4a5/urQ
 github.com/wasilibs/go-re2 v1.10.0/go.mod h1:k+5XqO2bCJS+QpGOnqugyfwC04nw0jaglmjrrkG8U6o=
 github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52 h1:OvLBa8SqJnZ6P+mjlzc2K7PM22rRUPE1x32G9DTPrC4=
 github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52/go.mod h1:jMeV4Vpbi8osrE/pKUxRZkVaA0EX7NZN0A9/oRzgpgY=
+github.com/weppos/publicsuffix-go v0.15.1-0.20220329081811-9a40b608a236 h1:vMJBP3PQViZsF6cOINtvyMC8ptpLsyJ4EwyFnzuWNxc=
 github.com/weppos/publicsuffix-go v0.15.1-0.20220329081811-9a40b608a236/go.mod h1:HYux0V0Zi04bHNwOHy4cXJVz/TQjYonnF6aoYhj+3QE=
 github.com/wk8/go-ordered-map/v2 v2.1.8/go.mod h1:5nJHM5DyteebpVlHnWMV0rPz6Zp7+xBAnxjb1X5vnTw=
 github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 h1:nIPpBwaJSVYIxUFsDv3M8ofmx9yWTog9BfvIu0q41lo=
