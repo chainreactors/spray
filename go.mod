@@ -9,7 +9,7 @@ require (
 	github.com/chainreactors/neutron v0.0.0-20260519161201-b0482d8bb58b
 	github.com/chainreactors/parsers v0.0.0-20250605044448-6bc270f12c0e
 	github.com/chainreactors/proton v0.0.0-20260520014408-07a02dfb1b00
-	github.com/chainreactors/proxyclient v1.0.3-0.20250219180226-a25a0c9e6ac8
+	github.com/chainreactors/proxyclient v1.1.0
 	github.com/chainreactors/utils v0.0.0-20260520013422-17d44b97430a
 	github.com/chainreactors/words v0.0.0-20241002061906-25d8893158d9
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -74,10 +74,7 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/shadowsocks/go-shadowsocks2 v0.1.5 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
@@ -90,16 +87,13 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
-	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/chainreactors/proxyclient => github.com/chainreactors/proxyclient v1.0.3
