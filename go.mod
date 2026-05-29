@@ -13,7 +13,7 @@ require (
 	github.com/chainreactors/utils v0.0.0-20260520013422-17d44b97430a
 	github.com/chainreactors/words v0.0.0-20241002061906-25d8893158d9
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/expr-lang/expr v1.16.9
+	github.com/expr-lang/expr v1.17.8
 	github.com/gookit/config/v2 v2.2.5
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/panjf2000/ants/v2 v2.9.1
