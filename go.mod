@@ -16,7 +16,7 @@ require (
 	github.com/expr-lang/expr v1.16.9
 	github.com/gookit/config/v2 v2.2.5
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/panjf2000/ants/v2 v2.9.1
+	github.com/panjf2000/ants/v2 v2.12.1
 	github.com/valyala/fasthttp v1.53.0
 	github.com/vbauerster/mpb/v8 v8.7.3
 	golang.org/x/time v0.5.0
