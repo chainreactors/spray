@@ -251,3 +251,117 @@ func TestE2E_MixedStatusCodes(t *testing.T) {
 		t.Fatalf("RunWithArgs: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// E2E: scan with --extract flags completes without error
+// ---------------------------------------------------------------------------
+
+func extractServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(200)
+		fmt.Fprintf(w, `<html><head><title>Page %s</title></head><body>
+			ip=10.20.30.40 email=test@example.com
+			token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.rTCH8cLoGxAm_xw68z-zXVKi9ie6xJn9tnVWjd_9ftE
+			password="s3cret" version: 1.2.3
+			AccessKeyId=AKIAIOSFODNN7EXAMPLE unique content %s
+		</body></html>`, r.URL.Path, r.URL.Path)
+	}))
+}
+
+func TestE2E_ExtractByTag(t *testing.T) {
+	server := extractServer()
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "xleakpage1\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--extract", "ip",
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --extract ip: %v", err)
+	}
+}
+
+func TestE2E_ExtractMultipleTags(t *testing.T) {
+	server := extractServer()
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "xleakpage2\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--extract", "ip",
+		"--extract", "mail",
+		"--extract", "jwt",
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with multiple --extract: %v", err)
+	}
+}
+
+func TestE2E_ExtractCategoryTag(t *testing.T) {
+	server := extractServer()
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "xleakpage3\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--extract", "cloud",
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --extract cloud: %v", err)
+	}
+}
+
+func TestE2E_ExtractCustomRegex(t *testing.T) {
+	server := extractServer()
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "xleakpage4\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--extract", `version[\s:]+(\d+\.\d+\.\d+)`,
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with custom regex extract: %v", err)
+	}
+}
+
+func TestE2E_ReconPlugin(t *testing.T) {
+	server := extractServer()
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "xleakpage5\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--recon",
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --recon: %v", err)
+	}
+}
