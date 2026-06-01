@@ -73,7 +73,7 @@ func Spray() {
 		DefaultConfig: DefaultConfig,
 		Version:       ver,
 	}); err != nil {
-		logs.Log.Errorf(err.Error())
+		logs.Log.Errorf("%s", err.Error())
 		return
 	}
 }

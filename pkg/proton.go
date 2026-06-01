@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,16 +11,17 @@ import (
 	"github.com/chainreactors/neutron/protocols"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/proton/protocols/file"
-	protonTmpl "github.com/chainreactors/proton/templates"
+	protonTmpl "github.com/chainreactors/proton/template"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 var (
-	ProtonScanner     *file.Scanner
-	protonTemplates   []*protonTmpl.Template
-	protonTemplateMap map[string]*protonTmpl.Template // id → template
-	protonTagMap      map[string][]string             // tag → []id
-	protonMu          sync.RWMutex
+	ProtonScanner      *file.Scanner
+	protonTemplates    []*protonTmpl.Template
+	protonTemplateMap  map[string]*protonTmpl.Template // id → template
+	protonTagMap       map[string][]string             // tag → []id
+	protonMu           sync.RWMutex
+	ExtractContextSize int // 0=disabled, >0=chars of context each side
 )
 
 // LoadProtonTemplates parses YAML template docs and builds a Scanner.
@@ -50,6 +52,7 @@ func LoadProtonTemplates(yamlDocs [][]byte) error {
 			tag = strings.TrimSpace(tag)
 			protonTagMap[tag] = append(protonTagMap[tag], tmpl.Id)
 		}
+
 	}
 
 	rebuildScanner()
@@ -146,6 +149,35 @@ func rebuildScanner() {
 	ProtonScanner = file.NewScanner(rules, nil)
 }
 
+type extractHit struct {
+	value    string
+	line     int
+	offset   int
+	severity string
+}
+
+func captureContext(content []byte, lineOffset int, value string, ctxSize int) string {
+	searchEnd := len(content)
+	if nlPos := bytes.IndexByte(content[lineOffset:], '\n'); nlPos >= 0 {
+		searchEnd = lineOffset + nlPos
+	}
+	line := content[lineOffset:searchEnd]
+	idx := bytes.Index(line, []byte(value))
+	if idx == -1 {
+		return ""
+	}
+	matchStart := lineOffset + idx
+	start := matchStart - ctxSize
+	if start < 0 {
+		start = 0
+	}
+	end := matchStart + len(value) + ctxSize
+	if end > len(content) {
+		end = len(content)
+	}
+	return string(content[start:end])
+}
+
 // ProtonExtract runs proton scanner on in-memory content and returns
 // parsers.Extracted results compatible with spray's output format.
 func ProtonExtract(content []byte) parsers.Extracteds {
@@ -157,36 +189,49 @@ func ProtonExtract(content []byte) parsers.Extracteds {
 		return nil
 	}
 
-	resultMap := make(map[string]map[string]struct{})
+	resultMap := make(map[string][]extractHit)
 
 	for _, group := range scanner.Groups {
 		findings := scanner.ScanData(content, "response", group)
 		for _, f := range findings {
-			if resultMap[f.TemplateID] == nil {
-				resultMap[f.TemplateID] = make(map[string]struct{})
-			}
 			for _, e := range f.Extracts {
-				resultMap[f.TemplateID][e.Value] = struct{}{}
+				resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
+					value: e.Value, line: e.Line, offset: e.Offset, severity: f.Severity,
+				})
 			}
-			for _, events := range f.Matches {
-				for _, e := range events {
-					resultMap[f.TemplateID][e.Value] = struct{}{}
-				}
-			}
+			// f.Matches contains matcher hits (gate only), not extractor results — skip
 			if f.Result != nil {
 				for _, val := range f.Result.OutputExtracts {
-					resultMap[f.TemplateID][val] = struct{}{}
+					resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
+						value: val, severity: f.Severity,
+					})
 				}
 			}
 		}
 	}
 
 	var extracteds parsers.Extracteds
-	for name, vals := range resultMap {
-		displayName := strings.TrimPrefix(name, "spray-")
-		extracted := &parsers.Extracted{Name: displayName}
-		for v := range vals {
-			extracted.ExtractResult = append(extracted.ExtractResult, v)
+	for templateID, hits := range resultMap {
+		displayName := strings.TrimPrefix(templateID, "spray-")
+		extracted := &parsers.Extracted{
+			Name:     displayName,
+			Severity: hits[0].severity,
+		}
+		seen := make(map[string]struct{})
+		for _, h := range hits {
+			if _, ok := seen[h.value]; ok {
+				continue
+			}
+			seen[h.value] = struct{}{}
+			extracted.ExtractResult = append(extracted.ExtractResult, h.value)
+			if ExtractContextSize > 0 {
+				extracted.Items = append(extracted.Items, parsers.ExtractItem{
+					Value:  h.value,
+					Line:   h.line,
+					Offset: h.offset,
+					Ctx:    captureContext(content, h.offset, h.value, ExtractContextSize),
+				})
+			}
 		}
 		if len(extracted.ExtractResult) > 0 {
 			extracteds = append(extracteds, extracted)
@@ -221,4 +266,20 @@ func ProtonExtractorNames() []string {
 		names = append(names, id)
 	}
 	return names
+}
+
+// IsProtonExtractor checks if a name matches a proton template ID or tag.
+func IsProtonExtractor(name string) bool {
+	protonMu.RLock()
+	defer protonMu.RUnlock()
+	if _, ok := protonTemplateMap["spray-"+name]; ok {
+		return true
+	}
+	if _, ok := protonTemplateMap[name]; ok {
+		return true
+	}
+	if _, ok := protonTagMap[name]; ok {
+		return true
+	}
+	return false
 }

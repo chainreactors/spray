@@ -110,8 +110,9 @@ type RequestOptions struct {
 
 type PluginOptions struct {
 	Advance       bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
-	Extracts      []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
-	ExtractConfig string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
+	Extracts       []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
+	ExtractConfig  string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
+	ExtractContext int      `long:"extract-context" default:"0" description:"Int, chars of context around extracted values, e.g.: --extract-context 50" config:"extract-context"`
 	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
 	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
 	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
@@ -287,14 +288,18 @@ func (opt *Option) Prepare() error {
 		return err
 	}
 
+	if opt.ExtractContext > 0 {
+		pkg.ExtractContextSize = opt.ExtractContext
+	}
+
 	if opt.Extracts != nil {
 		var knownNames []string
 		for _, e := range opt.Extracts {
-			// Check if it's a known template name/tag or a raw regex
 			if _, ok := pkg.ExtractRegexps[e]; ok {
 				knownNames = append(knownNames, e)
+			} else if pkg.IsProtonExtractor(e) {
+				knownNames = append(knownNames, e)
 			} else {
-				// Treat as raw regex pattern — add as custom proton extractor
 				pkg.AddCustomExtractor(e, e)
 				knownNames = append(knownNames, e)
 			}
