@@ -10,7 +10,7 @@ import (
 	"github.com/chainreactors/neutron/operators"
 	"github.com/chainreactors/neutron/protocols"
 	"github.com/chainreactors/parsers"
-	"github.com/chainreactors/proton/protocols/file"
+	"github.com/chainreactors/proton/proton/file"
 	protonTmpl "github.com/chainreactors/proton/template"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
