@@ -1,0 +1,167 @@
+input:
+  # Files, Multi,dict files, e.g.: -d 1.txt -d 2.txt
+  dictionaries:
+    - 1.txt
+    - 2.txt
+  # Bool, use default dictionary
+  default: true
+  # String, word generate dsl, e.g.: -w test{?ld#4}
+  word: ""
+  # Files, rule files, e.g.: -r rule1.txt -r rule2.txt
+  rules: []
+  # Files, when found valid path , use append rule generator new word with current path
+  append-rules: []
+  # String, filter rule, e.g.: --rule-filter '>8 <4'
+  filter-rule: ""
+  # Files, when found valid path , use append file new word with current path
+  append-files: []
+functions:
+  # String, add extensions (separated by commas), e.g.: -e jsp,jspx
+  extension: ""
+  # Bool, force add extensions
+  force-extension: false
+  # String, exclude extensions (separated by commas), e.g.: --exclude-extension jsp,jspx
+  exclude-extension: ""
+  # String, remove extensions (separated by commas), e.g.: --remove-extension jsp,jspx
+  remove-extension: ""
+  # Bool, upper wordlist, e.g.: --uppercase
+  upper: false
+  # Bool, lower wordlist, e.g.: --lowercase
+  lower: false
+  # Strings, add prefix, e.g.: --prefix aaa --prefix bbb
+  prefix: []
+  # Strings, add suffix, e.g.: --suffix aaa --suffix bbb
+  suffix: []
+  # Strings, replace string, e.g.: --replace aaa:bbb --replace ccc:ddd
+  replace: {}
+  # String, skip word when generate. rule, e.g.: --skip aaa
+  skip: []
+output:
+  # String, custom match function, e.g.: --match 'current.Status != 200''
+  match: ""
+  # String, custom filter function, e.g.: --filter 'current.Body contains "hello"'
+  filter: ""
+  # String, open fuzzy output
+  fuzzy: false
+  # String, output filename
+  output-file: "dicscan.txt"
+  # String, dump all request, and write to filename
+  dump-file: ""
+  # Bool, dump all request
+  dump: false
+  # Bool, auto generator output and fuzzy filename
+  auto-file: false
+  # String, output format, e.g.: --format 1.json
+  format: ""
+  # Bool, output json
+  json: false
+  # Bool, file output format
+  file_output: json
+  # String, output format
+  output: ""
+  # Bool, Quiet
+  quiet: false
+  # Bool, no color
+  no-color: false
+  # Bool, No progress bar
+  no-bar: false
+  # Bool, No stat file output
+  no-stat: false
+plugins:
+  # Bool, enable all plugin
+  all: true
+  # Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)
+  extract: []
+  # String, extract config filename
+  extract-config: ""
+  # Bool, enable recon
+  recon: true
+  # Bool, enable bak found
+  bak: true
+  # Bool, enable common file found
+  common: true
+  # Bool, enable crawl
+  crawl: true
+  # Int, crawl depth
+  crawl-depth: 3
+  # Int, append depth
+  append-depth: 3
+finger:
+  # Bool, enable active finger detect
+  finger: false
+  # Bool, update finger database
+  update: false
+  # String, 3rd finger config path
+  finger-path: fingers
+  # String, custom finger engine, e.g. --finger-engine ehole,goby
+  finger-engine: all
+request:
+  # String, request method, e.g.: --method POST
+  method: GET
+  # Strings, custom headers, e.g.: --header 'Auth: example_auth'
+  headers: []
+  # String, custom user-agent, e.g.: --user-agent Custom
+  useragent: ""
+  # Bool, use random with default user-agent
+  random-useragent: false
+  # Strings, custom cookie
+  cookies: []
+  # Bool, read all response body
+  read-all: false
+  # Int, max response body length (kb), -1 read-all, 0 not read body, default 100k, e.g. --max-length 1000
+  max-length: 100
+mode:
+  # Int, request rate limit (rate/s), e.g.: --rate-limit 100
+  rate-limit: 100
+  # Bool, skip error break
+  force: false
+  # Bool, no scope
+  no-scope: false
+  # String, custom scope, e.g.: --scope *.example.com
+  scope: []
+  # String,custom recursive rule, e.g.: --recursive current.IsDir()
+  recursive: current.IsDir()
+  # Int, recursive depth
+  depth: 0
+  # String, custom index path
+  index: /
+  # String, custom random path
+  random: ""
+  # Int, check period when request
+  check-period: 200
+  # Int, check period when error
+  error-period: 10
+  # Int, break when the error exceeds the threshold
+  error-threshold: 200
+  # Strings (comma split),custom black status
+  black-status: 400,410
+  # Strings (comma split), custom white status
+  white-status: 200
+  # Strings (comma split), custom fuzzy status
+  fuzzy-status: 500,501,502,503,301,302,404
+  # Strings (comma split), custom unique status
+  unique-status: 403,200,404
+  # Bool, unique response
+  unique: false
+  # Int, retry count
+  retry: 0
+  sim-distance: 8
+misc:
+  # String, path/host spray
+  mod: path
+  # String, Client type
+  client: auto
+  # Int, deadline (seconds)
+  deadline: 999999
+  # Int, timeout with request (seconds)
+  timeout: 5
+  # Int, Pool size
+  pool: 5
+  # Int, number of threads per pool
+  thread: 20
+  # Bool, output debug info
+  debug: false
+  # Bool, log verbose level ,default 0, level1: -v level2 -vv
+  verbose: []
+  # String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080
+  proxies: []

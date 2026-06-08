@@ -1,0 +1,138 @@
+name: OKR Chat
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  auth-check:
+    runs-on: ubuntu-latest
+    if: >-
+      contains(github.event.issue.labels.*.name, 'okr-review')
+      && (
+        contains(github.event.comment.body, '@claude')
+        || contains(github.event.comment.body, '@codex')
+      )
+      && (
+        github.event.comment.author_association == 'OWNER'
+        || github.event.comment.author_association == 'MEMBER'
+        || github.event.comment.author_association == 'COLLABORATOR'
+      )
+    outputs:
+      agent: ${{ steps.detect.outputs.agent }}
+      user_message: ${{ steps.detect.outputs.user_message }}
+    steps:
+      - name: Detect agent and extract message
+        id: detect
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          if echo "$COMMENT_BODY" | grep -qi '@claude'; then
+            echo "agent=claude" >> "$GITHUB_OUTPUT"
+            MSG=$(echo "$COMMENT_BODY" | sed 's/@claude//gi' | xargs)
+          elif echo "$COMMENT_BODY" | grep -qi '@codex'; then
+            echo "agent=codex" >> "$GITHUB_OUTPUT"
+            MSG=$(echo "$COMMENT_BODY" | sed 's/@codex//gi' | xargs)
+          else
+            echo "agent=claude" >> "$GITHUB_OUTPUT"
+            MSG="$COMMENT_BODY"
+          fi
+          EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "user_message<<$EOF_MARKER" >> "$GITHUB_OUTPUT"
+          echo "$MSG" >> "$GITHUB_OUTPUT"
+          echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
+
+  chat-claude:
+    needs: auth-check
+    if: needs.auth-check.outputs.agent == 'claude'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Fetch context and reply
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL || '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          USER_MSG: ${{ needs.auth-check.outputs.user_message }}
+        run: |
+          COMMENTS=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}/comments?per_page=10&direction=desc" \
+            --jq '[.[] | "[\(.user.login)]: \(.body)"] | reverse | join("\n---\n")' 2>/dev/null || echo "")
+
+          PROMPT="你是这个项目的 OKR 评审官和战略顾问。风格是大厂 PUA——够直接、够犀利、但有建设性。
+          不要与人类确认，直接执行。项目的 OKR 定义在 .claude/skills/okr/SKILL.md 中。
+
+          最近对话记录：
+          ${COMMENTS}
+
+          Maintainer 的最新消息：
+          ${USER_MSG}
+
+          请基于以上上下文回复。基于实际检查（读文件、跑命令），不要猜。"
+
+          RESULT=$(claude -p "$PROMPT" --output-format text 2>&1) || true
+
+          REPLY="### 🤖 Claude 回复
+
+          ${RESULT}
+
+          ---
+          *由 okr-chat workflow 自动生成*"
+
+          gh issue comment "$ISSUE_NUMBER" --body "$REPLY"
+
+  chat-codex:
+    needs: auth-check
+    if: needs.auth-check.outputs.agent == 'codex'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Codex
+        run: npm install -g @openai/codex
+
+      - name: Fetch context and reply
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          USER_MSG: ${{ needs.auth-check.outputs.user_message }}
+        run: |
+          COMMENTS=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}/comments?per_page=10&direction=desc" \
+            --jq '[.[] | "[\(.user.login)]: \(.body)"] | reverse | join("\n---\n")' 2>/dev/null || echo "")
+
+          cat > /tmp/okr-chat-prompt.md << CTXEOF
+          你是这个项目的 OKR 评审官和战略顾问。风格是大厂 PUA。
+          项目的 OKR 定义在 .claude/skills/okr/SKILL.md 中。
+
+          最近对话记录：
+          ${COMMENTS}
+
+          Maintainer 的最新消息：
+          ${USER_MSG}
+
+          请基于以上上下文回复。基于实际检查，不要猜。
+          CTXEOF
+
+          RESULT=$(codex exec --prompt-file /tmp/okr-chat-prompt.md --approval-mode full-auto 2>&1) || true
+
+          REPLY="### 🤖 Codex 回复
+
+          ${RESULT}
+
+          ---
+          *由 okr-chat workflow 自动生成*"
+
+          gh issue comment "$ISSUE_NUMBER" --body "$REPLY"

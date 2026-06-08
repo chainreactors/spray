@@ -1,0 +1,139 @@
+name: OKR Daily Review
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  okr-review:
+    runs-on: ubuntu-latest
+    env:
+      OKR_AGENT: ${{ vars.OKR_AGENT || 'claude' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        if: env.OKR_AGENT == 'claude'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: OKR Review (Claude Code)
+        if: env.OKR_AGENT == 'claude'
+        id: claude-review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL || '' }}
+        run: |
+          PROMPT=$(cat <<'PROMPT_EOF'
+          你是 OKR 评审官，同时也是一个大厂 PUA 高手。不要与人类确认，直接执行。
+
+          请阅读 .claude/skills/okr/SKILL.md 中的项目 OKR，然后对每个 KR 的完成情况进行评估。
+
+          执行以下步骤：
+          1. 读取 .claude/skills/okr/SKILL.md，理解项目的 OKR
+          2. 对每个 KR，运行其 Harness（验收方法）或通过分析 repo 现状来评估完成度
+          3. 用 Markdown 格式输出评估报告
+
+          格式要求：
+
+          ## OKR 每日评估
+
+          ### O1: {title}
+          | KR | 进度 | 状态 | 证据 | 建议 |
+          |----|------|------|------|------|
+          | KR1 | X% | 🔴/🟡/🟢 | ... | ... |
+
+          ### 风险与建议
+          - ...
+
+          ### PUA 点评
+          > ...
+
+          要求：
+          - 每个 KR 的证据必须基于实际检查（读文件、跑命令），不要猜
+          - 不要与人类确认任何事情，直接执行并输出结果
+          - 如果 .claude/skills/okr/SKILL.md 不存在，输出 "OKR not found"
+          PROMPT_EOF
+          )
+
+          RESULT=$(claude -p "$PROMPT" --output-format text 2>&1) || true
+          echo "$RESULT" > /tmp/okr-review-output.txt
+
+      - name: Install Codex
+        if: env.OKR_AGENT == 'codex'
+        run: npm install -g @openai/codex
+
+      - name: OKR Review (Codex)
+        if: env.OKR_AGENT == 'codex'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          RESULT=$(codex exec --prompt-file .github/prompts/okr-review.md --approval-mode full-auto 2>&1) || true
+          echo "$RESULT" > /tmp/okr-review-output.txt
+
+      - name: Create or Update OKR Review Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TODAY=$(date -u +%Y-%m-%d)
+          AGENT="${OKR_AGENT}"
+
+          REVIEW_OUTPUT=""
+          if [ -f /tmp/okr-review-output.txt ]; then
+            REVIEW_OUTPUT=$(cat /tmp/okr-review-output.txt)
+          fi
+          if [ -z "$REVIEW_OUTPUT" ]; then
+            REVIEW_OUTPUT="Agent produced no output. Check [workflow logs](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
+          fi
+
+          QUARTER=$(date -u +%Y-Q)$(( ($(date -u +%-m) - 1) / 3 + 1 ))
+          ISSUE_TITLE="[OKR Review] ${QUARTER} 进度追踪"
+
+          EXISTING_ISSUE=$(gh issue list --label "okr-review" --state open --json number,title \
+            --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" 2>/dev/null || echo "")
+
+          COMMENT_BODY="## OKR 每日评估 — ${TODAY}
+
+          > Agent: \`${AGENT}\` | [Workflow Run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+
+          ${REVIEW_OUTPUT}
+
+          ---
+
+          **想继续讨论？** 直接在下方评论，使用 \`@claude\` 或 \`@codex\` 开头即可触发 AI 回复。
+          "
+
+          if [ -n "$EXISTING_ISSUE" ]; then
+            gh issue comment "$EXISTING_ISSUE" --body "$COMMENT_BODY"
+          else
+            ISSUE_BODY="# ${ISSUE_TITLE}
+
+          本 Issue 自动追踪本季度 OKR 完成进度。
+
+          - 📂 OKR 文件: \`.claude/skills/okr/SKILL.md\`
+          - ⚙️ Agent: \`${AGENT}\`
+          - 🔄 自动评估: 每日 UTC 02:00
+          - 💬 对话: 评论中 \`@claude\` 或 \`@codex\` 开头即可触发 AI 回复
+
+          ---
+          "
+
+            NEW_ISSUE=$(gh issue create \
+              --title "$ISSUE_TITLE" \
+              --body "$ISSUE_BODY" \
+              --label "okr-review" \
+              --assignee "${GITHUB_REPOSITORY_OWNER}" 2>&1)
+
+            ISSUE_NUM=$(echo "$NEW_ISSUE" | grep -oE '[0-9]+$' || echo "")
+            if [ -n "$ISSUE_NUM" ]; then
+              gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY"
+            fi
+          fi

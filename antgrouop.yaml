@@ -1,0 +1,72 @@
+- name: antgroup-spanner
+  rule:
+    - regexps:
+        header:
+          - 'Set-Cookie: spanner='
+          - 'Server: Spanner'
+        regexp:
+          - 'server: spanner/(.*)'
+        body:
+          - arspanner-
+          - spannercloud
+          - spanner-internet
+- name: antgroup-mobilegw
+  rule:
+    - regexps:
+        body:
+          - welcome to mobilegw
+- name: antgroup-spanner-grpc
+  rule:
+    - regexps:
+        header:
+          - grpc-
+- name: antgroup-cert
+  rule:
+    - regexps:
+        cert:
+          - alipay.com
+          - alipay-cloud.com
+          - antfin.com
+          - antgroup-inc.cn
+          - antcloudauth.aliyuncs.com
+          - inclusionconf.com
+          - alipayobjects.com
+          - alipaydev.com
+- name: mybank-cert
+  rule:
+    - regexps:
+        cert:
+          - mybank.cn
+          - mybankecny.cn
+- name: sig
+  rule:
+    - regexps:
+        regexp:
+          - 'SERVER: Sig/(.*)'
+- name: ant-intl-cert
+  rule:
+    - regexps:
+        cert:
+          - worldfirst.com.cn
+- name: ant-foud-cert
+  rule:
+    - regexps:
+        cert:
+          - fund123.cn
+- name: ant-xiaojin-cert
+  rule:
+    - regexps:
+        cert:
+          - myxiaojin.cn
+- name: antgroup-grpc
+  protocol: tcp
+  rule:
+    - regexps:
+        regexp:
+          - "\x00\x00\x12\x04\x00\x00"
+- name: actuator
+  protocol: http
+  rule:
+    - regexps:
+        body:
+          - "/actuator"

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(timeout 30 go run:*)",
+      "Bash(go run:*)",
+      "Bash(go list:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(go build:*)",
+      "Bash(mkdir:*)",
+      "Bash(git show:*)",
+      "Bash(./spray.exe:*)",
+      "Bash(timeout 15 ./spray.exe:*)",
+      "Bash(todo_write)",
+      "Bash(rg:*)",
+      "Bash(go test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
