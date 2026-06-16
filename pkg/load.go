@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -193,16 +192,7 @@ func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
 }
 
 func Load() error {
-	err := LoadPorts()
-	if err != nil {
-		return fmt.Errorf("load ports, %w", err)
-	}
-	err = LoadTemplates()
-	if err != nil {
-		return fmt.Errorf("load templates, %w", err)
-	}
-
-	return nil
+	return LoadResources()
 }
 
 func LoadNeutron() error {
