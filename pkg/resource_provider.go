@@ -22,6 +22,35 @@ func ResetResourceProvider() {
 	SetResourceProvider(nil)
 }
 
+var resourceLoader struct {
+	sync.RWMutex
+	fn func() error
+}
+
+// SetResourceLoader overrides the default resource loading strategy.
+func SetResourceLoader(fn func() error) {
+	resourceLoader.Lock()
+	defer resourceLoader.Unlock()
+	resourceLoader.fn = fn
+}
+
+// LoadResources executes the configured resource loader.
+func LoadResources() error {
+	resourceLoader.RLock()
+	fn := resourceLoader.fn
+	resourceLoader.RUnlock()
+	if fn != nil {
+		return fn()
+	}
+	if err := LoadPorts(); err != nil {
+		return err
+	}
+	if err := LoadFingers(); err != nil {
+		return err
+	}
+	return LoadTemplates()
+}
+
 // LoadEmbeddedConfig loads the standalone embedded config without consulting
 // an installed external provider.
 func LoadEmbeddedConfig(typ string) []byte {
