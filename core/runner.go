@@ -381,6 +381,7 @@ Loop:
 		}
 	}
 
+	r.poolwg.Wait()
 	r.OutWg.Wait()
 
 	// 关闭 OutputCh，通知所有监听者没有更多结果了
