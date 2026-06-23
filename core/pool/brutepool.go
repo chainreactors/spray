@@ -19,6 +19,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -104,7 +105,7 @@ type BrutePool struct {
 	urihost string
 	url     *url.URL
 
-	wordOffset  int
+	wordOffset  atomic.Int64
 	failedCount int32
 	IsFailed    bool
 	urls        sync.Map
@@ -244,8 +245,8 @@ Loop:
 			}
 			pool.Statistor.End++
 
-			pool.wordOffset++
-			if pool.wordOffset < offset {
+			wordOffset := int(pool.wordOffset.Add(1))
+			if wordOffset < offset {
 				continue
 			}
 
@@ -262,11 +263,11 @@ Loop:
 
 			pool.wg.Add(1)
 			if pool.Mod == HostSpray {
-				if err := pool.reqPool.Invoke(&Unit{word: w, host: w, source: parsers.WordSource, number: pool.wordOffset}); err != nil {
+				if err := pool.reqPool.Invoke(&Unit{word: w, host: w, source: parsers.WordSource, number: wordOffset}); err != nil {
 					pool.wg.Done()
 				}
 			} else {
-				if err := pool.reqPool.Invoke(&Unit{word: w, path: pool.safePath(w), source: parsers.WordSource, number: pool.wordOffset}); err != nil {
+				if err := pool.reqPool.Invoke(&Unit{word: w, path: pool.safePath(w), source: parsers.WordSource, number: wordOffset}); err != nil {
 					pool.wg.Done()
 				}
 			}
@@ -281,7 +282,7 @@ Loop:
 			} else {
 				pool.urls.Store(unit.path, nil)
 				unit.path = pool.safePath(unit.path)
-				unit.number = pool.wordOffset
+				unit.number = int(pool.wordOffset.Load())
 				if err := pool.reqPool.Invoke(unit); err != nil {
 					pool.wg.Done()
 				}
@@ -881,7 +882,7 @@ func (pool *BrutePool) isAdaptiveFuzzyStatus(status int) bool {
 }
 
 func (pool *BrutePool) fallback() {
-	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset)
+	logs.Log.Errorf("%s ,failed request exceeds the threshold , task will exit. Breakpoint %d", pool.BaseURL, pool.wordOffset.Load())
 	for i, bl := range pool.FailedBaselines {
 		if i > 5 {
 			break
@@ -936,12 +937,13 @@ func (pool *BrutePool) doCheck() {
 	}
 
 	var unit *Unit
+	wordOffset := int(pool.wordOffset.Load())
 	if pool.Mod == HostSpray {
 		pool.Statistor.CheckNumber++
-		unit = &Unit{host: pkg.RandHost(), source: parsers.CheckSource, number: pool.wordOffset}
+		unit = &Unit{host: pkg.RandHost(), source: parsers.CheckSource, number: wordOffset}
 	} else if pool.Mod == PathSpray {
 		pool.Statistor.CheckNumber++
-		unit = &Unit{path: pool.safePath(pkg.RandPath()), source: parsers.CheckSource, number: pool.wordOffset}
+		unit = &Unit{path: pool.safePath(pkg.RandPath()), source: parsers.CheckSource, number: wordOffset}
 	} else {
 		return
 	}

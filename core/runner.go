@@ -73,6 +73,7 @@ type Runner struct {
 	Jsonify     bool
 	statsMu     sync.Mutex
 	stats       RunnerStats
+	outputMu    sync.Mutex
 }
 
 func (r *Runner) Stats() RunnerStats {
@@ -484,6 +485,9 @@ func (r *Runner) saveStat(content string) {
 }
 
 func (r *Runner) Output(bl *baseline.Baseline) {
+	r.outputMu.Lock()
+	defer r.outputMu.Unlock()
+
 	var out string
 	if r.Option.Json {
 		out = bl.ToJson()
