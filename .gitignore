@@ -15,5 +15,6 @@
 # vendor/
 .idea/
 bin/
+dist/
 *.stat
 spray
