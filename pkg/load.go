@@ -172,6 +172,29 @@ func LoadProtonRules() error {
 	return LoadProtonTemplates(docs)
 }
 
+// LoadFoundKeys loads embedded found/keys templates (credential detection).
+func LoadFoundKeys() error {
+	keysData := LoadConfig("found_keys")
+	if len(keysData) == 0 {
+		return nil
+	}
+
+	var templates []interface{}
+	if err := yaml.Unmarshal(keysData, &templates); err != nil {
+		return err
+	}
+
+	docs := make([][]byte, 0, len(templates))
+	for _, tmpl := range templates {
+		doc, err := yaml.Marshal(tmpl)
+		if err != nil {
+			continue
+		}
+		docs = append(docs, doc)
+	}
+	return AppendProtonTemplates(docs)
+}
+
 func LoadExtractorConfig(filename string) ([]*parsers.Extractor, error) {
 	var extracts []*parsers.Extractor
 	content, err := os.ReadFile(filename)

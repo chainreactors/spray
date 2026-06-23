@@ -24,6 +24,9 @@ var extractData []byte
 //go:embed data/proton_rules.bin
 var protonRulesData []byte
 
+//go:embed data/found_keys.bin
+var foundKeysData []byte
+
 //go:embed data/port.bin
 var portData []byte
 
@@ -39,6 +42,8 @@ func loadEmbeddedConfig(typ string) []byte {
 		return encode.MustDeflateDeCompress(extractData)
 	}else if typ == "proton_rules" {
 		return encode.MustDeflateDeCompress(protonRulesData)
+	}else if typ == "found_keys" {
+		return encode.MustDeflateDeCompress(foundKeysData)
 	}else if typ == "port" {
 		return encode.MustDeflateDeCompress(portData)
 	}
