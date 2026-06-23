@@ -493,6 +493,9 @@ func (pool *BrutePool) handleBaseline(bl *baseline.Baseline) {
 	case parsers.CheckSource:
 		pool.handleCheckBaseline(bl)
 		return
+	case parsers.CrawlSource:
+		pool.handleCrawlBaseline(bl)
+		return
 	}
 
 	if _, ok := pool.Statistor.Counts[bl.Status]; ok {
@@ -609,6 +612,27 @@ func (pool *BrutePool) handleCheckBaseline(bl *baseline.Baseline) {
 	}
 	pool.resetFailed()
 	logs.Log.Debug("[check.pass] " + bl.String())
+}
+
+func (pool *BrutePool) handleCrawlBaseline(bl *baseline.Baseline) {
+	if _, ok := pool.Statistor.Counts[bl.Status]; ok {
+		pool.Statistor.Counts[bl.Status]++
+	} else {
+		pool.Statistor.Counts[bl.Status] = 1
+	}
+	if _, ok := pool.Statistor.Sources[bl.Source]; ok {
+		pool.Statistor.Sources[bl.Source]++
+	} else {
+		pool.Statistor.Sources[bl.Source] = 1
+	}
+
+	if bl.IsValid {
+		bl.Collect()
+		pool.doCrawl(bl)
+		pool.doAppend(bl)
+		pool.Statistor.FoundNumber++
+	}
+	pool.putToOutput(bl)
 }
 
 func (pool *BrutePool) maybeScheduleCheck() {
