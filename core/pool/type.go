@@ -14,6 +14,7 @@ type Unit struct {
 	parent   int
 	host     string
 	path     string
+	word     string
 	from     parsers.SpraySource
 	source   parsers.SpraySource
 	retry    int

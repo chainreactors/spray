@@ -21,18 +21,25 @@ type RequestConfig struct {
 	RandomUserAgent bool
 }
 
-// Build 根据配置构建Request对象
-func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, host string) (*Request, error) {
-	// 使用配置的 Host 或传入的 host
-	hostToUse := host
-	if rc.Host != "" {
-		hostToUse = rc.Host
+const FuzzMarker = "{{FUZZ}}"
+
+// Build 根据配置构建Request对象.
+// word 是当前迭代的字典词，用于替换所有字段中的 {{FUZZ}} 占位符.
+func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, host, word string) (*Request, error) {
+	fuzz := func(s string) string {
+		return strings.ReplaceAll(s, FuzzMarker, word)
 	}
 
-	// 使用配置的 Path 或传入的 path
+	// 使用配置的 Host 或传入的 host, 并替换 FUZZ
+	hostToUse := host
+	if rc.Host != "" {
+		hostToUse = fuzz(rc.Host)
+	}
+
+	// 使用配置的 Path 或传入的 path, 并替换 FUZZ
 	pathToUse := path
 	if rc.Path != "" {
-		pathToUse = rc.Path
+		pathToUse = fuzz(rc.Path)
 	}
 
 	// 构建完整的URL，使用 SafePath 避免 host + path 直接拼接
@@ -43,11 +50,17 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 			u.Path = pkg.SafePath(pkg.Dir(u.Path), pathToUse)
 		}
 		if rc.RawQuery != "" {
-			u.RawQuery = rc.RawQuery
+			u.RawQuery = fuzz(rc.RawQuery)
 		}
 		fullURL = u.String()
 	} else {
 		fullURL = base + pkg.SafePath("/", pathToUse)
+	}
+
+	// 替换 body 中的 FUZZ
+	body := rc.Body
+	if len(body) > 0 && strings.Contains(string(body), FuzzMarker) {
+		body = []byte(fuzz(string(body)))
 	}
 
 	var req *Request
@@ -60,14 +73,14 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 		if hostToUse != "" {
 			fastReq.SetHost(hostToUse)
 		}
-		if rc.Body != nil && len(rc.Body) > 0 {
-			fastReq.SetBody(rc.Body)
+		if len(body) > 0 {
+			fastReq.SetBody(body)
 		}
 		req = &Request{FastRequest: fastReq, ClientType: FAST}
 	} else {
 		var bodyReader *strings.Reader
-		if rc.Body != nil && len(rc.Body) > 0 {
-			bodyReader = strings.NewReader(string(rc.Body))
+		if len(body) > 0 {
+			bodyReader = strings.NewReader(string(body))
 		}
 		var httpReq *http.Request
 		if bodyReader != nil {
@@ -84,10 +97,27 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 		req = &Request{StandardRequest: httpReq, ClientType: STANDARD}
 	}
 
-	// 设置headers
-	req.SetHeaders(rc.Headers, rc.RandomUserAgent)
+	// 设置headers, 替换 FUZZ
+	rc.setHeadersWithFuzz(req, word)
 
 	return req, nil
+}
+
+func (rc *RequestConfig) setHeadersWithFuzz(r *Request, word string) {
+	if rc.RandomUserAgent {
+		r.SetHeader("User-Agent", pkg.RandomUA())
+	}
+
+	for k, vs := range rc.Headers {
+		for _, v := range vs {
+			val := strings.ReplaceAll(v, FuzzMarker, word)
+			if r.StandardRequest != nil {
+				r.StandardRequest.Header.Set(k, val)
+			} else if r.FastRequest != nil {
+				r.FastRequest.Header.Set(k, val)
+			}
+		}
+	}
 }
 
 func BuildRequest(ctx context.Context, clientType int, base, path, host, method string) (*Request, error) {
@@ -129,22 +159,6 @@ type Request struct {
 	StandardRequest *http.Request
 	FastRequest     *fasthttp.Request
 	ClientType      int
-}
-
-func (r *Request) SetHeaders(header http.Header, RandomUA bool) {
-	if RandomUA {
-		r.SetHeader("User-Agent", pkg.RandomUA())
-	}
-
-	if r.StandardRequest != nil {
-		r.StandardRequest.Header = header
-	} else if r.FastRequest != nil {
-		for k, v := range header {
-			for _, i := range v {
-				r.FastRequest.Header.Set(k, i)
-			}
-		}
-	}
 }
 
 func (r *Request) SetHeader(key, value string) {
