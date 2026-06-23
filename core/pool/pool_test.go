@@ -614,10 +614,11 @@ func TestShutdownSequence_NoDeadlock(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := newTestBasePool(ctx, cancel)
 
-	// simulate Handler
+	// simulate Handler — must wg.Done() to match sendProcess's wg.Add(1)
 	go func() {
 		defer close(pool.handlerDone)
 		for range pool.processCh {
+			pool.wg.Done()
 		}
 	}()
 
@@ -648,6 +649,7 @@ func TestShutdownSequence_CancelMidFlight(t *testing.T) {
 	go func() {
 		defer close(pool.handlerDone)
 		for range pool.processCh {
+			pool.wg.Done()
 		}
 	}()
 
@@ -805,6 +807,7 @@ func TestHandleBaseline_CancelMidProcessing(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		bl := newCompareBaseline(404, "/test", "not found")
 		bl.Source = parsers.WordSource
+		pool.wg.Add(1)
 		pool.processCh <- bl
 	}
 
@@ -831,6 +834,7 @@ func TestHandleBaseline_MapAccessSingleThreaded(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		bl := newCompareBaseline(200+i%5, "/path"+string(rune('a'+i%26)), strings.Repeat("body", 10+i))
 		bl.Source = parsers.WordSource
+		pool.wg.Add(1)
 		pool.processCh <- bl
 	}
 

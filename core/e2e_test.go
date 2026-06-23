@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -363,5 +365,137 @@ func TestE2E_ReconPlugin(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("RunWithArgs with --recon: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// E2E: --crawl recursively follows URLs found in pages
+// ---------------------------------------------------------------------------
+
+func TestE2E_CrawlRecursive(t *testing.T) {
+	var visited sync.Map
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		visited.Store(r.URL.Path, true)
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>Index Page</title></head><body>`+
+				`<a href="/crawlpage1">link</a>`+
+				` unique index content that differs from random baseline page `+
+				strings.Repeat("index-padding ", 20)+
+				`</body></html>`)
+		case "/crawlpage1":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>CrawlPage1</title></head><body>`+
+				`<a href="/crawlpage2">link</a>`+
+				` unique page1 content that differs from random baseline page `+
+				strings.Repeat("page1-padding ", 20)+
+				`</body></html>`)
+		case "/crawlpage2":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>CrawlPage2</title></head><body>`+
+				` crawl reached page2 with unique content `+
+				strings.Repeat("page2-padding ", 20)+
+				`</body></html>`)
+		default:
+			w.WriteHeader(404)
+			fmt.Fprint(w, "not found")
+		}
+	}))
+	defer server.Close()
+
+	dumpFile := filepath.Join(t.TempDir(), "crawl_dump.json")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"--crawl",
+		"--crawl-depth", "5",
+		"--dump-file", dumpFile,
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --crawl: %v", err)
+	}
+
+	dump, err := os.ReadFile(dumpFile)
+	if err != nil {
+		t.Fatalf("read dump file: %v", err)
+	}
+	dumpStr := string(dump)
+
+	if !strings.Contains(dumpStr, "/crawlpage1") {
+		t.Error("crawl did not reach /crawlpage1")
+	}
+	if !strings.Contains(dumpStr, "/crawlpage2") {
+		_, reached := visited.Load("/crawlpage2")
+		t.Errorf("crawl did not recursively reach /crawlpage2 (server saw request: %v, dump length: %d)", reached, len(dump))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// E2E: --recon extracts data from invalid baselines (not just valid ones)
+// ---------------------------------------------------------------------------
+
+func TestE2E_ExtractOnInvalidBaseline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><title>Index</title><body>index page</body></html>`)
+		default:
+			w.WriteHeader(200)
+			fmt.Fprintf(w, `<html><body>
+				Generic response ip=192.168.1.100 email=leak@internal.corp
+				token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.rTCH8cLoGxAm_xw68z-zXVKi9ie6xJn9tnVWjd_9ftE
+			</body></html>`)
+		}
+	}))
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "secret1\nsecret2\nsecret3\nsecret4\nsecret5\n")
+	dumpFile := filepath.Join(t.TempDir(), "extract_dump.json")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--recon",
+		"--dump-file", dumpFile,
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs: %v", err)
+	}
+
+	dump, err := os.ReadFile(dumpFile)
+	if err != nil {
+		t.Fatalf("read dump file: %v", err)
+	}
+
+	hasExtractOnInvalid := false
+	for _, line := range strings.Split(strings.TrimSpace(string(dump)), "\n") {
+		if line == "" {
+			continue
+		}
+		var result map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &result); err != nil {
+			continue
+		}
+		if url, ok := result["url"].(string); ok && strings.HasSuffix(url, "/") {
+			continue
+		}
+		extracts, _ := result["extracts"].([]interface{})
+		if len(extracts) > 0 {
+			hasExtractOnInvalid = true
+			break
+		}
+	}
+	if !hasExtractOnInvalid {
+		t.Error("expected extract results on invalid baselines, but found none")
 	}
 }
