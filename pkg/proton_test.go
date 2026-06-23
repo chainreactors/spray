@@ -32,6 +32,14 @@ func mustLoadTemplates(t *testing.T) {
 	}
 }
 
+func mustLoadFoundKeys(t *testing.T) {
+	t.Helper()
+	mustLoadTemplates(t)
+	if err := LoadFoundKeys(); err != nil {
+		t.Fatalf("LoadFoundKeys: %v", err)
+	}
+}
+
 func TestProtonTemplatesLoad(t *testing.T) {
 	mustLoadTemplates(t)
 
@@ -491,5 +499,87 @@ func TestIsProtonExtractor(t *testing.T) {
 				t.Errorf("IsProtonExtractor(%q) = %v, want %v", tt.name, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFoundKeysLoad(t *testing.T) {
+	mustLoadFoundKeys(t)
+
+	if !IsProtonExtractor("keys") {
+		t.Fatal("'keys' tag not found after LoadFoundKeys")
+	}
+
+	protonMu.RLock()
+	keysIDs := protonTagMap["keys"]
+	protonMu.RUnlock()
+
+	if len(keysIDs) < 100 {
+		t.Errorf("expected >= 100 found/keys templates, got %d", len(keysIDs))
+	}
+}
+
+func TestFoundKeysAppendDoesNotOverwrite(t *testing.T) {
+	mustLoadFoundKeys(t)
+
+	if !IsProtonExtractor("spray-aliyun-key") {
+		t.Error("proton_rules template spray-aliyun-key missing after LoadFoundKeys")
+	}
+	if !IsProtonExtractor("aws-access-key") {
+		t.Error("found/keys template aws-access-key missing")
+	}
+}
+
+func TestFoundKeysExtractAWS(t *testing.T) {
+	mustLoadFoundKeys(t)
+
+	EnableExtractors([]string{"keys"})
+	defer EnableExtractors(nil)
+
+	body := []byte(`config: AKIAIOSFODNN7EXAMPLE secret`)
+	results := ProtonExtract(body)
+
+	if len(results) == 0 {
+		t.Fatal("found/keys did not extract AWS access key")
+	}
+
+	found := false
+	for _, r := range results {
+		for _, v := range r.ExtractResult {
+			if strings.Contains(v, "AKIAIOSFODNN7EXAMPLE") {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected to extract AKIAIOSFODNN7EXAMPLE, got %v", results)
+	}
+}
+
+func TestFoundKeysExtractOpenAI(t *testing.T) {
+	mustLoadFoundKeys(t)
+
+	EnableExtractors([]string{"keys"})
+	defer EnableExtractors(nil)
+
+	body := []byte(`api_key = "sk-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`)
+	results := ProtonExtract(body)
+
+	if len(results) == 0 {
+		t.Fatal("found/keys did not extract OpenAI key")
+	}
+}
+
+func TestFoundKeysWithReconCombined(t *testing.T) {
+	mustLoadFoundKeys(t)
+
+	EnableExtractors([]string{"pentest", "info", "keys"})
+	defer EnableExtractors(nil)
+
+	protonMu.RLock()
+	scanner := ProtonScanner
+	protonMu.RUnlock()
+
+	if scanner == nil || len(scanner.Groups) == 0 {
+		t.Fatal("combined recon+keys scanner is empty")
 	}
 }

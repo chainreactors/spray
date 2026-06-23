@@ -115,6 +115,7 @@ type PluginOptions struct {
 	ExtractContext int      `long:"extract-context" default:"0" description:"Int, chars of context around extracted values, e.g.: --extract-context 50" config:"extract-context"`
 	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
 	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
+	KeysPlugin    bool     `long:"keys" description:"Bool, enable credential/keys detection (found templates)" config:"keys"`
 	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
 	FuzzuliPlugin bool     `long:"fuzzuli" description:"Bool, enable fuzzuli plugin" config:"fuzzuli"`
 	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
@@ -633,6 +634,9 @@ func (opt *Option) PrintConfig(r *Runner) string {
 	if opt.ReconPlugin {
 		pluginValues = append(pluginValues, "recon")
 	}
+	if opt.KeysPlugin {
+		pluginValues = append(pluginValues, "keys")
+	}
 	if opt.BakPlugin {
 		pluginValues = append(pluginValues, "bak")
 	}
@@ -702,11 +706,24 @@ func (opt *Option) BuildPlugin(r *Runner) error {
 		opt.ActivePlugin = true
 		opt.ReconPlugin = true
 		opt.PocPlugin = true
+		opt.KeysPlugin = true
 	}
 
+	if opt.KeysPlugin {
+		if err := pkg.LoadFoundKeys(); err != nil {
+			return err
+		}
+	}
+
+	var extractTags []string
 	if opt.ReconPlugin {
-		// Enable pentest + info tagged proton templates for recon
-		pkg.EnableExtractors([]string{"pentest", "info"})
+		extractTags = append(extractTags, "pentest", "info")
+	}
+	if opt.KeysPlugin {
+		extractTags = append(extractTags, "keys")
+	}
+	if len(extractTags) > 0 {
+		pkg.EnableExtractors(extractTags)
 	}
 
 	if opt.Finger && !pkg.EnableAllFingerEngine {

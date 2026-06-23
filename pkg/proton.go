@@ -59,6 +59,44 @@ func LoadProtonTemplates(yamlDocs [][]byte) error {
 	return nil
 }
 
+// AppendProtonTemplates parses YAML template docs and appends to the existing set.
+func AppendProtonTemplates(yamlDocs [][]byte) error {
+	protonMu.Lock()
+	defer protonMu.Unlock()
+
+	if protonTemplateMap == nil {
+		protonTemplateMap = make(map[string]*protonTmpl.Template)
+		protonTagMap = make(map[string][]string)
+	}
+
+	opts := &protocols.ExecuterOptions{Options: &protocols.Options{}}
+
+	for _, doc := range yamlDocs {
+		var tmpl protonTmpl.Template
+		if err := yaml.Unmarshal(doc, &tmpl); err != nil {
+			continue
+		}
+		if len(tmpl.RequestsFile) == 0 {
+			continue
+		}
+		if err := tmpl.Compile(opts); err != nil {
+			continue
+		}
+		if _, exists := protonTemplateMap[tmpl.Id]; exists {
+			continue
+		}
+		protonTemplates = append(protonTemplates, &tmpl)
+		protonTemplateMap[tmpl.Id] = &tmpl
+		for _, tag := range tmpl.GetTags() {
+			tag = strings.TrimSpace(tag)
+			protonTagMap[tag] = append(protonTagMap[tag], tmpl.Id)
+		}
+	}
+
+	rebuildScanner()
+	return nil
+}
+
 // AddCustomExtractor creates a one-off regex extractor at runtime (for --extract <regex>).
 func AddCustomExtractor(name, pattern string) {
 	protonMu.Lock()
