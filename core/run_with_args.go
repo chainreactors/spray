@@ -156,6 +156,7 @@ func RunWithArgs(ctx context.Context, args []string, opts RunOptions) error {
 	if err != nil {
 		return err
 	}
+	defer runner.CloseFiles()
 	if option.ReadAll || runner.CrawlPlugin {
 		ihttp.DefaultMaxBodySize = -1
 	}

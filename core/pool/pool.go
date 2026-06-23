@@ -86,15 +86,16 @@ func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
 	} else if !bl.Collected && len(bl.Raw) > 0 {
 		bl.Extracteds.Merge(pkg.ProtonExtract(bl.Raw))
 	}
+	out := bl.Snapshot()
 	pool.Outwg.Add(1)
 	select {
-	case pool.OutputCh <- bl:
+	case pool.OutputCh <- out:
 	case <-pool.ctx.Done():
 		// Close cancels the pool context before draining processCh. If OutputCh
 		// still has room, keep the already-produced result instead of dropping it
 		// because the local pool is shutting down.
 		select {
-		case pool.OutputCh <- bl:
+		case pool.OutputCh <- out:
 		default:
 			pool.Outwg.Done()
 		}
@@ -116,11 +117,12 @@ func (pool *BasePool) doPoc(bl *baseline.Baseline) {
 func (pool *BasePool) putToFuzzy(bl *baseline.Baseline) {
 	pool.Outwg.Add(1)
 	bl.IsFuzzy = true
+	out := bl.Snapshot()
 	select {
-	case pool.FuzzyCh <- bl:
+	case pool.FuzzyCh <- out:
 	case <-pool.ctx.Done():
 		select {
-		case pool.FuzzyCh <- bl:
+		case pool.FuzzyCh <- out:
 		default:
 			pool.Outwg.Done()
 		}
