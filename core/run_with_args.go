@@ -196,6 +196,9 @@ func Usage() string {
     mask-base brute with wordlist:
       spray -u http://example.com -w "/aaa/bbb{?l#4}/ccc"
 
+    mask in url (equivalent to above):
+      spray -u "http://example.com/aaa/bbb{?l#4}/ccc"
+
     rule-base brute with wordlist:
       spray -u http://example.com -r rule.txt -d 1.txt
 

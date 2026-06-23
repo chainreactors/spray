@@ -165,6 +165,161 @@ type MiscOptions struct {
 	FingerFiles []string `long:"finger-file" description:"Strings, custom finger YAML file path or URL, support multiple files" config:"finger-files"`
 }
 
+const FuzzPlaceholder = "{{FUZZ}}"
+
+// containsMask checks if a string contains mask patterns like {?...} or {$...}
+func containsMask(s string) bool {
+	for i := 0; i < len(s)-1; i++ {
+		if s[i] == '{' && (s[i+1] == '?' || s[i+1] == '$') {
+			return true
+		}
+	}
+	return false
+}
+
+// extractMaskFromString finds the first mask pattern in s, extracts it as the
+// word source, and replaces it with {{FUZZ}}. Returns the modified string and
+// the extracted mask pattern. If no mask found, returns s unchanged and empty mask.
+func extractMaskFromString(s string) (replaced string, maskWord string) {
+	start := -1
+	for i := 0; i < len(s)-1; i++ {
+		if s[i] == '{' && (s[i+1] == '?' || s[i+1] == '$') {
+			start = i
+			break
+		}
+	}
+	if start == -1 {
+		return s, ""
+	}
+	depth := 0
+	end := -1
+	for i := start; i < len(s); i++ {
+		if s[i] == '{' {
+			depth++
+		} else if s[i] == '}' {
+			depth--
+			if depth == 0 {
+				end = i + 1
+				break
+			}
+		}
+	}
+	if end == -1 {
+		return s, ""
+	}
+	maskWord = s[start:end]
+	replaced = s[:start] + FuzzPlaceholder + s[end:]
+	return replaced, maskWord
+}
+
+// setWord sets opt.Word from a mask found in a field. Errors if a different mask
+// was already extracted from another field.
+func (opt *Option) setWord(maskWord, source string) error {
+	if opt.Word == "" {
+		opt.Word = maskWord
+		return nil
+	}
+	if opt.Word == maskWord {
+		return nil
+	}
+	return fmt.Errorf("conflicting mask: -w/previous=%s vs %s in %s; only one mask pattern is allowed across all fields", opt.Word, maskWord, source)
+}
+
+// ExtractMask scans all input fields (URL, Headers, Host, Cookie, Path) for mask
+// patterns. When found, the mask is extracted as opt.Word and replaced with {{FUZZ}}.
+// For URLs, the path portion containing the mask becomes the word, and the URL is
+// trimmed to scheme+host.
+func (opt *Option) ExtractMask() error {
+	// 1. URL: extract path as word, keep scheme+host
+	for i, raw := range opt.URL {
+		if !containsMask(raw) {
+			continue
+		}
+		schemeEnd := strings.Index(raw, "://")
+		if schemeEnd == -1 {
+			return fmt.Errorf("mask in url requires scheme: %s", raw)
+		}
+		hostStart := schemeEnd + 3
+		pathStart := strings.Index(raw[hostStart:], "/")
+		if pathStart == -1 {
+			return fmt.Errorf("mask pattern found in url %s but no path to extract", raw)
+		}
+		pathStart += hostStart
+
+		pathPart := raw[pathStart:]
+		replaced, maskWord := extractMaskFromString(pathPart)
+		if maskWord == "" {
+			continue
+		}
+		if err := opt.setWord(maskWord, "-u"); err != nil {
+			return err
+		}
+		opt.URL[i] = raw[:pathStart]
+		// store the path template with {{FUZZ}} as the word pattern
+		// BuildWords will generate wordlist from opt.Word (the mask),
+		// then at request time {{FUZZ}} in all fields gets replaced with each word.
+		opt.Word = maskWord
+		// save the path template so it can flow into RequestConfig
+		if opt.Path == "" {
+			opt.Path = replaced
+		}
+	}
+
+	// 2. Headers
+	for i, h := range opt.Headers {
+		if !containsMask(h) {
+			continue
+		}
+		replaced, maskWord := extractMaskFromString(h)
+		if maskWord == "" {
+			continue
+		}
+		if err := opt.setWord(maskWord, "-H"); err != nil {
+			return err
+		}
+		opt.Headers[i] = replaced
+	}
+
+	// 3. Host
+	if containsMask(opt.Host) {
+		replaced, maskWord := extractMaskFromString(opt.Host)
+		if maskWord != "" {
+			if err := opt.setWord(maskWord, "--host"); err != nil {
+				return err
+			}
+			opt.Host = replaced
+		}
+	}
+
+	// 4. Cookie
+	for i, c := range opt.Cookie {
+		if !containsMask(c) {
+			continue
+		}
+		replaced, maskWord := extractMaskFromString(c)
+		if maskWord == "" {
+			continue
+		}
+		if err := opt.setWord(maskWord, "--cookie"); err != nil {
+			return err
+		}
+		opt.Cookie[i] = replaced
+	}
+
+	// 5. Path
+	if containsMask(opt.Path) {
+		replaced, maskWord := extractMaskFromString(opt.Path)
+		if maskWord != "" {
+			if err := opt.setWord(maskWord, "--path"); err != nil {
+				return err
+			}
+			opt.Path = replaced
+		}
+	}
+
+	return nil
+}
+
 func (opt *Option) Validate() error {
 	if opt.Uppercase && opt.Lowercase {
 		return errors.New("cannot set -U and -L at the same time")
@@ -186,7 +341,25 @@ func (opt *Option) Validate() error {
 
 	// FunctionOptions 只在 Brute 模式下生效
 	// Check 模式（无字典、无 word、无 rule）下使用 FunctionOptions 会报错
-	isCheckMode := len(opt.Dictionaries) == 0 && opt.Word == "" && len(opt.Rules) == 0 && len(opt.AppendRule) == 0 && !opt.DefaultDict
+	hasMask := func() bool {
+		for _, u := range opt.URL {
+			if containsMask(u) {
+				return true
+			}
+		}
+		for _, h := range opt.Headers {
+			if containsMask(h) {
+				return true
+			}
+		}
+		for _, c := range opt.Cookie {
+			if containsMask(c) {
+				return true
+			}
+		}
+		return containsMask(opt.Host) || containsMask(opt.Path)
+	}
+	isCheckMode := len(opt.Dictionaries) == 0 && opt.Word == "" && !hasMask() && len(opt.Rules) == 0 && len(opt.AppendRule) == 0 && !opt.DefaultDict
 	if isCheckMode {
 		if opt.Extensions != "" {
 			return errors.New("FunctionOptions: -e/--extension only works in Brute mode, not in Check mode. Please provide dictionary (-d) to enable Brute mode")
@@ -418,6 +591,10 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	}
 	err = opt.BuildPlugin(r)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = opt.ExtractMask(); err != nil {
 		return nil, err
 	}
 
