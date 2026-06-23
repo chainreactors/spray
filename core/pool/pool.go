@@ -81,6 +81,8 @@ func (pool *BasePool) putToOutput(bl *baseline.Baseline) {
 	if bl.IsValid || bl.IsFuzzy {
 		bl.Collect()
 		pool.doPoc(bl)
+	} else if !bl.Collected && len(bl.Raw) > 0 {
+		bl.Extracteds.Merge(pkg.ProtonExtract(bl.Raw))
 	}
 	pool.Outwg.Add(1)
 	select {
