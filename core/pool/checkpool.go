@@ -163,7 +163,7 @@ func (pool *CheckPool) Invoke(v interface{}) {
 		RandomUserAgent: pool.Request.RandomUserAgent,
 	}
 
-	req, err := checkReqConfig.Build(pool.ctx, pool.ClientType, unit.path, "", "")
+	req, err := checkReqConfig.Build(pool.ctx, pool.ClientType, unit.path, "", "", "")
 	if err != nil {
 		logs.Log.Debug(err.Error())
 		bl := &baseline.Baseline{
@@ -227,6 +227,7 @@ func (pool *CheckPool) Handler() {
 		}
 		pool.recordCheckStat(bl)
 		pool.putToOutput(bl)
+		pool.wg.Done()
 	}
 }
 

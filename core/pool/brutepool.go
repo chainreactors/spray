@@ -262,11 +262,11 @@ Loop:
 
 			pool.wg.Add(1)
 			if pool.Mod == HostSpray {
-				if err := pool.reqPool.Invoke(&Unit{host: w, source: parsers.WordSource, number: pool.wordOffset}); err != nil {
+				if err := pool.reqPool.Invoke(&Unit{word: w, host: w, source: parsers.WordSource, number: pool.wordOffset}); err != nil {
 					pool.wg.Done()
 				}
 			} else {
-				if err := pool.reqPool.Invoke(&Unit{path: pool.safePath(w), source: parsers.WordSource, number: pool.wordOffset}); err != nil {
+				if err := pool.reqPool.Invoke(&Unit{word: w, path: pool.safePath(w), source: parsers.WordSource, number: pool.wordOffset}); err != nil {
 					pool.wg.Done()
 				}
 			}
@@ -319,7 +319,7 @@ func (pool *BrutePool) invoke(v interface{}) {
 	}
 
 	// 使用RequestConfig.Build()构建请求
-	req, err := pool.Request.Build(pool.ctx, pool.ClientType, pool.base, unit.path, unit.host)
+	req, err := pool.Request.Build(pool.ctx, pool.ClientType, pool.base, unit.path, unit.host, unit.word)
 	if err != nil {
 		logs.Log.Debug(err.Error())
 		bl := &baseline.Baseline{
@@ -396,7 +396,7 @@ func (pool *BrutePool) invokeNoScope(v interface{}) {
 		RandomUserAgent: pool.Request.RandomUserAgent,
 	}
 
-	req, err := scopeReqConfig.Build(pool.ctx, pool.ClientType, unit.path, "", "")
+	req, err := scopeReqConfig.Build(pool.ctx, pool.ClientType, unit.path, "", "", "")
 	if err != nil {
 		logs.Log.Debug(err.Error())
 		bl := &baseline.Baseline{
@@ -457,6 +457,7 @@ func (pool *BrutePool) Handler() {
 	defer close(pool.handlerDone)
 	for bl := range pool.processCh {
 		pool.handleBaseline(bl)
+		pool.wg.Done()
 	}
 }
 

@@ -71,9 +71,11 @@ func (pool *BasePool) addAddition(u *Unit) {
 }
 
 func (pool *BasePool) sendProcess(bl *baseline.Baseline) {
+	pool.wg.Add(1)
 	select {
 	case pool.processCh <- bl:
 	case <-pool.ctx.Done():
+		pool.wg.Done()
 	}
 }
 
