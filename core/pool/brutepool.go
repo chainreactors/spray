@@ -275,13 +275,15 @@ Loop:
 			if !ok {
 				continue
 			}
-			// addAddition 已经做过 wg.Add(1), 这里不再 Add
+			// addAddition 已经做过 wg.Add(1), 这里不再 Add.
+			// Unit.path is normalized by the producer: word tasks call safePath
+			// when created, while crawl/redirect/append tasks are derived from
+			// the response URL and already point at their final host path.
 			if _, ok := pool.urls.Load(unit.path); ok {
 				logs.Log.Debugf("[%s] duplicate path: %s, skipped", unit.source.Name(), pool.base+unit.path)
 				pool.wg.Done()
 			} else {
 				pool.urls.Store(unit.path, nil)
-				unit.path = pool.safePath(unit.path)
 				unit.number = int(pool.wordOffset.Load())
 				if err := pool.reqPool.Invoke(unit); err != nil {
 					pool.wg.Done()

@@ -435,6 +435,53 @@ func TestE2E_CrawlRecursive(t *testing.T) {
 	}
 }
 
+func TestE2E_CrawlRelativeAssetsUnderBasePath(t *testing.T) {
+	var visited sync.Map
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		visited.Store(r.URL.Path, true)
+		switch r.URL.Path {
+		case "/app/":
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>SPA</title>`+
+				`<script src="./static/js/app.js"></script>`+
+				`</head><body>`+
+				` unique spa index content that differs from random baseline page `+
+				strings.Repeat("spa-padding ", 20)+
+				`</body></html>`)
+		case "/app/static/js/app.js":
+			w.Header().Set("Content-Type", "application/javascript")
+			w.WriteHeader(200)
+			fmt.Fprint(w, `console.log("app asset reached");`)
+		default:
+			w.WriteHeader(404)
+			fmt.Fprint(w, "not found")
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL + "/app/#/login",
+		"--crawl",
+		"--crawl-depth", "2",
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --crawl: %v", err)
+	}
+
+	if _, ok := visited.Load("/app/static/js/app.js"); !ok {
+		_, duplicated := visited.Load("/app/app/static/js/app.js")
+		t.Fatalf("crawl did not request /app/static/js/app.js (duplicated path requested: %v)", duplicated)
+	}
+	if _, duplicated := visited.Load("/app/app/static/js/app.js"); duplicated {
+		t.Fatal("crawl requested duplicated base path /app/app/static/js/app.js")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // E2E: --recon extracts data from invalid baselines (not just valid ones)
 // ---------------------------------------------------------------------------
