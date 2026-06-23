@@ -185,6 +185,21 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	return nil
 }
 
+func (r *Runner) CloseFiles() {
+	if r.OutputFile != nil {
+		r.OutputFile.Close()
+		r.OutputFile = nil
+	}
+	if r.DumpFile != nil {
+		r.DumpFile.Close()
+		r.DumpFile = nil
+	}
+	if r.StatFile != nil {
+		r.StatFile.Close()
+		r.StatFile = nil
+	}
+}
+
 func (r *Runner) RunWithBrute(ctx context.Context) {
 	go func() {
 		defer close(r.taskCh)

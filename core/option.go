@@ -109,23 +109,23 @@ type RequestOptions struct {
 }
 
 type PluginOptions struct {
-	Advance       bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
+	Advance        bool     `short:"a" long:"advance" description:"Bool, enable all plugin" config:"all" `
 	Extracts       []string `long:"extract" description:"Strings, extract response, e.g.: --extract js --extract ip --extract version:(.*?)" config:"extract"`
 	ExtractConfig  string   `long:"extract-config" description:"String, extract config filename" config:"extract-config"`
 	ExtractContext int      `long:"extract-context" default:"0" description:"Int, chars of context around extracted values, e.g.: --extract-context 50" config:"extract-context"`
-	ActivePlugin  bool     `long:"active" description:"Bool, enable active finger path"`
-	ReconPlugin   bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
-	KeysPlugin    bool     `long:"keys" description:"Bool, enable credential/keys detection (found templates)" config:"keys"`
-	BakPlugin     bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
-	FuzzuliPlugin bool     `long:"fuzzuli" description:"Bool, enable fuzzuli plugin" config:"fuzzuli"`
-	CommonPlugin  bool     `long:"common" description:"Bool, enable common file found" config:"common"`
-	CrawlPlugin   bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
-	CrawlDepth    int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
-	AppendDepth   int      `long:"append-depth" default:"2" description:"Int, append depth" config:"append-depth"`
-	Finger        bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
-	FingerEngines string   `long:"finger-engine" default:"all" description:"String, custom finger engine, e.g. --finger-engine ehole,goby" config:"finger-engine"`
-	PocPlugin     bool     `long:"poc" description:"Bool, enable neutron poc verify after finger detect" config:"poc"`
-	PocConfig     string   `long:"poc-config" description:"String, custom poc template directory" config:"poc-config"`
+	ActivePlugin   bool     `long:"active" description:"Bool, enable active finger path"`
+	ReconPlugin    bool     `long:"recon" description:"Bool, enable recon" config:"recon"`
+	KeysPlugin     bool     `long:"keys" description:"Bool, enable credential/keys detection (found templates)" config:"keys"`
+	BakPlugin      bool     `long:"bak" description:"Bool, enable bak found" config:"bak"`
+	FuzzuliPlugin  bool     `long:"fuzzuli" description:"Bool, enable fuzzuli plugin" config:"fuzzuli"`
+	CommonPlugin   bool     `long:"common" description:"Bool, enable common file found" config:"common"`
+	CrawlPlugin    bool     `long:"crawl" description:"Bool, enable crawl" config:"crawl"`
+	CrawlDepth     int      `long:"crawl-depth" default:"3" description:"Int, crawl depth" config:"crawl-depth"`
+	AppendDepth    int      `long:"append-depth" default:"2" description:"Int, append depth" config:"append-depth"`
+	Finger         bool     `long:"finger" description:"Bool, enable active finger detect" config:"finger"`
+	FingerEngines  string   `long:"finger-engine" default:"all" description:"String, custom finger engine, e.g. --finger-engine ehole,goby" config:"finger-engine"`
+	PocPlugin      bool     `long:"poc" description:"Bool, enable neutron poc verify after finger detect" config:"poc"`
+	PocConfig      string   `long:"poc-config" description:"String, custom poc template directory" config:"poc-config"`
 }
 
 type ModeOptions struct {
@@ -1219,6 +1219,11 @@ func (opt *Option) BuildTasks(r *Runner) (*TaskGenerator, error) {
 		}
 		if file != nil {
 			content, err := ioutil.ReadAll(file)
+			if file != os.Stdin {
+				if closeErr := file.Close(); err == nil && closeErr != nil {
+					err = closeErr
+				}
+			}
 			if err != nil {
 				return nil, err
 			}

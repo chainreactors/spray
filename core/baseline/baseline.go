@@ -112,6 +112,81 @@ func NewInvalidBaseline(u, host string, resp *ihttp.Response, reason string) *Ba
 	return bl
 }
 
+func (bl *Baseline) Snapshot() *Baseline {
+	if bl == nil {
+		return nil
+	}
+	cp := *bl
+	if bl.SprayResult != nil {
+		sr := *bl.SprayResult
+		sr.Frameworks = cloneFrameworks(bl.Frameworks)
+		sr.Extracteds = cloneExtracteds(bl.Extracteds)
+		if bl.Hashes != nil {
+			hashes := *bl.Hashes
+			sr.Hashes = &hashes
+		}
+		cp.SprayResult = &sr
+	}
+	if bl.URLs != nil {
+		cp.URLs = append([]string(nil), bl.URLs...)
+	}
+	return &cp
+}
+
+func cloneFrameworks(frames common.Frameworks) common.Frameworks {
+	if frames == nil {
+		return nil
+	}
+	cp := make(common.Frameworks, len(frames))
+	for name, frame := range frames {
+		if frame == nil {
+			cp[name] = nil
+			continue
+		}
+		frameCopy := *frame
+		if frame.Froms != nil {
+			frameCopy.Froms = make(map[common.From]bool, len(frame.Froms))
+			for from, ok := range frame.Froms {
+				frameCopy.Froms[from] = ok
+			}
+		}
+		if frame.Tags != nil {
+			frameCopy.Tags = append([]string(nil), frame.Tags...)
+		}
+		if frame.MatchDetail != nil {
+			matchDetail := *frame.MatchDetail
+			frameCopy.MatchDetail = &matchDetail
+		}
+		if frame.Attributes != nil {
+			attrs := *frame.Attributes
+			frameCopy.Attributes = &attrs
+		}
+		cp[name] = &frameCopy
+	}
+	return cp
+}
+
+func cloneExtracteds(extracteds parsers.Extracteds) parsers.Extracteds {
+	if extracteds == nil {
+		return nil
+	}
+	cp := make(parsers.Extracteds, len(extracteds))
+	for i, extracted := range extracteds {
+		if extracted == nil {
+			continue
+		}
+		extractedCopy := *extracted
+		if extracted.ExtractResult != nil {
+			extractedCopy.ExtractResult = append([]string(nil), extracted.ExtractResult...)
+		}
+		if extracted.Items != nil {
+			extractedCopy.Items = append([]parsers.ExtractItem(nil), extracted.Items...)
+		}
+		cp[i] = &extractedCopy
+	}
+	return cp
+}
+
 type Baseline struct {
 	*parsers.SprayResult
 	Url                *url.URL       `json:"-"`

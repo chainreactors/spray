@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chainreactors/fingers/common"
 	"github.com/chainreactors/parsers"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/core/ihttp"
@@ -473,6 +474,31 @@ func TestPutToOutput_Normal(t *testing.T) {
 	pool.Outwg.Wait()
 }
 
+func TestPutToOutputSnapshotsBaseline(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pool := newTestBasePool(ctx, cancel)
+
+	bl := newTestBaseline()
+	bl.Frameworks = common.Frameworks{
+		"nginx": common.NewFramework("nginx", common.FrameFromFingers),
+	}
+	bl.Title = "before"
+	pool.putToOutput(bl)
+
+	got := <-pool.OutputCh
+	pool.Outwg.Done()
+	bl.Title = "after"
+	bl.Frameworks["apache"] = common.NewFramework("apache", common.FrameFromFingers)
+
+	if got.Title != "before" {
+		t.Fatalf("snapshot title = %q, want before", got.Title)
+	}
+	if _, ok := got.Frameworks["apache"]; ok {
+		t.Fatal("output snapshot shares Frameworks map with original baseline")
+	}
+}
+
 func TestPutToOutput_AfterCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := newTestBasePool(ctx, cancel)
@@ -538,6 +564,31 @@ func TestPutToFuzzy_Normal(t *testing.T) {
 	}
 	pool.Outwg.Done()
 	pool.Outwg.Wait()
+}
+
+func TestPutToFuzzySnapshotsBaseline(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pool := newTestBasePool(ctx, cancel)
+
+	bl := newTestBaseline()
+	bl.Frameworks = common.Frameworks{
+		"nginx": common.NewFramework("nginx", common.FrameFromFingers),
+	}
+	bl.Title = "before"
+	pool.putToFuzzy(bl)
+
+	got := <-pool.FuzzyCh
+	pool.Outwg.Done()
+	bl.Title = "after"
+	bl.Frameworks["apache"] = common.NewFramework("apache", common.FrameFromFingers)
+
+	if got.Title != "before" {
+		t.Fatalf("snapshot title = %q, want before", got.Title)
+	}
+	if _, ok := got.Frameworks["apache"]; ok {
+		t.Fatal("fuzzy snapshot shares Frameworks map with original baseline")
+	}
 }
 
 func TestPutToFuzzy_AfterCancel(t *testing.T) {
@@ -849,4 +900,3 @@ func TestHandleBaseline_MapAccessSingleThreaded(t *testing.T) {
 		t.Fatalf("ReqTotal = %d, want 50", pool.Statistor.ReqTotal)
 	}
 }
-

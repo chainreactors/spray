@@ -1,3 +1,5 @@
+version: 2
+
 project_name: spray
 
 before:
@@ -22,7 +24,7 @@ builds:
         goarch: arm64
       - goos: darwin
         goarch: "386"
-    ldflags: "-s -w -X 'github.com/chainreactors/spray/cmd.ver=={{ .Tag }}'"
+    ldflags: "-s -w -X 'github.com/chainreactors/spray/cmd.ver={{ .Tag }}'"
     flags:
       - -trimpath
     asmflags:
@@ -48,7 +50,8 @@ upx:
 archives:
   -
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    format: binary
+    formats:
+      - binary
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
