@@ -29,6 +29,7 @@ type Config struct {
 	Mod               SprayMod
 	Request           *ihttp.RequestConfig
 	ClientType        int
+	ClientFingerprint string
 	MatchExpr         *vm.Program
 	FilterExpr        *vm.Program
 	RecuExpr          *vm.Program

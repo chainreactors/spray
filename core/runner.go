@@ -108,11 +108,11 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		headers.Set(k, v)
 	}
 
-	if headers.Get("User-Agent") == "" {
+	if r.ClientType != ihttp.REQ && headers.Get("User-Agent") == "" {
 		headers.Set("User-Agent", pkg.DefaultUserAgent)
 	}
 
-	if headers.Get("Accept") == "" {
+	if r.ClientType != ihttp.REQ && headers.Get("Accept") == "" {
 		headers.Set("Accept", "*/*")
 	}
 
@@ -154,6 +154,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		Poc:               r.PocPlugin,
 		RetryLimit:        r.RetryCount,
 		ClientType:        r.ClientType,
+		ClientFingerprint: r.ClientFingerprint,
 		Random:            r.Random,
 		Index:             r.Index,
 		MaxRecursionDepth: r.Depth,

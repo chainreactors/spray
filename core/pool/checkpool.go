@@ -18,7 +18,9 @@ import (
 // 类似httpx的无状态, 无scope, 无并发池的检测模式
 func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 	pctx, cancel := context.WithCancel(ctx)
-	config.ClientType = ihttp.STANDARD
+	if config.ClientType == ihttp.Auto || config.ClientType == ihttp.FAST {
+		config.ClientType = ihttp.STANDARD
+	}
 	pool := &CheckPool{
 		BasePool: &BasePool{
 			Config:    config,
@@ -26,10 +28,11 @@ func NewCheckPool(ctx context.Context, config *Config) (*CheckPool, error) {
 			ctx:       pctx,
 			Cancel:    cancel,
 			client: ihttp.NewClient(&ihttp.ClientConfig{
-				Thread:      config.Thread,
-				Type:        config.ClientType,
-				Timeout:     config.Timeout,
-				ProxyClient: config.ProxyClient,
+				Thread:            config.Thread,
+				Type:              config.ClientType,
+				Timeout:           config.Timeout,
+				ProxyClient:       config.ProxyClient,
+				ClientFingerprint: config.ClientFingerprint,
 			}),
 			wg:          &sync.WaitGroup{},
 			additionCh:  make(chan *Unit, config.Thread*10),

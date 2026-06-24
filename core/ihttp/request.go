@@ -94,7 +94,7 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 		if hostToUse != "" {
 			httpReq.Host = hostToUse
 		}
-		req = &Request{StandardRequest: httpReq, ClientType: STANDARD}
+		req = &Request{StandardRequest: httpReq, ClientType: standardLikeClientType(clientType)}
 	}
 
 	// 设置headers, 替换 FUZZ
@@ -151,8 +151,15 @@ func BuildRequestWithBody(ctx context.Context, clientType int, base, path, host,
 		if host != "" {
 			req.Host = host
 		}
-		return &Request{StandardRequest: req, ClientType: STANDARD}, err
+		return &Request{StandardRequest: req, ClientType: standardLikeClientType(clientType)}, err
 	}
+}
+
+func standardLikeClientType(clientType int) int {
+	if clientType == REQ {
+		return REQ
+	}
+	return STANDARD
 }
 
 type Request struct {

@@ -47,10 +47,12 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 			ctx:    pctx,
 			Cancel: cancel,
 			client: ihttp.NewClient(&ihttp.ClientConfig{
-				Thread:      config.Thread,
-				Type:        config.ClientType,
-				Timeout:     config.Timeout,
-				ProxyClient: config.ProxyClient,
+				Thread:            config.Thread,
+				Type:              config.ClientType,
+				Timeout:           config.Timeout,
+				ProxyClient:       config.ProxyClient,
+				ClientFingerprint: config.ClientFingerprint,
+				IsTLS:             u.Scheme == "https",
 			}),
 			wg:          &sync.WaitGroup{},
 			additionCh:  make(chan *Unit, config.Thread*10),
@@ -671,6 +673,14 @@ func (pool *BrutePool) Upgrade(bl *baseline.Baseline) error {
 		logs.Log.Infof("baseurl %s upgrade http to https, reinit", pool.BaseURL)
 		pool.base = strings.Replace(pool.BaseURL, "http", "https", 1)
 		pool.url.Scheme = "https"
+		pool.client = ihttp.NewClient(&ihttp.ClientConfig{
+			Thread:            pool.Thread,
+			Type:              pool.ClientType,
+			Timeout:           pool.Timeout,
+			ProxyClient:       pool.ProxyClient,
+			ClientFingerprint: pool.ClientFingerprint,
+			IsTLS:             true,
+		})
 		// 重新初始化
 		err = pool.Init()
 		if err != nil {

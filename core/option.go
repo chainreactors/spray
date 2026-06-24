@@ -150,19 +150,20 @@ type ModeOptions struct {
 }
 
 type MiscOptions struct {
-	Mod         string   `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
-	Client      string   `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"auto" description:"String, Client type" config:"client"`
-	Deadline    int      `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
-	Timeout     int      `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
-	PoolSize    int      `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
-	Threads     int      `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
-	Debug       bool     `long:"debug" description:"Bool, output debug info" config:"debug"`
-	Version     bool     `long:"version" description:"Bool, show version"`
-	Verbose     []bool   `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
-	Proxies     []string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxies"`
-	InitConfig  bool     `long:"init" description:"Bool, init config file"`
-	PrintPreset bool     `long:"print" description:"Bool, print preset all preset config "`
-	FingerFiles []string `long:"finger-file" description:"Strings, custom finger YAML file path or URL, support multiple files" config:"finger-files"`
+	Mod               string   `short:"m" long:"mod" default:"path" choice:"path" choice:"host" description:"String, path/host spray" config:"mod"`
+	Client            string   `short:"C" long:"client" default:"auto" choice:"fast" choice:"standard" choice:"req" choice:"auto" description:"String, Client type" config:"client"`
+	ClientFingerprint string   `long:"client-fingerprint" default:"chrome" choice:"chrome" choice:"firefox" choice:"safari" choice:"edge" choice:"qq" choice:"360" choice:"ios" choice:"android" choice:"random" choice:"tls-chrome" choice:"tls-firefox" choice:"tls-edge" choice:"tls-qq" choice:"tls-safari" choice:"tls-360" choice:"tls-ios" choice:"tls-android" choice:"tls-random" description:"String, client TLS/browser fingerprint profile" config:"client-fingerprint"`
+	Deadline          int      `long:"deadline" default:"999999" description:"Int, deadline (seconds)" config:"deadline"` // todo 总的超时时间,适配云函数的deadline
+	Timeout           int      `short:"T" long:"timeout" default:"5" description:"Int, timeout with request (seconds)" config:"timeout"`
+	PoolSize          int      `short:"P" long:"pool" default:"5" description:"Int, Pool size" config:"pool"`
+	Threads           int      `short:"t" long:"thread" default:"20" description:"Int, number of threads per pool" config:"thread"`
+	Debug             bool     `long:"debug" description:"Bool, output debug info" config:"debug"`
+	Version           bool     `long:"version" description:"Bool, show version"`
+	Verbose           []bool   `short:"v" description:"Bool, log verbose level ,default 0, level1: -v level2 -vv " config:"verbose"`
+	Proxies           []string `long:"proxy" description:"String, proxy address, e.g.: --proxy socks5://127.0.0.1:1080" config:"proxies"`
+	InitConfig        bool     `long:"init" description:"Bool, init config file"`
+	PrintPreset       bool     `long:"print" description:"Bool, print preset all preset config "`
+	FingerFiles       []string `long:"finger-file" description:"Strings, custom finger YAML file path or URL, support multiple files" config:"finger-files"`
 }
 
 const FuzzPlaceholder = "{{FUZZ}}"
@@ -572,11 +573,16 @@ func (opt *Option) NewRunner() (*Runner, error) {
 		r.ClientType = ihttp.FAST
 	} else if opt.Client == "standard" || opt.Client == "base" || opt.Client == "http" {
 		r.ClientType = ihttp.STANDARD
+	} else if opt.Client == "req" {
+		r.ClientType = ihttp.REQ
 	}
 	// 临时解决方案：如果使用了 --host 或 -m host，则强制使用 standard client，
 	// 避免 fasthttp 在 Host 覆盖场景下修改 dial 目标并触发不必要的 DNS 解析。
-	if opt.Host != "" || opt.Mod == "host" {
+	if (opt.Host != "" || opt.Mod == "host") && (r.ClientType == ihttp.Auto || r.ClientType == ihttp.FAST) {
 		r.ClientType = ihttp.STANDARD
+	}
+	if opt.ClientFingerprint == "" {
+		opt.ClientFingerprint = "chrome"
 	}
 
 	if len(opt.Proxies) > 0 {
@@ -850,6 +856,19 @@ func (opt *Option) PrintConfig(r *Runner) string {
 	}
 
 	// Misc Options
+	clientValue := opt.Client
+	if opt.Client == "auto" {
+		switch r.ClientType {
+		case ihttp.FAST:
+			clientValue = "auto(fast)"
+		case ihttp.STANDARD:
+			clientValue = "auto(standard)"
+		case ihttp.REQ:
+			clientValue = "auto(req)"
+		}
+	}
+	rows = append(rows, []string{keyStyle.Render("🔌 Client"), formatValue(clientValue)})
+	rows = append(rows, []string{keyStyle.Render("🧬 ClientFingerprint"), formatValue(opt.ClientFingerprint)})
 	rows = append(rows, []string{keyStyle.Render("⏱ Timeout"), formatValue(fmt.Sprintf("%ds", opt.Timeout))})
 	rows = append(rows, []string{keyStyle.Render("🏊 PoolSize"), formatValue(opt.PoolSize)})
 	rows = append(rows, []string{keyStyle.Render("🧵 Threads"), formatValue(opt.Threads)})
