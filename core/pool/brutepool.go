@@ -79,6 +79,7 @@ func NewBrutePool(ctx context.Context, config *Config) (*BrutePool, error) {
 	} else {
 		pool.dir = pkg.Dir(pool.url.Path)
 	}
+	pool.seedBaselineURLs()
 
 	// 每个 BrutePool 自持请求/scope 线程池, 与其他 BrutePool 完全隔离
 	pool.reqPool, err = ants.NewPoolWithFunc(config.Thread, pool.invoke)
@@ -263,15 +264,22 @@ Loop:
 				continue
 			}
 
-			pool.wg.Add(1)
+			var unit *Unit
 			if pool.Mod == HostSpray {
-				if err := pool.reqPool.Invoke(&Unit{word: w, host: w, source: parsers.WordSource, number: wordOffset}); err != nil {
-					pool.wg.Done()
-				}
+				unit = &Unit{word: w, host: w, source: parsers.WordSource, number: wordOffset}
 			} else {
-				if err := pool.reqPool.Invoke(&Unit{word: w, path: pool.safePath(w), source: parsers.WordSource, number: wordOffset}); err != nil {
-					pool.wg.Done()
+				unit = &Unit{word: w, path: pool.safePath(w), source: parsers.WordSource, number: wordOffset}
+				if pool.isDuplicatePath(unit.path) {
+					logs.Log.Debugf("[%s] duplicate path: %s, skipped", unit.source.Name(), pool.base+unit.path)
+					pool.Statistor.Skipped++
+					pool.Bar.Done()
+					continue
 				}
+			}
+
+			pool.wg.Add(1)
+			if err := pool.reqPool.Invoke(unit); err != nil {
+				pool.wg.Done()
 			}
 		case unit, ok := <-pool.additionCh:
 			if !ok {
@@ -281,11 +289,10 @@ Loop:
 			// Unit.path is normalized by the producer: word tasks call safePath
 			// when created, while crawl/redirect/append tasks are derived from
 			// the response URL and already point at their final host path.
-			if _, ok := pool.urls.Load(unit.path); ok {
+			if !pool.markPath(unit.path) {
 				logs.Log.Debugf("[%s] duplicate path: %s, skipped", unit.source.Name(), pool.base+unit.path)
 				pool.wg.Done()
 			} else {
-				pool.urls.Store(unit.path, nil)
 				unit.number = int(pool.wordOffset.Load())
 				if err := pool.reqPool.Invoke(unit); err != nil {
 					pool.wg.Done()
@@ -919,6 +926,74 @@ func (pool *BrutePool) Close() {
 	close(pool.processCh)
 	<-pool.handlerDone
 	pool.Statistor.EndTime = time.Now().Unix()
+}
+
+func (pool *BrutePool) seedBaselineURLs() {
+	if pool.Mod != PathSpray || len(pool.BaselineURLs) == 0 {
+		return
+	}
+
+	var count, dirs int
+	for _, raw := range pool.BaselineURLs {
+		p, ok := pool.baselinePath(raw)
+		if !ok {
+			continue
+		}
+		if strings.HasSuffix(p, "/") {
+			dirs++
+			continue
+		}
+		if _, loaded := pool.urls.LoadOrStore(p, nil); !loaded {
+			count++
+		}
+	}
+	if count > 0 || dirs > 0 {
+		logs.Log.Logf(pkg.LogVerbose, "[baseline] %s seeded %d urls, kept %d dirs for crawl/recursive discovery", pool.BaseURL, count, dirs)
+	}
+}
+
+func (pool *BrutePool) baselinePath(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", false
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", false
+	}
+	if u.Host != "" {
+		if !strings.EqualFold(u.Host, pool.url.Host) {
+			return "", false
+		}
+		if u.Path == "" {
+			return "/", true
+		}
+		return u.Path, true
+	}
+	if u.Path == "" {
+		return "", false
+	}
+	if strings.HasPrefix(u.Path, "/") {
+		return u.Path, true
+	}
+	return pool.safePath(u.Path), true
+}
+
+func (pool *BrutePool) isDuplicatePath(p string) bool {
+	if pool.Mod != PathSpray || p == "" {
+		return false
+	}
+	_, ok := pool.urls.Load(p)
+	return ok
+}
+
+func (pool *BrutePool) markPath(p string) bool {
+	if pool.Mod != PathSpray || p == "" {
+		return true
+	}
+	_, loaded := pool.urls.LoadOrStore(p, nil)
+	return !loaded
 }
 
 func (pool *BrutePool) safePath(u string) string {

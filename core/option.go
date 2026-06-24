@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -50,6 +51,7 @@ type InputOptions struct {
 	Config       string   `short:"c" long:"config" description:"File, config filename"`
 	URL          []string `short:"u" long:"url" description:"Strings, input baseurl, e.g.: http://google.com"`
 	URLFile      string   `short:"l" long:"list" description:"File, input filename"`
+	BaselineFile string   `long:"baseline" description:"File, baseline urls already scanned from dump.json or url.txt" config:"baseline"`
 	PortRange    string   `short:"p" long:"port" description:"String, input port range, e.g.: 80,8080-8090,db"`
 	CIDRs        []string `short:"i" long:"cidr" description:"String, input cidr, e.g.: 1.1.1.1/24 "`
 	RawFile      string   `long:"raw" description:"File, input raw request filename"`
@@ -522,6 +524,45 @@ func (opt *Option) NewStatistor(url string, total int) *pkg.Statistor {
 	return stat
 }
 
+func loadBaselineURLs(filename string) ([]string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var urls []string
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		var row struct {
+			URL  string `json:"url"`
+			Path string `json:"path"`
+		}
+		if strings.HasPrefix(line, "{") && json.Unmarshal([]byte(line), &row) == nil {
+			if row.URL != "" {
+				urls = append(urls, row.URL)
+				continue
+			}
+			if row.Path != "" {
+				urls = append(urls, row.Path)
+				continue
+			}
+		}
+
+		urls = append(urls, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return urls, nil
+}
+
 func (opt *Option) NewRunner() (*Runner, error) {
 	var err error
 	r := &Runner{
@@ -607,6 +648,13 @@ func (opt *Option) NewRunner() (*Runner, error) {
 	err = opt.BuildWords(r)
 	if err != nil {
 		return nil, err
+	}
+
+	if opt.BaselineFile != "" {
+		r.BaselineURLs, err = loadBaselineURLs(opt.BaselineFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if opt.Threads == DefaultThreads && r.bruteMod {
@@ -769,6 +817,9 @@ func (opt *Option) PrintConfig(r *Runner) string {
 	// Input Options
 	if opt.PortRange != "" {
 		rows = append(rows, []string{keyStyle.Render("🔢 PortRange"), formatValue(opt.PortRange)})
+	}
+	if opt.BaselineFile != "" {
+		rows = append(rows, []string{keyStyle.Render("📌 BaselineFile"), formatValue(opt.BaselineFile)})
 	}
 	if len(opt.Dictionaries) > 0 {
 		rows = append(rows, []string{keyStyle.Render("📚 Dictionaries"), formatValue(opt.Dictionaries)})

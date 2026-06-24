@@ -596,6 +596,126 @@ func TestE2E_CrawlRelativeAssetsUnderBasePath(t *testing.T) {
 	}
 }
 
+func TestE2E_BaselineSkipsWordPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		content func(base string) string
+	}{
+		{
+			name: "url txt",
+			content: func(base string) string {
+				return base + "/admin\n"
+			},
+		},
+		{
+			name: "dump json",
+			content: func(base string) string {
+				return fmt.Sprintf(`{"url":%q,"path":"/admin"}`+"\n", base+"/admin")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var visited sync.Map
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				visited.Store(r.URL.Path, true)
+				w.Header().Set("Content-Type", "text/html")
+				switch r.URL.Path {
+				case "/":
+					w.WriteHeader(200)
+					fmt.Fprint(w, "<html><title>Index</title><body>index page with stable content</body></html>")
+				case "/admin":
+					w.WriteHeader(200)
+					fmt.Fprint(w, "<html><title>Admin</title><body>admin should be skipped by baseline</body></html>")
+				case "/new":
+					w.WriteHeader(200)
+					fmt.Fprint(w, "<html><title>New</title><body>new unique page content that should be scanned</body></html>")
+				default:
+					w.WriteHeader(404)
+					fmt.Fprint(w, "not found")
+				}
+			}))
+			defer server.Close()
+
+			wordlist := writeTempFile(t, "admin\nnew\n")
+			baseline := writeTempFile(t, tt.content(server.URL))
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			_, err := runSpray(t, ctx, []string{
+				"-u", server.URL,
+				"-d", wordlist,
+				"--baseline", baseline,
+				"--no-bar", "-q", "--no-stat",
+			})
+			if err != nil {
+				t.Fatalf("RunWithArgs with --baseline: %v", err)
+			}
+
+			if _, ok := visited.Load("/admin"); ok {
+				t.Fatal("baseline /admin was requested")
+			}
+			if _, ok := visited.Load("/new"); !ok {
+				t.Fatal("non-baseline /new was not requested")
+			}
+		})
+	}
+}
+
+func TestE2E_BaselineKeepsDirectoryForCrawl(t *testing.T) {
+	var visited sync.Map
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		visited.Store(r.URL.Path, true)
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>Index</title></head><body>`+
+				`<a href="/old/">old</a>`+
+				` index content with enough padding `+strings.Repeat("index-padding ", 20)+
+				`</body></html>`)
+		case "/old/":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>Old Dir</title></head><body>`+
+				`<a href="/new-from-dir">new</a>`+
+				` old directory content with enough padding `+strings.Repeat("dir-padding ", 20)+
+				`</body></html>`)
+		case "/new-from-dir":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>New From Dir</title></head><body>`+
+				` new page discovered through directory crawl `+strings.Repeat("new-padding ", 20)+
+				`</body></html>`)
+		default:
+			w.WriteHeader(404)
+			fmt.Fprint(w, "not found")
+		}
+	}))
+	defer server.Close()
+
+	baseline := writeTempFile(t, server.URL+"/old/\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"--crawl",
+		"--crawl-depth", "3",
+		"--baseline", baseline,
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --crawl --baseline: %v", err)
+	}
+
+	if _, ok := visited.Load("/old/"); !ok {
+		t.Fatal("directory URL from baseline file was not requested for crawl")
+	}
+	if _, ok := visited.Load("/new-from-dir"); !ok {
+		t.Fatal("crawl did not continue from directory URL")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // E2E: --recon extracts data from invalid baselines (not just valid ones)
 // ---------------------------------------------------------------------------

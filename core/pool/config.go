@@ -52,6 +52,7 @@ type Config struct {
 	MaxCrawlDepth     int
 	MaxRecursionDepth int
 	MaxAppendDepth    int
+	BaselineURLs      []string
 }
 
 func NewBruteWords(config *Config, list []string) *words.Worder {

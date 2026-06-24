@@ -59,21 +59,22 @@ type Runner struct {
 	RecursiveExpr *vm.Program
 	OutputFile    *files.File
 	//FuzzyFile     *files.File
-	DumpFile    *files.File
-	StatFile    *files.File
-	Progress    *mpb.Progress
-	Fns         []words.WordFunc
-	Count       int // tasks total number
-	Wordlist    []string
-	AppendWords []string
-	ClientType  int
-	Probes      []string
-	Total       int // wordlist total number
-	Color       bool
-	Jsonify     bool
-	statsMu     sync.Mutex
-	stats       RunnerStats
-	outputMu    sync.Mutex
+	DumpFile     *files.File
+	StatFile     *files.File
+	Progress     *mpb.Progress
+	Fns          []words.WordFunc
+	Count        int // tasks total number
+	Wordlist     []string
+	AppendWords  []string
+	BaselineURLs []string
+	ClientType   int
+	Probes       []string
+	Total        int // wordlist total number
+	Color        bool
+	Jsonify      bool
+	statsMu      sync.Mutex
+	stats        RunnerStats
+	outputMu     sync.Mutex
 }
 
 func (r *Runner) Stats() RunnerStats {
@@ -162,6 +163,7 @@ func (r *Runner) PrepareConfig() *pool.Config {
 		MaxAppendDepth:    r.AppendDepth,
 		MaxCrawlDepth:     r.CrawlDepth,
 		ProxyClient:       r.ProxyClient,
+		BaselineURLs:      r.BaselineURLs,
 	}
 
 	if config.ClientType == ihttp.Auto {
