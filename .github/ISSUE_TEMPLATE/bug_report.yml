@@ -1,0 +1,74 @@
+name: Bug 报告
+description: 反馈 spray 可复现的问题
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量提供可复现信息。缺少命令、版本、问题描述或截图的 issue 很难定位。
+
+  - type: textarea
+    id: command
+    attributes:
+      label: 使用的命令
+      description: 请粘贴完整命令。如包含敏感目标或 token，可以脱敏。
+      placeholder: |
+        spray -u https://example.com -d dict.txt --crawl --recon --finger
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 遇到的问题
+      description: 请描述实际现象、期望行为，以及是否稳定复现。
+      placeholder: |
+        实际现象：
+        期望行为：
+        复现概率：
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 请填写 `spray --version` 输出，或使用的 release 文件名/tag。
+      placeholder: v1.3.1 / spray_windows_amd64.exe / commit hash
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图
+      description: 请拖拽上传截图。如果是终端报错，请优先同时粘贴文本日志。
+      placeholder: 将截图拖拽到这里。
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: 可选但强烈建议提供。可以使用 `--debug` 或 `-vv` 运行后粘贴相关文本日志。
+      placeholder: |
+        在这里粘贴日志。
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 运行环境
+      description: 可选。操作系统、Shell、代理/TUN/VPN、网络环境，以及目标是否可公开。
+      placeholder: |
+        操作系统：
+        Shell：
+        代理/TUN/VPN：
+        目标是否可公开：
+    validations:
+      required: false
