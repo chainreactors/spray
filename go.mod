@@ -5,7 +5,7 @@ go 1.25.4
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
 	github.com/chainreactors/fingers v1.2.1-0.20260608084741-385e7d586d6f
-	github.com/chainreactors/logs v0.0.0-20260508055944-c678762ed15c
+	github.com/chainreactors/logs v0.0.0-20260624034259-9aaea4aa52cc
 	github.com/chainreactors/neutron v0.0.0-20260608084636-c81691731908
 	github.com/chainreactors/parsers v0.0.0-20260608085142-3d2c51baa8fe
 	github.com/chainreactors/proton v0.2.1-0.20260608085216-03df34ba928d
