@@ -71,6 +71,54 @@ func TestE2E_NormalBruteScan(t *testing.T) {
 	}
 }
 
+func TestE2E_ForceDoesNotRunBruteAfterInitFailure(t *testing.T) {
+	var wordHits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/admin" {
+			atomic.AddInt64(&wordHits, 1)
+			w.WriteHeader(200)
+			fmt.Fprint(w, "admin")
+			return
+		}
+		if r.URL.Path == "/" || r.URL.Path == "/__random__" {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Errorf("hijack init response: %v", err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
+		w.WriteHeader(404)
+		fmt.Fprint(w, "not found")
+	}))
+	defer server.Close()
+
+	wordlist := writeTempFile(t, "admin\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"-d", wordlist,
+		"--index=/",
+		"--random=/__random__",
+		"--force",
+		"--client", "standard",
+		"--no-bar",
+		"-q",
+		"--no-stat",
+		"-t", "1",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs: %v", err)
+	}
+
+	if got := atomic.LoadInt64(&wordHits); got != 0 {
+		t.Fatalf("word requests after init failure = %d, want 0", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // E2E: context cancellation mid-scan
 // ---------------------------------------------------------------------------

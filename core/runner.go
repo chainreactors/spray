@@ -267,14 +267,13 @@ func (r *Runner) RunWithBrute(ctx context.Context) {
 		err = brutePool.Init()
 		if err != nil {
 			brutePool.Statistor.Error = err.Error()
-			if !r.Force {
-				// 如果没开启force, init失败将会关闭pool
-				brutePool.Bar.Close()
-				brutePool.Close()
-				r.PrintStat(brutePool)
-				r.Done()
-				return
-			}
+			// Init 失败说明对比所需的基线不可用.
+			// --force 只关闭运行期错误阈值, 不能继续运行半初始化的 pool.
+			brutePool.Bar.Close()
+			brutePool.Close()
+			r.PrintStat(brutePool)
+			r.Done()
+			return
 		}
 
 		brutePool.Run(brutePool.Statistor.Offset, limit)
