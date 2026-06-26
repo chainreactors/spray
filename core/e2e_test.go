@@ -483,6 +483,46 @@ func TestE2E_CrawlRecursive(t *testing.T) {
 	}
 }
 
+func TestE2E_CrawlHonorsMaxLength(t *testing.T) {
+	var visited sync.Map
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		visited.Store(r.URL.Path, true)
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><head><title>Index Page</title></head><body>`)
+			fmt.Fprint(w, strings.Repeat("padding ", 200))
+			fmt.Fprint(w, `<a href="/after-limit">late link</a></body></html>`)
+		case "/after-limit":
+			w.WriteHeader(200)
+			fmt.Fprint(w, `<html><body>this page should not be crawled when max-length is 1KB</body></html>`)
+		default:
+			w.WriteHeader(404)
+			fmt.Fprint(w, "not found")
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := runSpray(t, ctx, []string{
+		"-u", server.URL,
+		"--crawl",
+		"--crawl-depth", "1",
+		"--max-length", "1",
+		"--no-bar", "-q", "--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs with --crawl: %v", err)
+	}
+
+	if _, ok := visited.Load("/after-limit"); ok {
+		t.Fatal("crawl followed a link located beyond --max-length 1KB")
+	}
+}
+
 func TestE2E_CrawlRelativeAssetsUnderBasePath(t *testing.T) {
 	var visited sync.Map
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
