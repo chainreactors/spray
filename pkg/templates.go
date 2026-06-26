@@ -21,8 +21,8 @@ var sprayDictData []byte
 //go:embed data/extract.bin
 var extractData []byte
 
-//go:embed data/proton_rules.bin
-var protonRulesData []byte
+//go:embed data/spray_proton.bin
+var sprayProtonData []byte
 
 //go:embed data/found_keys.bin
 var foundKeysData []byte
@@ -40,8 +40,8 @@ func loadEmbeddedConfig(typ string) []byte {
 		return encode.MustDeflateDeCompress(sprayDictData)
 	}else if typ == "extract" {
 		return encode.MustDeflateDeCompress(extractData)
-	}else if typ == "proton_rules" {
-		return encode.MustDeflateDeCompress(protonRulesData)
+	}else if typ == "spray_proton" {
+		return encode.MustDeflateDeCompress(sprayProtonData)
 	}else if typ == "found_keys" {
 		return encode.MustDeflateDeCompress(foundKeysData)
 	}else if typ == "port" {

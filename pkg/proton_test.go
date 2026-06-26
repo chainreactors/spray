@@ -9,14 +9,14 @@ import (
 
 func mustLoadTemplates(t *testing.T) {
 	t.Helper()
-	data := LoadEmbeddedConfig("proton_rules")
+	data := LoadEmbeddedConfig("spray_proton")
 	if len(data) == 0 {
-		t.Fatal("proton_rules embedded data is empty")
+		t.Fatal("spray_proton embedded data is empty")
 	}
 
 	var templates []interface{}
 	if err := yaml.Unmarshal(data, &templates); err != nil {
-		t.Fatalf("unmarshal proton_rules: %v", err)
+		t.Fatalf("unmarshal spray_proton: %v", err)
 	}
 	docs := make([][]byte, 0, len(templates))
 	for _, tmpl := range templates {
@@ -522,7 +522,7 @@ func TestFoundKeysAppendDoesNotOverwrite(t *testing.T) {
 	mustLoadFoundKeys(t)
 
 	if !IsProtonExtractor("spray-aliyun-key") {
-		t.Error("proton_rules template spray-aliyun-key missing after LoadFoundKeys")
+		t.Error("spray_proton template spray-aliyun-key missing after LoadFoundKeys")
 	}
 	if !IsProtonExtractor("aws-access-key") {
 		t.Error("found/keys template aws-access-key missing")

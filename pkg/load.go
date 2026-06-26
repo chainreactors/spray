@@ -140,18 +140,16 @@ func LoadTemplates() error {
 		}
 	}
 
-	// Load proton templates for high-performance extraction
-	if err := LoadProtonRules(); err != nil {
+	// Load spray proton templates for high-performance extraction
+	if err := LoadSprayProton(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// LoadProtonRules loads embedded proton YAML templates.
-// The data is a YAML array of template objects produced by recuLoadPoc.
-func LoadProtonRules() error {
-	rulesData := LoadConfig("proton_rules")
+func LoadSprayProton() error {
+	rulesData := LoadConfig("spray_proton")
 	if len(rulesData) == 0 {
 		return nil
 	}
