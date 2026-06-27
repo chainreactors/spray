@@ -263,6 +263,32 @@ func TestE2E_MultiTargetCheck(t *testing.T) {
 	}
 }
 
+func TestE2E_QuietSuppressesCheckOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(400)
+		fmt.Fprint(w, "<html><body>bad request</body></html>")
+	}))
+	defer server.Close()
+
+	urlFile := writeTempFile(t, server.URL+"\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	out, err := runSpray(t, ctx, []string{
+		"-l", urlFile,
+		"-q",
+		"--no-bar",
+		"--no-stat",
+	})
+	if err != nil {
+		t.Fatalf("RunWithArgs: %v", err)
+	}
+	if strings.TrimSpace(out) != "" {
+		t.Fatalf("quiet check mode output = %q, want empty", out)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // E2E: mixed status codes with valid findings
 // ---------------------------------------------------------------------------

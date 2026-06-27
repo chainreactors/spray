@@ -559,6 +559,9 @@ func TestPutToFuzzy_Normal(t *testing.T) {
 		if !bl.IsFuzzy {
 			t.Fatal("IsFuzzy should be true")
 		}
+		if bl.IsValid {
+			t.Fatal("fuzzy output snapshot should not stay valid")
+		}
 	case <-time.After(time.Second):
 		t.Fatal("putToFuzzy: receive timed out")
 	}

@@ -498,10 +498,13 @@ func (r *Runner) Output(bl *baseline.Baseline) {
 		out = bl.String()
 	}
 
-	if bl.IsValid {
-		logs.Log.Console(out + "\n")
-	} else if r.Fuzzy && bl.IsFuzzy {
-		logs.Log.Console("[fuzzy] " + out + "\n")
+	quiet := r.Option != nil && r.Option.Quiet
+	if !quiet {
+		if bl.IsValid {
+			logs.Log.Console(out + "\n")
+		} else if r.Fuzzy && bl.IsFuzzy {
+			logs.Log.Console("[fuzzy] " + out + "\n")
+		}
 	}
 
 	if r.OutputFile != nil {
@@ -555,7 +558,9 @@ func (r *Runner) OutputHandler() {
 				if !ok {
 					return
 				}
-				r.Output(bl)
+				if r.Fuzzy {
+					r.Output(bl)
+				}
 				r.OutWg.Done()
 			}
 		}

@@ -118,6 +118,8 @@ func (pool *BasePool) putToFuzzy(bl *baseline.Baseline) {
 	pool.Outwg.Add(1)
 	bl.IsFuzzy = true
 	out := bl.Snapshot()
+	out.IsValid = false
+	out.IsFuzzy = true
 	select {
 	case pool.FuzzyCh <- out:
 	case <-pool.ctx.Done():

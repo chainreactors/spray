@@ -1,10 +1,14 @@
 package core
 
 import (
+	"bytes"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/chainreactors/logs"
+	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/pkg"
 )
 
@@ -53,5 +57,45 @@ func TestRecordStat_NilStat(t *testing.T) {
 	stats := r.Stats()
 	if stats.Requests != 0 {
 		t.Fatalf("stats.Requests = %d, want 0 for nil stat", stats.Requests)
+	}
+}
+
+func TestOutputHandlerSuppressesFuzzyChannelWithoutFuzzyFlag(t *testing.T) {
+	var out bytes.Buffer
+	oldLog := logs.Log
+	logs.Log = logs.NewLogger(oldLog.Level)
+	logs.Log.SetOutput(&out)
+	t.Cleanup(func() {
+		logs.Log = oldLog
+	})
+
+	r := &Runner{
+		Option:   &Option{},
+		OutputCh: make(chan *baseline.Baseline, 1),
+		FuzzyCh:  make(chan *baseline.Baseline, 1),
+		OutWg:    &sync.WaitGroup{},
+	}
+	r.OutputHandler()
+
+	r.OutWg.Add(1)
+	r.FuzzyCh <- &baseline.Baseline{
+		SprayResult: &parsers.SprayResult{
+			UrlString:  "http://example.com/fuzzy",
+			Status:     400,
+			BodyLength: 100,
+			IsValid:    true,
+			IsFuzzy:    true,
+			Reason:     pkg.ErrFuzzyCompareFailed.Error(),
+			Source:     parsers.CommonFileSource,
+		},
+	}
+	mustFinishCore(t, 2*time.Second, "fuzzy output was not drained", func() {
+		r.OutWg.Wait()
+	})
+	close(r.OutputCh)
+	close(r.FuzzyCh)
+
+	if got := out.String(); got != "" {
+		t.Fatalf("fuzzy output without --fuzzy = %q, want empty", got)
 	}
 }
