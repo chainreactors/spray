@@ -4,13 +4,13 @@ go 1.25.4
 
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
-	github.com/chainreactors/fingers v1.2.1-0.20260608084741-385e7d586d6f
+	github.com/chainreactors/fingers v1.2.1
 	github.com/chainreactors/logs v0.0.0-20260624034259-9aaea4aa52cc
-	github.com/chainreactors/neutron v0.0.0-20260608084636-c81691731908
+	github.com/chainreactors/neutron v0.1.0
 	github.com/chainreactors/parsers v0.0.0-20260608085142-3d2c51baa8fe
-	github.com/chainreactors/proton v0.2.1-0.20260608085216-03df34ba928d
+	github.com/chainreactors/proton v0.3.0
 	github.com/chainreactors/proxyclient v1.1.1-0.20260529172347-2a80e08d5593
-	github.com/chainreactors/utils v0.0.0-20260529172343-6465cb8568b2
+	github.com/chainreactors/utils v0.0.0-20260626175554-d3e25e531450
 	github.com/chainreactors/words v0.0.0-20260520145736-270600e60fb4
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/expr-lang/expr v1.16.9
@@ -25,15 +25,11 @@ require (
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
-	github.com/STARRY-S/zip v0.2.3 // indirect
+	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/bodgit/plumbing v1.3.0 // indirect
-	github.com/bodgit/sevenzip v1.6.1 // indirect
-	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/charlievieth/fastwalk v1.0.14 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
@@ -55,29 +51,20 @@ require (
 	github.com/gookit/goutil v0.6.15 // indirect
 	github.com/h2non/filetype v1.1.3 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible // indirect
-	github.com/mholt/archives v0.1.5 // indirect
-	github.com/mikelolasagasti/xz v1.0.1 // indirect
-	github.com/minio/minlz v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mozillazg/go-pinyin v0.20.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
-	github.com/nwaples/rardecode/v2 v2.2.0 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/spf13/afero v1.15.0 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
@@ -88,7 +75,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
-	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
@@ -96,6 +82,5 @@ require (
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
