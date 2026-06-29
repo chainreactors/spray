@@ -6,7 +6,7 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"

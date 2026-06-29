@@ -9,6 +9,7 @@ import (
 
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/proxyclient"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/core/ihttp"
@@ -71,10 +72,11 @@ type Runner struct {
 	Probes       []string
 	Total        int // wordlist total number
 	Color        bool
-	Jsonify      bool
-	statsMu      sync.Mutex
-	stats        RunnerStats
-	outputMu     sync.Mutex
+	Jsonify        bool
+	ResultCallback func(*parsers.SprayResult)
+	statsMu        sync.Mutex
+	stats          RunnerStats
+	outputMu       sync.Mutex
 }
 
 func (r *Runner) Stats() RunnerStats {
@@ -510,7 +512,7 @@ func (r *Runner) Output(bl *baseline.Baseline) {
 		}
 	}
 
-	if r.OutputFile != nil {
+	if r.OutputFile != nil && (bl.IsValid || (r.Fuzzy && bl.IsFuzzy)) {
 		if r.FileOutput == "json" {
 			r.OutputFile.SafeWrite(bl.ToJson() + "\n")
 		} else if r.FileOutput == "csv" {
@@ -538,6 +540,9 @@ func (r *Runner) OutputHandler() {
 					r.DumpFile.SafeSync()
 				}
 				if bl.IsValid {
+					if r.ResultCallback != nil && bl.SprayResult != nil {
+						r.ResultCallback(bl.SprayResult)
+					}
 					r.Output(bl)
 					if bl.Recu {
 						r.AddRecursive(bl)

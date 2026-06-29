@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/chainreactors/fingers/common"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/encode"

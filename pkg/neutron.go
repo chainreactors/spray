@@ -11,7 +11,7 @@ import (
 	"github.com/chainreactors/neutron/operators"
 	"github.com/chainreactors/neutron/protocols"
 	"github.com/chainreactors/neutron/templates"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 

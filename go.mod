@@ -4,13 +4,13 @@ go 1.25.4
 
 require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
-	github.com/chainreactors/fingers v1.2.1-0.20260608084741-385e7d586d6f
+	github.com/chainreactors/fingers v1.2.1-0.20260629043342-2229ee623248
 	github.com/chainreactors/logs v0.0.0-20260624034259-9aaea4aa52cc
-	github.com/chainreactors/neutron v0.0.0-20260608084636-c81691731908
-	github.com/chainreactors/parsers v0.0.0-20260608085142-3d2c51baa8fe
+	github.com/chainreactors/neutron v0.0.0-20260612092850-1a0a5a8b4280
 	github.com/chainreactors/proton v0.2.1-0.20260608085216-03df34ba928d
 	github.com/chainreactors/proxyclient v1.1.1-0.20260529172347-2a80e08d5593
-	github.com/chainreactors/utils v0.0.0-20260529172343-6465cb8568b2
+	github.com/chainreactors/utils v0.0.0-20260629043228-93bdd2142c9a
+	github.com/chainreactors/utils/parsers v0.0.0-20260629043228-93bdd2142c9a
 	github.com/chainreactors/words v0.0.0-20260520145736-270600e60fb4
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/expr-lang/expr v1.16.9
@@ -18,6 +18,7 @@ require (
 	github.com/imroc/req/v3 v3.57.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/panjf2000/ants/v2 v2.9.1
+	github.com/refraction-networking/utls v1.8.1
 	github.com/valyala/fasthttp v1.53.0
 	github.com/vbauerster/mpb/v8 v8.7.3
 	golang.org/x/time v0.12.0
@@ -26,7 +27,7 @@ require (
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
+	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
@@ -79,7 +80,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.57.1 // indirect
-	github.com/refraction-networking/utls v1.8.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -103,6 +103,5 @@ require (
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 )
 
 func NewStatistor(url string) *Statistor {

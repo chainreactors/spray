@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
@@ -821,6 +821,7 @@ func (pool *BrutePool) BaseCompare(bl *baseline.Baseline) bool {
 
 	if ok && status == 0 && pool.sameDefaultResponse(base, bl) {
 		pool.Statistor.FuzzyNumber++
+		bl.IsValid = false
 		bl.Reason = pkg.ErrFuzzyCompareFailed.Error()
 		pool.putToFuzzy(bl)
 		return false

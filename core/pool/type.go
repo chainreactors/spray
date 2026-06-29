@@ -1,7 +1,7 @@
 package pool
 
 import (
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/spray/core/baseline"
 )
 

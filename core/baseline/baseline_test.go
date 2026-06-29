@@ -2,7 +2,7 @@ package baseline
 
 import (
 	"fmt"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr"
 	"io/ioutil"

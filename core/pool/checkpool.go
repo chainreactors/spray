@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/spray/core/baseline"
 	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"

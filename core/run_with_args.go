@@ -9,6 +9,7 @@ import (
 
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/logs"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/spray/core/ihttp"
 	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/utils/iutils"
@@ -21,6 +22,7 @@ type RunOptions struct {
 	Version       string
 	BeforePrepare func(*Option) error
 	AfterPrepare  func(*Option) error
+	OnResult      func(*parsers.SprayResult)
 }
 
 func Help() string {
@@ -157,7 +159,10 @@ func RunWithArgs(ctx context.Context, args []string, opts RunOptions) error {
 		return err
 	}
 	defer runner.CloseFiles()
-	if option.ReadAll {
+	if opts.OnResult != nil {
+		runner.ResultCallback = opts.OnResult
+	}
+	if option.ReadAll || runner.CrawlPlugin {
 		ihttp.DefaultMaxBodySize = -1
 	}
 

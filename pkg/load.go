@@ -8,7 +8,7 @@ import (
 	fingerscommon "github.com/chainreactors/fingers/common"
 	"github.com/chainreactors/fingers/favicon"
 	fingerslib "github.com/chainreactors/fingers/fingers"
-	"github.com/chainreactors/parsers"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
 	"github.com/chainreactors/words/mask"
