@@ -240,6 +240,7 @@ func (bl *Baseline) Collect() {
 		}
 	}
 
+	bl.Extracteds.Merge(pkg.HTTPLanguageExtract(pkg.ExtractHTTPLanguage(bl.Header, bl.Body)))
 	bl.Hashes = parsers.NewHashes(bl.Raw)
 	bl.Extracteds.Merge(pkg.ProtonExtract(bl.Raw))
 	bl.Unique = UniqueHash(bl)
