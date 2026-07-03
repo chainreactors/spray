@@ -6,8 +6,9 @@ import (
 	"github.com/chainreactors/files"
 	"github.com/chainreactors/fingers"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/utils/parsers"
+	"github.com/chainreactors/utils"
 	"github.com/chainreactors/utils/iutils"
+	"github.com/chainreactors/utils/parsers"
 	"github.com/chainreactors/words/mask"
 	"github.com/chainreactors/words/rule"
 	"github.com/expr-lang/expr"
@@ -52,6 +53,7 @@ var (
 	Extractors                         = make(parsers.Extractors)
 
 	FingerEngine   *fingers.Engine
+	PortPreset     *utils.PortPreset
 	ActivePath     []string
 	contentTypeMap = map[string]string{
 		"application/javascript":   "js",

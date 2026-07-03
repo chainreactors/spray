@@ -22,7 +22,7 @@ func LoadPorts() error {
 	if err != nil {
 		return err
 	}
-	utils.PrePort = utils.NewPortPreset(ports)
+	PortPreset = utils.NewPortPreset(ports)
 	return nil
 }
 

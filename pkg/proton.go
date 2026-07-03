@@ -232,14 +232,15 @@ func ProtonExtract(content []byte) parsers.Extracteds {
 	for _, group := range scanner.Groups {
 		findings := scanner.ScanData(content, "response", group)
 		for _, f := range findings {
-			for _, e := range f.Extracts {
-				resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
-					value: e.Value, line: e.Line, offset: e.Offset, severity: f.Severity,
-				})
+			for _, e := range f.Events {
+				if e.Type == "extract" {
+					resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
+						value: e.Value, line: e.Line, offset: e.Offset, severity: f.Severity,
+					})
+				}
 			}
-			// f.Matches contains matcher hits (gate only), not extractor results — skip
 			if f.Result != nil {
-				for _, val := range f.Result.OutputExtracts {
+				for _, val := range f.Result.OutputExtracts() {
 					resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
 						value: val, severity: f.Severity,
 					})

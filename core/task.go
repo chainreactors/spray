@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 	"github.com/chainreactors/logs"
-	"github.com/chainreactors/utils"
+	"github.com/chainreactors/spray/pkg"
 	"github.com/chainreactors/words/rule"
 	"net/url"
 )
@@ -16,8 +16,14 @@ type Task struct {
 }
 
 func NewTaskGenerator(port string) *TaskGenerator {
+	var ports []string
+	if pkg.PortPreset != nil {
+		ports = pkg.PortPreset.ParsePortString(port)
+	} else {
+		ports = []string{port}
+	}
 	gen := &TaskGenerator{
-		ports: utils.ParsePortsString(port),
+		ports: ports,
 		tasks: make(chan *Task),
 		In:    make(chan *Task),
 	}

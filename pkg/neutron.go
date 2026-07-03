@@ -196,7 +196,7 @@ func NeutronCheck(baseURL string, frameworks common.Frameworks) []*PocResult {
 					Severity:   tmpl.Info.Severity,
 					Tags:       tmpl.GetTags(),
 					Matched:    true,
-					Extracts:   result.OutputExtracts,
+					Extracts:   result.OutputExtracts(),
 				})
 			}
 		}
@@ -240,7 +240,7 @@ func NeutronBrute(baseURL string, frameworks common.Frameworks) []*PocResult {
 					Severity:   tmpl.Info.Severity,
 					Tags:       tmpl.GetTags(),
 					Matched:    true,
-					Extracts:   result.OutputExtracts,
+					Extracts:   result.OutputExtracts(),
 				}
 				if result.PayloadValues != nil {
 					pr.Payload = result.PayloadValues
