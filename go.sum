@@ -89,6 +89,8 @@ github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0 h1:cU3sGEODXZs
 github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0/go.mod h1:NSxGNMRWryAyrDzZpVwmujI22wbGw6c52bQOd5zEvyU=
 github.com/chainreactors/fingers v1.2.1 h1:fIBejnL7m1AMgn/8B/jL/yGUDnm/l2l8iaGIf7GQvrE=
 github.com/chainreactors/fingers v1.2.1/go.mod h1:HL+9nwb5HNXJMboiQ7Kwy00ZSTXYTAuWw9IrYIoARH8=
+github.com/chainreactors/fingers v1.2.2-0.20260703124922-b8ac7e00cf68 h1:H+0G6mS84D2onz/pltLqbZdGwPWniaRzbAVfJ8+O834=
+github.com/chainreactors/fingers v1.2.2-0.20260703124922-b8ac7e00cf68/go.mod h1:1f83YqXk4AoTqo8t22WRX/KMxWhaHiAjsPk1epdYxeE=
 github.com/chainreactors/logs v0.0.0-20260624034259-9aaea4aa52cc h1:e6rjnU8dmfhAnkFzLp/R5gta0LbFM13L27djxbC/i4I=
 github.com/chainreactors/logs v0.0.0-20260624034259-9aaea4aa52cc/go.mod h1:VrXmYPbNN5AVoo1sc5aeyPVBYqubMdb3KO/tn5rRZpo=
 github.com/chainreactors/neutron v0.1.1-0.20260703124839-c4091ad1e02d h1:p9wlKYyE+B9evcM5Qon25h7hQ/qt6Xo6b6/m7LmRMmA=
