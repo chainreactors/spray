@@ -230,7 +230,7 @@ func ProtonExtract(content []byte) parsers.Extracteds {
 	resultMap := make(map[string][]extractHit)
 
 	for _, group := range scanner.Groups {
-		findings := scanner.ScanData(content, "response", group)
+		findings := scanner.FindAll(content, "response", group)
 		for _, f := range findings {
 			for _, e := range f.Events {
 				if e.Type == "extract" {
@@ -239,12 +239,10 @@ func ProtonExtract(content []byte) parsers.Extracteds {
 					})
 				}
 			}
-			if f.Result != nil {
-				for _, val := range f.Result.OutputExtracts() {
-					resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
-						value: val, severity: f.Severity,
-					})
-				}
+			for _, val := range f.OutputExtracts() {
+				resultMap[f.TemplateID] = append(resultMap[f.TemplateID], extractHit{
+					value: val, severity: f.Severity,
+				})
 			}
 		}
 	}
