@@ -6,11 +6,11 @@ require (
 	github.com/chainreactors/files v0.0.0-20240716182835-7884ee1e77f0
 	github.com/chainreactors/fingers v1.2.2-0.20260703124922-b8ac7e00cf68
 	github.com/chainreactors/logs v0.0.0-20260624034259-9aaea4aa52cc
-	github.com/chainreactors/neutron v0.1.1-0.20260703124839-c4091ad1e02d
-	github.com/chainreactors/proton v0.3.3-0.20260703125000-97bdff4bcf27
+	github.com/chainreactors/neutron v0.1.1-0.20260704194031-f57d0a560e32
+	github.com/chainreactors/proton v0.3.3-0.20260704194051-e7034d2bb8cb
 	github.com/chainreactors/proxyclient v1.1.1-0.20260529172347-2a80e08d5593
-	github.com/chainreactors/utils v0.0.0-20260629043228-93bdd2142c9a
-	github.com/chainreactors/utils/parsers v0.0.0-20260703124640-175b2abe30c2
+	github.com/chainreactors/utils v0.0.0-20260704034630-ef809fae5725
+	github.com/chainreactors/utils/parsers v0.0.2
 	github.com/chainreactors/words v0.0.0-20260520145736-270600e60fb4
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/expr-lang/expr v1.16.9
@@ -90,9 +90,4 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-replace (
-	github.com/chainreactors/proton => /mnt/chainreactors/proton
-	github.com/chainreactors/utils/parsers => /mnt/chainreactors/utils/parsers
 )
