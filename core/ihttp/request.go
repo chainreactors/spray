@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/chainreactors/spray/pkg"
+	"github.com/chainreactors/utils/httputils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -105,7 +106,7 @@ func (rc *RequestConfig) Build(ctx context.Context, clientType int, base, path, 
 
 func (rc *RequestConfig) setHeadersWithFuzz(r *Request, word string) {
 	if rc.RandomUserAgent {
-		r.SetHeader("User-Agent", pkg.RandomUA())
+		r.SetHeader("User-Agent", httputils.GetRandomUA())
 	}
 
 	for k, vs := range rc.Headers {
