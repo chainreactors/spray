@@ -18,7 +18,7 @@ require (
 	github.com/imroc/req/v3 v3.57.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/panjf2000/ants/v2 v2.9.1
-	github.com/refraction-networking/utls v1.8.1
+	github.com/refraction-networking/utls v1.8.2
 	github.com/valyala/fasthttp v1.53.0
 	github.com/vbauerster/mpb/v8 v8.7.3
 	golang.org/x/time v0.12.0
