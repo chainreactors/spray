@@ -60,7 +60,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          pacboy: gcc:p go:p
+          pacboy: gcc:p go:p git:p
 
       - name: Download dependencies
         run: go mod download
