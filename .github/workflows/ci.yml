@@ -12,16 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  basic:
-    name: basic checks (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-
+  basic-linux:
+    name: basic checks (ubuntu)
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,18 +27,51 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install libre2-dev
+        run: sudo apt-get update -qq && sudo apt-get install -y libre2-dev g++
+
       - name: Download dependencies
         run: go mod download
 
       - name: Test
-        run: go test -count=1 -timeout 300s ./...
+        run: go test -tags re2_cgo -count=1 -timeout 300s ./...
 
       - name: Test (race detector)
-        if: runner.os == 'Linux'
-        run: go test -race -count=1 -timeout 300s ./...
+        run: go test -tags re2_cgo -race -count=1 -timeout 300s ./...
 
       - name: Vet
-        run: go vet ./...
+        run: go vet -tags re2_cgo ./...
 
       - name: Build packages
-        run: go build ./...
+        run: go build -tags re2_cgo ./...
+
+  basic-windows:
+    name: basic checks (windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          pacboy: gcc:p re2:p pkg-config:p go:p
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Test
+        run: go test -tags re2_cgo -count=1 -timeout 300s ./...
+
+      - name: Vet
+        run: go vet -tags re2_cgo ./...
+
+      - name: Build packages
+        run: go build -tags re2_cgo ./...
