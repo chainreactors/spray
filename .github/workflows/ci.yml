@@ -60,16 +60,16 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          pacboy: gcc:p go:p git:p
+          pacboy: gcc:p re2:p pkg-config:p go:p git:p
 
       - name: Download dependencies
         run: go mod download
 
       - name: Test
-        run: go test -tags "re2_cgo re2_static" -count=1 -timeout 300s ./...
+        run: go test -tags "re2_cgo" -count=1 -timeout 300s ./...
 
       - name: Vet
-        run: go vet -tags "re2_cgo re2_static" ./...
+        run: go vet -tags "re2_cgo" ./...
 
       - name: Build packages
-        run: go build -tags "re2_cgo re2_static" ./...
+        run: go build -tags "re2_cgo" ./...
