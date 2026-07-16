@@ -27,23 +27,21 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install libre2-dev
-        run: sudo apt-get update -qq && sudo apt-get install -y libre2-dev g++
 
       - name: Download dependencies
         run: go mod download
 
       - name: Test
-        run: go test -tags re2_cgo -count=1 -timeout 300s ./...
+        run: go test -tags "re2_cgo re2_static" -count=1 -timeout 300s ./...
 
       - name: Test (race detector)
-        run: go test -tags re2_cgo -race -count=1 -timeout 300s ./...
+        run: go test -tags "re2_cgo re2_static" -race -count=1 -timeout 300s ./...
 
       - name: Vet
-        run: go vet -tags re2_cgo ./...
+        run: go vet -tags "re2_cgo re2_static" ./...
 
       - name: Build packages
-        run: go build -tags re2_cgo ./...
+        run: go build -tags "re2_cgo re2_static" ./...
 
   basic-windows:
     name: basic checks (windows)
@@ -62,16 +60,16 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          pacboy: gcc:p re2:p pkg-config:p go:p
+          pacboy: gcc:p go:p
 
       - name: Download dependencies
         run: go mod download
 
       - name: Test
-        run: go test -tags re2_cgo -count=1 -timeout 300s ./...
+        run: go test -tags "re2_cgo re2_static" -count=1 -timeout 300s ./...
 
       - name: Vet
-        run: go vet -tags re2_cgo ./...
+        run: go vet -tags "re2_cgo re2_static" ./...
 
       - name: Build packages
-        run: go build -tags re2_cgo ./...
+        run: go build -tags "re2_cgo re2_static" ./...
